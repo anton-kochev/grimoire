@@ -1,0 +1,76 @@
+{
+  "version": "1.0.0",
+  "config": {
+    "weights": {
+      "keywords": 1.0,
+      "file_extensions": 1.5,
+      "patterns": 2.0,
+      "file_paths": 2.5
+    },
+    "activation_threshold": 3.0,
+    "log_path": ".claude/logs/skill-router.log"
+  },
+  "skills": [
+    {
+      "path": ".claude/skills/claudify:dotnet-unit-testing",
+      "name": "DotNet Unit Testing",
+      "description": "Unit testing for C#/.NET projects",
+      "triggers": {
+        "keywords": ["test", "tests", "testing", "unittest", "xunit", "nunit", "tdd"],
+        "file_extensions": [".cs"],
+        "patterns": ["write.*test", "add.*test", "create.*test", "unit.*test"],
+        "file_paths": ["tests/", "test/", "Tests/", "Test/"]
+      }
+    },
+    {
+      "path": ".claude/skills/claudify:conventional-commit",
+      "name": "Conventional Commit",
+      "description": "Git commits following Conventional Commits spec",
+      "triggers": {
+        "keywords": ["commit", "commits", "conventional"],
+        "patterns": ["git.*commit", "create.*commit", "make.*commit"]
+      }
+    },
+    {
+      "path": ".claude/skills/claudify:readme-guide",
+      "name": "README Guide",
+      "description": "Create and review README files",
+      "triggers": {
+        "keywords": ["readme", "documentation", "docs"],
+        "file_extensions": [".md"],
+        "patterns": ["create.*readme", "write.*readme", "update.*readme"],
+        "file_paths": ["README", "docs/"]
+      }
+    },
+    {
+      "path": ".claude/skills/claudify:context-file-guide",
+      "name": "Context File Guide",
+      "description": "CLAUDE.md project context files",
+      "triggers": {
+        "keywords": ["claude.md", "context"],
+        "patterns": ["create.*claude", "update.*claude\\.md"],
+        "file_paths": ["CLAUDE.md"]
+      }
+    },
+    {
+      "path": ".claude/skills/claudify:skill-developer",
+      "name": "Skill Developer",
+      "description": "Create custom Claude Code skills",
+      "triggers": {
+        "keywords": ["skill", "skills"],
+        "patterns": ["create.*skill", "new.*skill", "build.*skill"],
+        "file_paths": [".claude/skills/"]
+      }
+    },
+    {
+      "path": ".claude/skills/claudify:dotnet-feature-workflow",
+      "name": "DotNet Feature Workflow",
+      "description": "End-to-end .NET feature development",
+      "triggers": {
+        "keywords": ["feature", "workflow", "implement"],
+        "file_extensions": [".cs", ".csproj"],
+        "patterns": ["build.*feature", "implement.*feature", "create.*feature"]
+      }
+    }
+  ]
+}
