@@ -1,66 +1,37 @@
-# CLAUDE.md
+# Project: Claudify
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Collection of specialized agents and skills for Claude Code.
 
-## Project Overview
-
-Claudify is a collection of specialized agents and skills for Claude Code. Agents execute tasks with specific tools; skills provide knowledge modules loaded on-demand based on description keywords.
+## Tech Stack
+- Runtime: Node.js 22, TypeScript 5.7
+- Package Manager: pnpm (workspace monorepo)
+- Testing: Vitest
+- Hook Runtime: tsx (TypeScript execution)
 
 ## Commands
+- pnpm --filter @claudify/skill-router test: Run skill-router tests
+- pnpm --filter @claudify/skill-router test:watch: Watch mode
+- python3 .claude/skills/skill-developer/scripts/validate-skill.py <path>: Validate skill
+- .claude/skills/skill-developer/scripts/create-skill.sh <name>: Scaffold new skill
 
-```bash
-# Validate a skill
-python3 .claude/skills/skill-developer/scripts/validate-skill.py .claude/skills/<skill-name>/SKILL.md
+## Architecture
+- Agents: Single .md files in `.claude/agents/` with persona, tools, model in frontmatter
+- Skills: Directories in `.claude/skills/<name>/` with SKILL.md + supporting files
+- Skill Router: `packages/skill-router/` - auto-activates skills via UserPromptSubmit hook
+- Config: `.claude/skills-manifest.json` defines skill triggers and weights
 
-# Scaffold a new skill
-.claude/skills/skill-developer/scripts/create-skill.sh <skill-name> [--template basic|domain]
-
-# Validate CLAUDE.md (100-line limit)
-.claude/skills/context-file-guide/scripts/validate-context-file.sh <path>
-```
-
-## Skill Requirements (Anthropic Limits)
-
-| Constraint | Limit |
-|------------|-------|
-| SKILL.md body | 500 lines (excluding frontmatter) |
-| Total bundle | 8 MB |
-| Skills per request | 8 |
-| Reference nesting | 1 level deep |
-
-Reference files >100 lines require a table of contents.
-
-## YAML Frontmatter
-
-Every SKILL.md requires:
-
-```yaml
----
-name: skill-name
-description: "What it does and when to use it (include trigger keywords)"
----
-```
-
-**name**: lowercase + numbers + hyphens; max 64 chars; matches directory name; no "anthropic" or "claude"
-
-**description**: max 1024 chars; must explain WHAT and include WHEN keywords
-
-## File Organization
-
-```
-.claude/
-├── agents/           # Single .md files with persona, tools, model in frontmatter
-└── skills/
-    └── skill-name/
-        ├── SKILL.md      # Core instructions (<500 lines)
-        ├── reference/    # Detailed specs (loaded on-demand)
-        ├── templates/    # Scaffolding files
-        ├── examples/     # Full examples
-        └── scripts/      # Automation (Python, Bash)
-```
-
-## Conventions
-
-- Skills use progressive disclosure: supporting files don't consume context until accessed
-- Agent descriptions include examples showing when to invoke them
+## Code Conventions
+- Skills use progressive disclosure (supporting files load on-demand)
+- Agent descriptions include usage examples
 - Skill descriptions contain trigger keywords for automatic activation
+- SKILL.md max 500 lines; CLAUDE.md max 100 lines
+
+## Skill Authoring
+- Frontmatter: `name` (lowercase+hyphens, max 64 chars) + `description` (max 1024 chars)
+- Reference files >100 lines require table of contents
+- Total bundle max 8 MB; max 8 skills per request
+
+## Workflow
+- Run tests before committing: `pnpm test`
+- Follow conventional commits
+- Check logs: `tail -20 .claude/logs/skill-router.log | jq .`

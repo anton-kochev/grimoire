@@ -8,8 +8,8 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 - [Features](#features)
 - [Installation](#installation)
+- [Skill Router](#skill-router)
 - [Agents](#agents)
-  - [dotnet-feature-builder](#dotnet-feature-builder)
   - [dotnet-architect](#dotnet-architect)
   - [csharp-coder](#csharp-coder)
   - [dotnet-unit-test-writer](#dotnet-unit-test-writer)
@@ -17,6 +17,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [fact-checker](#fact-checker)
 - [Skills](#skills)
   - [dotnet-unit-testing](#dotnet-unit-testing)
+  - [dotnet-feature-workflow](#dotnet-feature-workflow)
   - [conventional-commit](#conventional-commit)
   - [context-file-guide](#context-file-guide)
   - [skill-developer](#skill-developer)
@@ -42,17 +43,73 @@ Copy a skill directory to your project's `.claude/skills/` folder:
 
 ```bash
 # Install conventional-commit skill
-cp -r skills/conventional-commit /path/to/your/project/.claude/skills/
+cp -r .claude/skills/claudify:conventional-commit /path/to/your/project/.claude/skills/
 
 # Install skill-developer (for creating new skills)
-cp -r skills/skill-developer /path/to/your/project/.claude/skills/
+cp -r .claude/skills/claudify:skill-developer /path/to/your/project/.claude/skills/
 ```
 
 ### Agents
 
-Add agent configurations to your Claude Code settings. Copy the agent markdown files and reference them in your `.claude/settings.json`.
+Copy agent markdown files from `.claude/agents/` to your project and reference them in your `.claude/settings.json`.
+
+### Skill Router (Optional)
+
+To enable automatic skill activation:
+
+1. Copy `.claude/hooks/`, `.claude/settings.json`, and `.claude/skills-manifest.json`
+2. Install the skill-router package: `pnpm install`
+3. Configure triggers in `skills-manifest.json`
+
+## Skill Router
+
+The skill router automatically activates relevant skills based on user prompt content. It runs as a `UserPromptSubmit` hook that:
+
+1. **Extracts signals** from prompts: words, file extensions, file paths
+2. **Scores skills** against signals using weighted matching
+3. **Injects matched skills** into LLM context when score exceeds threshold
+
+### Configuration
+
+Skills and their triggers are defined in `.claude/skills-manifest.json`:
+
+```json
+{
+  "config": {
+    "weights": {
+      "keywords": 1.0,
+      "file_extensions": 1.5,
+      "patterns": 2.0,
+      "file_paths": 2.5
+    },
+    "activation_threshold": 3.0
+  },
+  "skills": [
+    {
+      "path": ".claude/skills/my-skill",
+      "name": "My Skill",
+      "triggers": {
+        "keywords": ["test", "testing"],
+        "file_extensions": [".cs"],
+        "patterns": ["write.*test"],
+        "file_paths": ["tests/"]
+      }
+    }
+  ]
+}
+```
+
+### Logs
+
+View activation history:
+
+```bash
+tail -20 .claude/logs/skill-router.log | jq .
+```
 
 ## Agents
+
+All agents are located in `.claude/agents/`.
 
 ### dotnet-architect
 
@@ -65,13 +122,25 @@ Expert guidance for .NET application architecture following modern best practice
 - .NET 8+ and C# 12 features
 - Entity Framework Core patterns
 - SOLID principles and dependency injection
-- Azure Functions development
 
-**When to use:** Designing new .NET services, reviewing architecture decisions, implementing domain models, or refactoring existing codebases.
+**When to use:** Designing new .NET services, reviewing architecture decisions, implementing domain models.
+
+### csharp-coder
+
+Implements C# code based on architectural decisions and specifications.
+
+**Capabilities:**
+
+- Translates designs into clean, production-ready code
+- Follows SOLID principles and .NET conventions
+- Repository patterns, services, controllers
+- Proper validation and error handling
+
+**When to use:** When you have a design/plan and need implementation.
 
 ### dotnet-unit-test-writer
 
-Specialized agent for writing comprehensive unit tests in .NET projects. Powered by the [dotnet-unit-testing](#dotnet-unit-testing) skill.
+Specialized agent for writing comprehensive unit tests in .NET projects.
 
 **Frameworks:** xUnit (default), TUnit (for .NET 8+), Moq, NSubstitute
 
@@ -81,9 +150,21 @@ Specialized agent for writing comprehensive unit tests in .NET projects. Powered
 - Async testing patterns
 - `FakeLogger<T>` for logging verification
 - Edge case and boundary testing
-- Mock setup and verification
 
-**When to use:** Writing new test suites, adding test coverage, implementing TDD workflows.
+**When to use:** Writing new test suites, adding test coverage, TDD workflows.
+
+### csharp-code-reviewer
+
+Expert C#/.NET code review specialist.
+
+**Capabilities:**
+
+- Code quality, security, and performance review
+- Best practices validation
+- SOLID principles compliance
+- .NET-specific patterns and anti-patterns
+
+**When to use:** After writing or modifying C# code, before merging PRs.
 
 ### fact-checker
 
@@ -94,11 +175,12 @@ Verifies accuracy of written content before publishing.
 - Extract and categorize factual claims
 - Cross-reference with authoritative sources
 - Rate accuracy with confidence levels
-- Identify statistics, dates, quotes, and technical specifications
 
-**When to use:** Reviewing blog posts, documentation, articles, or any content containing verifiable claims.
+**When to use:** Reviewing blog posts, documentation, or content with verifiable claims.
 
 ## Skills
+
+All skills are located in `.claude/skills/`.
 
 ### dotnet-unit-testing
 
@@ -114,10 +196,23 @@ Expert .NET unit testing patterns and best practices for C#/.NET projects.
 - Core principles (AAA pattern, naming, isolation, async testing)
 - Parameterized testing patterns (InlineData, MemberData, Matrix)
 - Test organization (nested classes, traits, collections)
-- Performance optimization guidelines
-- xUnit and TUnit file templates
 
 **Reference files:** `framework-guidelines.md`, `parameterized-testing.md`, `test-organization.md`, `test-performance.md`, `anti-patterns.md`
+
+### dotnet-feature-workflow
+
+Orchestrates end-to-end .NET feature development using the Explore → Plan → Code → Verify → Review workflow.
+
+**Trigger:** "build feature", "implement feature", "create feature"
+
+**Capabilities:**
+
+- Spawns specialized agents at each phase
+- TDD with tests written before implementation
+- User approval gates between phases
+- Automated code review before completion
+
+**When to use:** Building complete features with quality gates and minimal hand-holding.
 
 ### conventional-commit
 
@@ -184,10 +279,10 @@ Creates professional README files following industry standards.
 
 ```bash
 # Create a new skill from template
-./skills/skill-developer/scripts/create-skill.sh my-new-skill
+.claude/skills/claudify:skill-developer/scripts/create-skill.sh my-new-skill
 
 # Validate your skill
-python3 ./skills/skill-developer/scripts/validate-skill.py ./skills/my-new-skill
+python3 .claude/skills/claudify:skill-developer/scripts/validate-skill.py .claude/skills/my-new-skill
 ```
 
 ### Requirements
@@ -223,55 +318,67 @@ description: "What it does and when to use it"
 
 | Document | Purpose |
 | ---------- | --------- |
-| [best-practices.md](skills/skill-developer/reference/best-practices.md) | Content quality and organization |
-| [patterns.md](skills/skill-developer/reference/patterns.md) | Common skill patterns |
-| [file-organization.md](skills/skill-developer/reference/file-organization.md) | Directory structure |
-| [yaml-spec.md](skills/skill-developer/reference/yaml-spec.md) | Frontmatter requirements |
+| [best-practices.md](.claude/skills/claudify:skill-developer/reference/best-practices.md) | Content quality and organization |
+| [patterns.md](.claude/skills/claudify:skill-developer/reference/patterns.md) | Common skill patterns |
+| [file-organization.md](.claude/skills/claudify:skill-developer/reference/file-organization.md) | Directory structure |
+| [yaml-spec.md](.claude/skills/claudify:skill-developer/reference/yaml-spec.md) | Frontmatter requirements |
 
 ### Templates
 
 | Template | Use Case |
 | ---------- | ---------- |
-| [basic-skill.md](skills/skill-developer/templates/basic-skill.md) | Single-purpose skills |
-| [domain-skill.md](skills/skill-developer/templates/domain-skill.md) | Specialized expertise |
+| [basic-skill.md](.claude/skills/claudify:skill-developer/templates/basic-skill.md) | Single-purpose skills |
+| [domain-skill.md](.claude/skills/claudify:skill-developer/templates/domain-skill.md) | Specialized expertise |
 
 ### Examples
 
 | Example | Pattern |
 | --------- | --------- |
-| [financial-analysis.md](skills/skill-developer/examples/financial-analysis.md) | Structured data processing |
-| [brand-guidelines.md](skills/skill-developer/examples/brand-guidelines.md) | Standards enforcement |
+| [financial-analysis.md](.claude/skills/claudify:skill-developer/examples/financial-analysis.md) | Structured data processing |
+| [brand-guidelines.md](.claude/skills/claudify:skill-developer/examples/brand-guidelines.md) | Standards enforcement |
 
 ## Project Structure
 
 ```plain
 claudify/
 ├── README.md
-├── agents/
-│   ├── dotnet-architect.md
-│   ├── dotnet-unit-test-writer.md
-│   └── fact-checker.md
-└── skills/
-    ├── dotnet-unit-testing/
-    │   ├── SKILL.md
-    │   ├── reference/
-    │   └── templates/
-    ├── conventional-commit/
-    │   └── SKILL.md
-    ├── context-file-guide/
-    │   ├── SKILL.md
-    │   └── scripts/
-    │       └── validate-context-file.sh
-    ├── skill-developer/
-    │   ├── SKILL.md
-    │   ├── scripts/
-    │   │   ├── create-skill.sh
-    │   │   └── validate-skill.py
-    │   ├── templates/
-    │   ├── examples/
-    │   └── reference/
-    └── readme-guide/
-        └── SKILL.md
+├── CLAUDE.md                          # Project context for Claude Code
+├── package.json                       # pnpm workspace root
+├── packages/
+│   └── skill-router/                  # Auto-activation hook
+│       ├── src/                       # TypeScript source
+│       └── tests/                     # Vitest tests
+└── .claude/
+    ├── settings.json                  # Hook registration
+    ├── skills-manifest.json           # Skill triggers config
+    ├── hooks/
+    │   └── skill-router.ts            # Hook entry point
+    ├── agents/
+    │   ├── claudify:dotnet-architect.md
+    │   ├── claudify:csharp-coder.md
+    │   ├── claudify:dotnet-unit-test-writer.md
+    │   ├── claudify:csharp-code-reviewer.md
+    │   └── claudify:fact-checker.md
+    └── skills/
+        ├── claudify:dotnet-unit-testing/
+        │   ├── SKILL.md
+        │   ├── reference/
+        │   └── templates/
+        ├── claudify:dotnet-feature-workflow/
+        │   └── SKILL.md
+        ├── claudify:conventional-commit/
+        │   └── SKILL.md
+        ├── claudify:context-file-guide/
+        │   ├── SKILL.md
+        │   └── scripts/
+        ├── claudify:skill-developer/
+        │   ├── SKILL.md
+        │   ├── scripts/
+        │   ├── templates/
+        │   ├── examples/
+        │   └── reference/
+        └── claudify:readme-guide/
+            └── SKILL.md
 ```
 
 ## Contributing
@@ -279,10 +386,14 @@ claudify/
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run validation on any new skills:
+4. Run tests and validation:
 
    ```bash
-   python3 ./skills/skill-developer/scripts/validate-skill.py ./skills/your-skill
+   # Run skill-router tests
+   pnpm --filter @claudify/skill-router test
+
+   # Validate any new skills
+   python3 .claude/skills/claudify:skill-developer/scripts/validate-skill.py .claude/skills/your-skill
    ```
 
 5. Submit a pull request
