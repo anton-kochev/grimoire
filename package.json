@@ -1,0 +1,13 @@
+{
+  "name": "claudify",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Collection of specialized agents and skills for Claude Code",
+  "scripts": {
+    "test": "pnpm -r test",
+    "build": "pnpm -r build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
