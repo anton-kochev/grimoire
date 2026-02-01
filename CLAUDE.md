@@ -17,8 +17,10 @@ Collection of specialized agents and skills for Claude Code.
 ## Architecture
 - Agents: Single .md files in `.claude/agents/` with persona, tools, model in frontmatter
 - Skills: Directories in `.claude/skills/<name>/` with SKILL.md + supporting files
-- Skill Router: `packages/skill-router/` - auto-activates skills via UserPromptSubmit hook
-- Config: `.claude/skills-manifest.json` defines skill triggers and weights
+- Skill Router: `packages/skill-router/` - auto-activates skills via hooks
+  - UserPromptSubmit: Matches skills to user prompts
+  - SubagentStart: Injects skill instructions into agents (use `--agent=<name>` flag)
+- Config: `.claude/skills-manifest.json` defines skill triggers, weights, and agent mappings
 
 ## Code Conventions
 - Skills use progressive disclosure (supporting files load on-demand)

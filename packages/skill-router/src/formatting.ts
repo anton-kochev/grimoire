@@ -86,3 +86,50 @@ export function formatContext(matchedSkills: SkillScoreResult[]): string {
 
   return lines.join('\n');
 }
+
+/**
+ * Formats activation instructions for an agent with required and recommended skills.
+ *
+ * @param alwaysSkills - Skills the agent MUST activate (mandatory)
+ * @param matchedSkills - Skills matched from compatible_skills based on task content
+ * @returns Formatted context string for agent injection
+ */
+export function formatAgentContext(
+  alwaysSkills: string[],
+  matchedSkills: SkillScoreResult[]
+): string {
+  const lines: string[] = [];
+
+  // Required skills section
+  if (alwaysSkills.length > 0) {
+    lines.push('## Skill Activation Required');
+    lines.push('');
+    lines.push(
+      'You MUST activate the following skills before starting work:'
+    );
+    for (const skill of alwaysSkills) {
+      lines.push(`- ${skill}`);
+    }
+    lines.push('');
+    lines.push('Use the Skill tool to load each required skill.');
+  }
+
+  // Recommended skills section
+  if (matchedSkills.length > 0) {
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push('## Recommended Skills');
+    lines.push('');
+    lines.push('Based on your task, these skills may be helpful:');
+    for (const result of matchedSkills) {
+      const signalSummary = summarizeSignals(result.matchedSignals);
+      const matchInfo = signalSummary ? ` (matched: ${signalSummary})` : '';
+      lines.push(`- ${result.skill.name}${matchInfo}`);
+    }
+    lines.push('');
+    lines.push('Activate recommended skills if relevant to your work.');
+  }
+
+  return lines.join('\n');
+}

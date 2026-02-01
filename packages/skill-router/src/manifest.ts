@@ -3,7 +3,12 @@
  */
 
 import { readFileSync } from 'fs';
-import type { SkillManifest, SkillDefinition } from './types.js';
+import type {
+  SkillManifest,
+  SkillDefinition,
+  AgentsMap,
+  AgentConfig,
+} from './types.js';
 
 const DEFAULT_LOG_PATH = '.claude/logs/skill-router.log';
 
@@ -72,6 +77,9 @@ export function loadManifest(manifestPath: string): SkillManifest {
     (skill) => normalizeSkill(skill as Record<string, unknown>)
   );
 
+  // Parse optional agents section
+  const agents = parseAgentsSection(manifest['agents']);
+
   return {
     version: manifest['version'] as string,
     config: {
@@ -80,7 +88,71 @@ export function loadManifest(manifestPath: string): SkillManifest {
       log_path: (config['log_path'] as string) || DEFAULT_LOG_PATH,
     },
     skills,
+    agents,
   };
+}
+
+/**
+ * Parses and validates the optional agents section of the manifest.
+ */
+function parseAgentsSection(
+  agents: unknown
+): AgentsMap | undefined {
+  if (agents === undefined || agents === null) {
+    return undefined;
+  }
+
+  if (typeof agents !== 'object' || Array.isArray(agents)) {
+    throw new Error('Manifest agents must be an object');
+  }
+
+  const agentsMap = agents as Record<string, unknown>;
+  const result: AgentsMap = {};
+
+  for (const [agentName, agentConfig] of Object.entries(agentsMap)) {
+    if (!agentConfig || typeof agentConfig !== 'object') {
+      throw new Error(`Agent "${agentName}" config must be an object`);
+    }
+
+    const config = agentConfig as Record<string, unknown>;
+
+    // Validate always_skills
+    if (config['always_skills'] !== undefined) {
+      if (!Array.isArray(config['always_skills'])) {
+        throw new Error(`Agent "${agentName}" always_skills must be an array`);
+      }
+    }
+
+    // Validate compatible_skills
+    if (config['compatible_skills'] !== undefined) {
+      if (!Array.isArray(config['compatible_skills'])) {
+        throw new Error(
+          `Agent "${agentName}" compatible_skills must be an array`
+        );
+      }
+    }
+
+    result[agentName] = {
+      always_skills: (config['always_skills'] as string[]) || [],
+      compatible_skills: (config['compatible_skills'] as string[]) || [],
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Retrieves configuration for a specific agent from the manifest.
+ *
+ * @param manifest - The loaded skill manifest
+ * @param agentName - Name of the agent to look up
+ * @returns AgentConfig if found, undefined otherwise
+ */
+export function getAgentConfig(
+  manifest: SkillManifest,
+  agentName: string
+): AgentConfig | undefined {
+  return manifest.agents?.[agentName];
 }
 
 /**

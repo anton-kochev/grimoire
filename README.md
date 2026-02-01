@@ -63,18 +63,41 @@ To enable automatic skill activation:
 
 ## Skill Router
 
-The skill router automatically activates relevant skills based on user prompt content. It runs as a `UserPromptSubmit` hook that:
+The skill router automatically activates relevant skills based on context. It supports two modes:
+
+### User Prompt Mode (UserPromptSubmit)
+
+Activates skills based on user prompt content:
 
 1. **Extracts signals** from prompts: words, file extensions, file paths
 2. **Scores skills** against signals using weighted matching
 3. **Injects matched skills** into LLM context when score exceeds threshold
 
+### Agent Mode (SubagentStart)
+
+Injects skill activation instructions into subagents based on agent type and task content:
+
+1. **Required skills** - Agent MUST activate before starting work
+2. **Recommended skills** - Matched from compatible skills based on task prompt
+
+Example output for `dotnet-unit-test-writer` agent:
+
+```
+## Skill Activation Required
+
+You MUST activate the following skills before starting work:
+- DotNet Unit Testing
+
+Use the Skill tool to load each required skill.
+```
+
 ### Configuration
 
-Skills and their triggers are defined in `.claude/skills-manifest.json`:
+Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.json`:
 
 ```json
 {
+  "version": "2.0.0",
   "config": {
     "weights": {
       "keywords": 1.0,
@@ -95,7 +118,53 @@ Skills and their triggers are defined in `.claude/skills-manifest.json`:
         "file_paths": ["tests/"]
       }
     }
-  ]
+  ],
+  "agents": {
+    "claudify:csharp-coder": {
+      "always_skills": [],
+      "compatible_skills": ["DotNet Unit Testing", "Conventional Commit"]
+    },
+    "claudify:dotnet-unit-test-writer": {
+      "always_skills": ["DotNet Unit Testing"],
+      "compatible_skills": []
+    }
+  }
+}
+```
+
+### Agent Configuration
+
+| Field | Description |
+|-------|-------------|
+| `always_skills` | Skills the agent MUST activate (mandatory) |
+| `compatible_skills` | Skills scored against task prompt (optional) |
+
+### Hook Registration
+
+Configure hooks in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\""
+        }]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "claudify:csharp-coder",
+        "hooks": [{
+          "type": "command",
+          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=claudify:csharp-coder"
+        }]
+      }
+    ]
+  }
 }
 ```
 

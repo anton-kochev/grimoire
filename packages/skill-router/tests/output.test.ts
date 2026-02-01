@@ -23,4 +23,16 @@ describe('buildHookOutput', () => {
 
     expect(output.hookSpecificOutput.additionalContext).toBe('');
   });
+
+  it('should use default UserPromptSubmit event name', () => {
+    const output = buildHookOutput('context');
+
+    expect(output.hookSpecificOutput.hookEventName).toBe('UserPromptSubmit');
+  });
+
+  it('should allow SubagentStart event name', () => {
+    const output = buildHookOutput('context', 'SubagentStart');
+
+    expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
+  });
 });

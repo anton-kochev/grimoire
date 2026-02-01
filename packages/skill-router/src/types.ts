@@ -46,12 +46,29 @@ export interface SkillDefinition {
 }
 
 /**
+ * Configuration for a specific agent type
+ */
+export interface AgentConfig {
+  /** Skills the agent MUST activate (mandatory) */
+  always_skills: string[];
+  /** Skills available to the agent based on task content (optional) */
+  compatible_skills: string[];
+}
+
+/**
+ * Map of agent names to their configurations
+ */
+export type AgentsMap = Record<string, AgentConfig>;
+
+/**
  * Complete skill manifest structure
  */
 export interface SkillManifest {
   version: string;
   config: SkillConfig;
   skills: SkillDefinition[];
+  /** Optional agent configurations for SubagentStart hook */
+  agents?: AgentsMap;
 }
 
 // =============================================================================
@@ -68,10 +85,15 @@ export interface HookInput {
 }
 
 /**
+ * Supported hook event types
+ */
+export type HookEventName = 'UserPromptSubmit' | 'SubagentStart';
+
+/**
  * Hook-specific output data
  */
 export interface HookSpecificOutput {
-  hookEventName: 'UserPromptSubmit';
+  hookEventName: HookEventName;
   additionalContext: string;
 }
 
@@ -123,6 +145,14 @@ export interface SkillScoreResult {
   skill: SkillReference;
   score: number;
   matchedSignals: MatchedSignal[];
+}
+
+/**
+ * CLI arguments parsed from process.argv
+ */
+export interface ParsedArgs {
+  /** Agent name if --agent flag is provided */
+  agent?: string;
 }
 
 // =============================================================================

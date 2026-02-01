@@ -16,4 +16,5 @@ export * from './manifest.js';
 export * from './input.js';
 export * from './logging.js';
 export * from './output.js';
+export * from './args.js';
 export * from './main.js';

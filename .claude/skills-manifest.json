@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "config": {
     "weights": {
       "keywords": 1.0,
@@ -72,5 +72,28 @@
         "patterns": ["build.*feature", "implement.*feature", "create.*feature"]
       }
     }
-  ]
+  ],
+  "agents": {
+    "claudify:csharp-coder": {
+      "always_skills": [],
+      "compatible_skills": [
+        "DotNet Unit Testing",
+        "Conventional Commit"
+      ]
+    },
+    "claudify:dotnet-architect": {
+      "always_skills": [],
+      "compatible_skills": [
+        "DotNet Unit Testing",
+        "DotNet Feature Workflow",
+        "Conventional Commit"
+      ]
+    },
+    "claudify:dotnet-unit-test-writer": {
+      "always_skills": [
+        "DotNet Unit Testing"
+      ],
+      "compatible_skills": []
+    }
+  }
 }
