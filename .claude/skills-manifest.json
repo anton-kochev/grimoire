@@ -63,6 +63,17 @@
       }
     },
     {
+      "path": ".claude/skills/modern-typescript",
+      "name": "Modern TypeScript",
+      "description": "Modern TypeScript best practices and type system patterns",
+      "triggers": {
+        "keywords": ["typescript", "ts", "tsconfig", "generics", "types"],
+        "file_extensions": [".ts", ".tsx", ".mts", ".cts"],
+        "patterns": ["type.*safe", "strict.*mode", "discriminated.*union", "branded.*type", "modern.*typescript"],
+        "file_paths": ["tsconfig", ".ts"]
+      }
+    },
+    {
       "path": ".claude/skills/claudify:dotnet-feature-workflow",
       "name": "DotNet Feature Workflow",
       "description": "End-to-end .NET feature development",

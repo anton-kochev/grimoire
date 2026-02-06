@@ -10,6 +10,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 - [Features](#features)
 - [Installation](#installation)
+- [CLI](#cli)
 - [Skill Router](#skill-router)
 - [Agents](#agents)
   - [dotnet-architect](#dotnet-architect)
@@ -31,6 +32,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 ## Features
 
+- **CLI Tool** - Install agents and skills from npm packs with `claudify add`
 - **Pre-built Agents** - Domain experts for .NET architecture, unit testing, and fact verification
 - **Reusable Skills** - Workflows for conventional commits, README generation, and skill development
 - **Validation Tooling** - Scripts to ensure skills meet Anthropic's requirements
@@ -39,19 +41,32 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 ## Installation
 
-### Skills
+### Using the CLI (Recommended)
+
+Install agents and skills from npm packs using the `claudify` CLI:
+
+```bash
+# For JS/TS projects — install as a dev dependency
+pnpm add -D claudify @claudify/dotnet-pack
+claudify add @claudify/dotnet-pack
+
+# For non-JS projects — run on demand
+npx -p claudify -p @claudify/dotnet-pack claudify add @claudify/dotnet-pack
+```
+
+See the [CLI](#cli) section for full usage details.
+
+### Manual Installation
+
+#### Skills
 
 Copy a skill directory to your project's `.claude/skills/` folder:
 
 ```bash
-# Install conventional-commit skill
 cp -r .claude/skills/claudify:conventional-commit /path/to/your/project/.claude/skills/
-
-# Install skill-developer (for creating new skills)
-cp -r .claude/skills/claudify:skill-developer /path/to/your/project/.claude/skills/
 ```
 
-### Agents
+#### Agents
 
 Copy agent markdown files from `.claude/agents/` to your project and reference them in your `.claude/settings.json`.
 
@@ -62,6 +77,63 @@ To enable automatic skill activation:
 1. Copy `.claude/hooks/`, `.claude/settings.json`, and `.claude/skills-manifest.json`
 2. Install the skill-router package: `pnpm install`
 3. Configure triggers in `skills-manifest.json`
+
+## CLI
+
+The `claudify` CLI installs agents and skills from npm packs into your project's `.claude/` directory.
+
+### Usage
+
+```bash
+# Install everything from a pack
+claudify add @claudify/dotnet-pack
+
+# Install a specific item by name
+claudify add @claudify/dotnet-pack --pick=csharp-reviewer
+
+# Interactive selection — choose items from a checklist
+claudify add @claudify/dotnet-pack --pick
+```
+
+### What it does
+
+- Copies agent `.md` files to `.claude/agents/`
+- Copies skill directories to `.claude/skills/`
+- Overwrites existing files with a warning if conflicts exist
+- Creates `.claude/agents/` and `.claude/skills/` directories if they don't exist
+
+### Pack Manifest
+
+Each pack includes a `claudify.json` manifest describing its contents:
+
+```json
+{
+  "name": "@claudify/dotnet-pack",
+  "version": "1.0.0",
+  "agents": [
+    {
+      "name": "csharp-reviewer",
+      "path": "agents/csharp-reviewer.md",
+      "description": "Expert C#/.NET code review specialist"
+    }
+  ],
+  "skills": [
+    {
+      "name": "dotnet-unit-testing",
+      "path": "skills/dotnet-unit-testing/",
+      "description": "Expert .NET unit testing specialist",
+      "triggers": {
+        "keywords": ["unit test", "xunit"],
+        "file_extensions": [".cs", ".csproj"],
+        "patterns": ["write.*test"],
+        "file_paths": ["tests/"]
+      }
+    }
+  ]
+}
+```
+
+Skills can include `triggers` for integration with the [Skill Router](#skill-router) auto-activation system.
 
 ## Skill Router
 
@@ -416,6 +488,9 @@ claudify/
 ├── CLAUDE.md                          # Project context for Claude Code
 ├── package.json                       # pnpm workspace root
 ├── packages/
+│   ├── cli/                           # claudify CLI tool
+│   │   ├── src/                       # TypeScript source
+│   │   └── tests/                     # Vitest tests
 │   └── skill-router/                  # Auto-activation hook
 │       ├── src/                       # TypeScript source
 │       └── tests/                     # Vitest tests
@@ -460,6 +535,12 @@ claudify/
 4. Run tests and validation:
 
    ```bash
+   # Run all tests
+   pnpm test
+
+   # Run CLI tests
+   pnpm --filter claudify test
+
    # Run skill-router tests
    pnpm --filter @claudify/skill-router test
 
