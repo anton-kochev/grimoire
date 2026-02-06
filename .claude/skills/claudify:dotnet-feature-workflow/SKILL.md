@@ -1,6 +1,8 @@
 ---
 name: claudify:dotnet-feature-workflow
 description: "Orchestrates end-to-end .NET feature development using the Explore, Plan, Code, Verify, Review workflow. Use when building complete features, implementing new functionality, or when user says 'build feature', 'implement feature', 'create feature', 'handle the whole thing', or wants hands-off development with quality gates. Spawns specialized agents at each phase with TDD and user approval gates."
+user_invocable: true
+disable-model-invocation: false
 ---
 
 # .NET Feature Development Workflow

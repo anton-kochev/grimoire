@@ -2,6 +2,7 @@
 name: claudify:conventional-commit
 description: "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes."
 user_invocable: true
+disable-model-invocation: true
 ---
 
 # Git Commit Generator
