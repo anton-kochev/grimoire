@@ -1,0 +1,24 @@
+{
+  "name": "sample-pack",
+  "version": "1.0.0",
+  "agents": [
+    {
+      "name": "sample-agent",
+      "path": "agents/sample-agent.md",
+      "description": "A sample agent for testing"
+    }
+  ],
+  "skills": [
+    {
+      "name": "sample-skill",
+      "path": "skills/sample-skill",
+      "description": "A sample skill for testing",
+      "triggers": {
+        "keywords": ["sample", "test"],
+        "file_extensions": [".ts"],
+        "patterns": ["sample.*pattern"],
+        "file_paths": ["src/sample/"]
+      }
+    }
+  ]
+}

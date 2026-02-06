@@ -1,0 +1,37 @@
+{
+  "name": "claudify",
+  "version": "0.1.0",
+  "description": "CLI tool for installing Claudify agent and skill packs",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "claudify": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "build": "tsc",
+    "dev": "tsx src/bin.ts"
+  },
+  "dependencies": {
+    "citty": "^0.1.6",
+    "@clack/prompts": "^0.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
