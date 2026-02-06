@@ -4,6 +4,8 @@ A collection of specialized agents and skills for [Claude Code](https://docs.ant
 
 Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns. Includes ready-to-use agents for .NET development and content verification, plus skills for git commits and documentation.
 
+[![CI](https://github.com/anton-kochev/claudify/actions/workflows/ci.yml/badge.svg)](https://github.com/anton-kochev/claudify/actions/workflows/ci.yml)
+
 ## Table of Contents
 
 - [Features](#features)
