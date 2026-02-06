@@ -24,7 +24,7 @@ export function summarizeSignals(signals: MatchedSignal[]): string {
     if (!groups[signal.type]) {
       groups[signal.type] = [];
     }
-    groups[signal.type].push(signal.value);
+    groups[signal.type]!.push(signal.value);
   }
 
   const parts: string[] = [];
