@@ -129,6 +129,41 @@ describe('loadManifest', () => {
     expect(manifest.config.log_path).toBe('custom/path.log');
   });
 
+  it('should parse pretooluse_threshold when provided', () => {
+    const manifestPath = join(testDir, 'manifest.json');
+    const withThreshold = {
+      ...validManifest,
+      config: { ...validManifest.config, pretooluse_threshold: 1.5 },
+    };
+    writeFileSync(manifestPath, JSON.stringify(withThreshold));
+
+    const manifest = loadManifest(manifestPath);
+
+    expect(manifest.config.pretooluse_threshold).toBe(1.5);
+  });
+
+  it('should leave pretooluse_threshold undefined when not provided', () => {
+    const manifestPath = join(testDir, 'manifest.json');
+    writeFileSync(manifestPath, JSON.stringify(validManifest));
+
+    const manifest = loadManifest(manifestPath);
+
+    expect(manifest.config.pretooluse_threshold).toBeUndefined();
+  });
+
+  it('should ignore non-numeric pretooluse_threshold', () => {
+    const manifestPath = join(testDir, 'manifest.json');
+    const invalid = {
+      ...validManifest,
+      config: { ...validManifest.config, pretooluse_threshold: 'high' },
+    };
+    writeFileSync(manifestPath, JSON.stringify(invalid));
+
+    const manifest = loadManifest(manifestPath);
+
+    expect(manifest.config.pretooluse_threshold).toBeUndefined();
+  });
+
   it('should apply default empty arrays for missing trigger types', () => {
     const manifestPath = join(testDir, 'manifest.json');
     const minimalSkill = {

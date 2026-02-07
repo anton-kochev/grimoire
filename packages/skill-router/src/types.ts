@@ -22,6 +22,7 @@ export interface SkillWeights {
 export interface SkillConfig {
   weights: SkillWeights;
   activation_threshold: number;
+  pretooluse_threshold?: number;
   log_path?: string;
 }
 
@@ -85,9 +86,25 @@ export interface HookInput {
 }
 
 /**
+ * Supported tool names for PreToolUse hook
+ */
+export type ToolName = 'Edit' | 'Write';
+
+/**
+ * Input received from PreToolUse hook via stdin
+ */
+export interface PreToolUseInput {
+  session_id: string;
+  hook_event_name: 'PreToolUse';
+  tool_name: ToolName;
+  tool_use_id: string;
+  tool_input: Record<string, unknown>;
+}
+
+/**
  * Supported hook event types
  */
-export type HookEventName = 'UserPromptSubmit' | 'SubagentStart';
+export type HookEventName = 'UserPromptSubmit' | 'SubagentStart' | 'PreToolUse';
 
 /**
  * Hook-specific output data
@@ -102,6 +119,22 @@ export interface HookSpecificOutput {
  */
 export interface HookOutput {
   hookSpecificOutput: HookSpecificOutput;
+}
+
+/**
+ * PreToolUse-specific output data (includes permissionDecision)
+ */
+export interface PreToolUseSpecificOutput {
+  hookEventName: 'PreToolUse';
+  additionalContext: string;
+  permissionDecision: 'allow';
+}
+
+/**
+ * Output for PreToolUse hook
+ */
+export interface PreToolUseOutput {
+  hookSpecificOutput: PreToolUseSpecificOutput;
 }
 
 // =============================================================================

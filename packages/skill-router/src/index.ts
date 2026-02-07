@@ -17,4 +17,7 @@ export * from './input.js';
 export * from './logging.js';
 export * from './output.js';
 export * from './args.js';
+export * from './tool-input.js';
+export * from './tool-formatting.js';
+export * from './tool-output.js';
 export * from './main.js';

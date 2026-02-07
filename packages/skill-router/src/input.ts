@@ -2,7 +2,46 @@
  * Hook input parsing
  */
 
-import type { HookInput } from './types.js';
+import type { HookInput, PreToolUseInput } from './types.js';
+import { isPreToolUseInput, parsePreToolUseInput } from './tool-input.js';
+
+/**
+ * Discriminated union for stdin input types
+ */
+export type StdinInput =
+  | { kind: 'prompt'; input: HookInput }
+  | { kind: 'tooluse'; input: PreToolUseInput };
+
+/**
+ * Parses stdin JSON and dispatches to the appropriate parser based on shape.
+ *
+ * If the data contains a `tool_name` field, it's treated as PreToolUse input.
+ * Otherwise, it's treated as a prompt-based hook input (UserPromptSubmit/SubagentStart).
+ *
+ * @param jsonString - Raw JSON string from stdin
+ * @returns Discriminated StdinInput union
+ * @throws Error if input is empty, invalid JSON, or validation fails
+ */
+export function parseStdinInput(jsonString: string): StdinInput {
+  if (!jsonString || !jsonString.trim()) {
+    throw new Error('Hook input is empty');
+  }
+
+  // Peek at the parsed data to determine type
+  let data: unknown;
+  try {
+    data = JSON.parse(jsonString);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to parse hook input JSON: ${message}`);
+  }
+
+  if (isPreToolUseInput(data)) {
+    return { kind: 'tooluse', input: parsePreToolUseInput(jsonString) };
+  }
+
+  return { kind: 'prompt', input: parseHookInput(jsonString) };
+}
 
 /**
  * Parses hook input from JSON string.

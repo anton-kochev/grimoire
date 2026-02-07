@@ -2,17 +2,22 @@
  * Main execution flow for the Skill Router
  */
 
-import type { HookInput, HookOutput } from './types.js';
+import type { HookInput, HookOutput, PreToolUseInput, PreToolUseOutput } from './types.js';
 import { normalizePrompt } from './normalize.js';
 import { extractSignals } from './signals.js';
 import { scoreSkill } from './scoring.js';
 import { filterByThreshold, sortDescendingByScore } from './filtering.js';
 import { formatContext, formatAgentContext } from './formatting.js';
+import { formatToolUseContext } from './tool-formatting.js';
 import { loadManifest, getAgentConfig } from './manifest.js';
-import { parseHookInput, readStdin } from './input.js';
+import { parseStdinInput, readStdin } from './input.js';
 import { buildLogEntry, writeLog } from './logging.js';
 import { buildHookOutput } from './output.js';
+import { buildPreToolUseOutput } from './tool-output.js';
+import { extractToolSignals } from './tool-input.js';
 import { parseArgs } from './args.js';
+
+const DEFAULT_PRETOOLUSE_THRESHOLD = 1.5;
 
 /**
  * Processes a prompt and returns hook output if skills match.
@@ -212,6 +217,93 @@ export function processAgentPrompt(
 }
 
 /**
+ * Processes a PreToolUse hook event and returns output if skills match.
+ *
+ * @param input - Parsed PreToolUse input
+ * @param manifestPath - Path to the skill manifest
+ * @param projectDir - Project directory for path stripping
+ * @returns PreToolUseOutput if skills matched, null otherwise
+ */
+export function processToolUse(
+  input: PreToolUseInput,
+  manifestPath: string,
+  projectDir: string
+): PreToolUseOutput | null {
+  const startTime = Date.now();
+  let logPath = '.claude/logs/skill-router.log';
+
+  try {
+    // Load manifest
+    const manifest = loadManifest(manifestPath);
+    logPath = manifest.config.log_path ?? logPath;
+
+    // Extract signals from tool input (file path)
+    const signals = extractToolSignals(input.tool_input, projectDir);
+
+    // Score all skills (pass empty string as normalizedPrompt — no pattern matching)
+    const results = manifest.skills.map((skill) =>
+      scoreSkill(skill, signals, '', manifest.config.weights)
+    );
+
+    // Filter by pretooluse_threshold
+    const threshold =
+      manifest.config.pretooluse_threshold ?? DEFAULT_PRETOOLUSE_THRESHOLD;
+    const matched = sortDescendingByScore(
+      filterByThreshold(results, threshold)
+    );
+
+    // Determine outcome
+    const outcome = matched.length > 0 ? 'activated' : 'no_match';
+
+    // Build and write log entry
+    const logEntry = buildLogEntry({
+      sessionId: input.session_id,
+      promptRaw: `[PreToolUse:${input.tool_name}] ${typeof input.tool_input['file_path'] === 'string' ? input.tool_input['file_path'] : ''}`,
+      promptNormalized: '',
+      signals,
+      skillsEvaluated: manifest.skills.length,
+      matchedSkills: matched,
+      threshold,
+      startTime,
+      outcome,
+    });
+    writeLog(
+      { ...logEntry, hook_event: 'PreToolUse', tool_name: input.tool_name },
+      logPath
+    );
+
+    // Return output if skills matched
+    if (matched.length > 0) {
+      const context = formatToolUseContext(matched, input.tool_name);
+      return buildPreToolUseOutput(context);
+    }
+
+    return null;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
+    console.error(`[Skill Router Error] ${errorMessage}`);
+
+    try {
+      writeLog(
+        {
+          timestamp: new Date().toISOString(),
+          level: 'error',
+          message: errorMessage,
+          error_type: error instanceof Error ? error.name : 'Unknown',
+          stack_trace: error instanceof Error ? error.stack : null,
+        },
+        logPath
+      );
+    } catch {
+      // Ignore logging errors
+    }
+
+    return null;
+  }
+}
+
+/**
  * Main entry point - reads from stdin, processes, writes to stdout.
  */
 export async function main(): Promise<void> {
@@ -227,21 +319,24 @@ export async function main(): Promise<void> {
       process.exit(0);
     }
 
-    // Parse input
-    const input = parseHookInput(stdinContent);
-
     // Get manifest path from environment
     const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
     const manifestPath = `${projectDir}/.claude/skills-manifest.json`;
 
-    let output: HookOutput | null;
+    // Parse and dispatch based on input type
+    const stdinInput = parseStdinInput(stdinContent);
 
-    if (args.agent) {
+    let output: HookOutput | PreToolUseOutput | null;
+
+    if (stdinInput.kind === 'tooluse') {
+      // PreToolUse hook
+      output = processToolUse(stdinInput.input, manifestPath, projectDir);
+    } else if (args.agent) {
       // Agent mode: SubagentStart hook
-      output = processAgentPrompt(input, manifestPath, args.agent);
+      output = processAgentPrompt(stdinInput.input, manifestPath, args.agent);
     } else {
       // Original UserPromptSubmit mode
-      output = processPrompt(input, manifestPath);
+      output = processPrompt(stdinInput.input, manifestPath);
     }
 
     // Write output if skills matched

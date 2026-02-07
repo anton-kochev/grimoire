@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseHookInput } from '../src/input.js';
+import { parseHookInput, parseStdinInput } from '../src/input.js';
 
 describe('parseHookInput', () => {
   it('should parse valid JSON input', () => {
@@ -65,5 +65,55 @@ describe('parseHookInput', () => {
 
     const input = parseHookInput(json);
     expect(input.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe('parseStdinInput', () => {
+  it('should return prompt kind for UserPromptSubmit input', () => {
+    const json = JSON.stringify({
+      prompt: 'hello world',
+      session_id: 'sess-1',
+      timestamp: '2026-01-30T14:00:00.000Z',
+    });
+
+    const result = parseStdinInput(json);
+
+    expect(result.kind).toBe('prompt');
+    if (result.kind === 'prompt') {
+      expect(result.input.prompt).toBe('hello world');
+    }
+  });
+
+  it('should return tooluse kind for PreToolUse input', () => {
+    const json = JSON.stringify({
+      tool_name: 'Edit',
+      tool_input: { file_path: '/src/main.ts' },
+      session_id: 'sess-1',
+    });
+
+    const result = parseStdinInput(json);
+
+    expect(result.kind).toBe('tooluse');
+    if (result.kind === 'tooluse') {
+      expect(result.input.tool_name).toBe('Edit');
+    }
+  });
+
+  it('should throw for empty input', () => {
+    expect(() => parseStdinInput('')).toThrow(/empty/i);
+  });
+
+  it('should throw for invalid JSON', () => {
+    expect(() => parseStdinInput('bad json')).toThrow(/parse|JSON/i);
+  });
+
+  it('should dispatch Write tool to tooluse', () => {
+    const json = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: '/new.ts', content: 'x' },
+    });
+
+    const result = parseStdinInput(json);
+    expect(result.kind).toBe('tooluse');
   });
 });

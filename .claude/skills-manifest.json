@@ -8,6 +8,7 @@
       "file_paths": 2.5
     },
     "activation_threshold": 3.0,
+    "pretooluse_threshold": 1.5,
     "log_path": ".claude/logs/skill-router.log"
   },
   "skills": [

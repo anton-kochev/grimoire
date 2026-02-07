@@ -85,6 +85,10 @@ export function loadManifest(manifestPath: string): SkillManifest {
     config: {
       weights: config['weights'] as SkillManifest['config']['weights'],
       activation_threshold: config['activation_threshold'] as number,
+      pretooluse_threshold:
+        typeof config['pretooluse_threshold'] === 'number'
+          ? config['pretooluse_threshold']
+          : undefined,
       log_path: (config['log_path'] as string) || DEFAULT_LOG_PATH,
     },
     skills,
