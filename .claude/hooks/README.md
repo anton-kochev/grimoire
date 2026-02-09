@@ -1,13 +1,27 @@
 # Skill Router
 
-Automatically activates relevant skills based on user prompt content.
+Automatically activates relevant skills based on context. Supports three hook events:
+
+- **UserPromptSubmit** — matches skills to user prompts
+- **SubagentStart** — injects skills into agents based on agent type
+- **PreToolUse** — injects skills before Edit/Write tool calls based on file paths
 
 ## How It Works
+
+### Prompt Mode (UserPromptSubmit)
 
 1. User submits a prompt
 2. Router extracts signals: words, file extensions, file paths
 3. Each skill is scored against signals using weighted matching
-4. Skills exceeding threshold are injected into LLM context
+4. Skills exceeding `activation_threshold` are injected into LLM context
+
+### Tool Mode (PreToolUse)
+
+1. Claude is about to call Edit or Write on a file
+2. Router extracts signals from `file_path`: extension, path segments, keywords
+3. Skills are scored using keyword, extension, and path matching (patterns are skipped)
+4. Skills exceeding `pretooluse_threshold` are injected before the tool executes
+5. Always non-blocking (`permissionDecision: 'allow'`)
 
 ## Configuration
 
@@ -24,6 +38,7 @@ Edit `.claude/skills-manifest.json`:
       "file_paths": 2.5
     },
     "activation_threshold": 3.0,
+    "pretooluse_threshold": 1.5,
     "log_path": ".claude/logs/skill-router.log"
   },
   "skills": [...]
@@ -57,9 +72,18 @@ Edit `.claude/skills-manifest.json`:
 
 ## Tuning
 
-**Threshold too high?** Skills won't activate. Lower `activation_threshold`.
+Two separate thresholds control activation:
 
-**Threshold too low?** Too many skills activate. Raise `activation_threshold`.
+| Threshold | Default | Used by |
+|-----------|---------|---------|
+| `activation_threshold` | 3.0 | UserPromptSubmit, SubagentStart |
+| `pretooluse_threshold` | 1.5 | PreToolUse (Edit/Write) |
+
+The PreToolUse threshold is lower because tool inputs yield fewer signals — a single file extension match (weight 1.5) is often sufficient.
+
+**Threshold too high?** Skills won't activate. Lower the relevant threshold.
+
+**Threshold too low?** Too many skills activate. Raise the relevant threshold.
 
 **Skill not activating?** Check:
 - Keywords are lowercase
@@ -68,27 +92,36 @@ Edit `.claude/skills-manifest.json`:
 
 ## Logs
 
-View recent activations:
+Open the interactive log viewer dashboard with real-time streaming:
+```bash
+claudify logs
+```
+
+New entries appear live as skills activate (green "LIVE" indicator). Or view raw log entries:
 ```bash
 tail -20 .claude/logs/skill-router.log | jq .
 ```
 
 Log entry fields:
-- `prompt_raw`: Original prompt (truncated to 500 chars)
+- `prompt_raw`: Original prompt (truncated to 500 chars), or `[PreToolUse:<tool>] <path>` for tool events
 - `skills_matched`: Array of matched skills with scores
 - `outcome`: `activated` | `no_match` | `error`
 - `execution_time_ms`: Processing time
+- `hook_event`: `PreToolUse` (only present for tool events)
+- `tool_name`: `Edit` | `Write` (only present for tool events)
 
 ## Troubleshooting
 
 **Router not running?**
-- Check `.claude/settings.json` has UserPromptSubmit hook
+- Check `.claude/settings.json` has the relevant hook (UserPromptSubmit, SubagentStart, or PreToolUse)
+- For PreToolUse, verify the matcher is `Edit|Write`
 - Verify `npx tsx` is available
 
 **Skills not matching?**
 - Review log file for `no_match` entries
 - Check `signals_extracted` in log to see what was detected
 - Verify skill triggers match expected signals
+- For PreToolUse: only keywords, extensions, and file_paths fire — patterns are skipped
 
 **Performance issues?**
 - Check `execution_time_ms` in logs (should be <50ms)

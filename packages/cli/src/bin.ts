@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from 'citty';
 import { runAdd } from './commands/add.js';
+import { runLogs } from './commands/logs.js';
 
 const addCommand = defineCommand({
   meta: {
@@ -23,6 +24,40 @@ const addCommand = defineCommand({
   },
 });
 
+const logsCommand = defineCommand({
+  meta: {
+    name: 'logs',
+    description: 'Open skill-router log viewer in the browser',
+  },
+  args: {
+    file: {
+      type: 'string',
+      description: 'Custom log file path (default: .claude/logs/skill-router.log)',
+    },
+    port: {
+      type: 'string',
+      description: 'Port to serve on (default: OS-assigned)',
+    },
+  },
+  async run({ args }) {
+    const server = await runLogs(process.cwd(), {
+      logFile: args.file || undefined,
+      port: args.port ? Number(args.port) : undefined,
+    });
+
+    const addr = server.address();
+    if (addr && typeof addr === 'object') {
+      console.log(`Log viewer running at http://127.0.0.1:${addr.port}`);
+      console.log('Press Ctrl+C to stop');
+    }
+
+    process.on('SIGINT', () => {
+      server.close();
+      process.exit(0);
+    });
+  },
+});
+
 const main = defineCommand({
   meta: {
     name: 'claudify',
@@ -31,6 +66,7 @@ const main = defineCommand({
   },
   subCommands: {
     add: addCommand,
+    logs: logsCommand,
   },
 });
 

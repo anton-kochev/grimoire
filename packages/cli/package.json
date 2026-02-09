@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build": "tsc",
+    "postbuild": "cp -r src/static dist/src/static",
     "dev": "tsx src/bin.ts"
   },
   "dependencies": {

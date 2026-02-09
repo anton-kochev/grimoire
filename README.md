@@ -32,7 +32,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 ## Features
 
-- **CLI Tool** - Install agents and skills from npm packs with `claudify add`
+- **CLI Tool** - Install agents and skills from npm packs with `claudify add`, view logs with `claudify logs`
 - **Pre-built Agents** - Domain experts for .NET architecture, unit testing, and fact verification
 - **Reusable Skills** - Workflows for conventional commits, README generation, and skill development
 - **Validation Tooling** - Scripts to ensure skills meet Anthropic's requirements
@@ -95,7 +95,22 @@ claudify add @claudify/dotnet-pack --pick=csharp-reviewer
 claudify add @claudify/dotnet-pack --pick
 ```
 
-### What it does
+### Log Viewer
+
+```bash
+# Open the skill-router log viewer in your browser
+claudify logs
+
+# Use a custom log file
+claudify logs --file path/to/custom.log
+
+# Specify a port
+claudify logs --port 3000
+```
+
+Starts a local server and opens an interactive dashboard with stats, filters, and a sortable table for analyzing skill-router activation history. The viewer streams new entries in real-time via SSE — a green "LIVE" badge indicates active streaming. Press `Ctrl+C` to stop.
+
+### What `add` does
 
 - Copies agent `.md` files to `.claude/agents/`
 - Copies skill directories to `.claude/skills/`
@@ -137,7 +152,7 @@ Skills can include `triggers` for integration with the [Skill Router](#skill-rou
 
 ## Skill Router
 
-The skill router automatically activates relevant skills based on context. It supports two modes:
+The skill router automatically activates relevant skills based on context. It supports three modes:
 
 ### User Prompt Mode (UserPromptSubmit)
 
@@ -165,6 +180,19 @@ You MUST activate the following skills before starting work:
 Use the Skill tool to load each required skill.
 ```
 
+### Tool Mode (PreToolUse)
+
+Injects skill context before Edit/Write tool calls based on file path signals:
+
+1. **Detects tool type** from stdin (`tool_name: "Edit"` or `"Write"`)
+2. **Extracts signals** from `file_path` in tool input: extension, path segments, keywords
+3. **Scores skills** using the same weighted matching (keywords, extensions, paths)
+4. **Injects matched skills** when score exceeds `pretooluse_threshold` (default: 1.5)
+
+This mode uses a lower threshold than prompt mode because tool inputs yield fewer signals — a single `.cs` extension match (weight 1.5) is enough to activate the relevant skill. Pattern matching is skipped since file paths don't contain natural language.
+
+Example: editing `src/services/UserService.cs` activates DotNet skills before the edit executes.
+
 ### Configuration
 
 Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.json`:
@@ -179,7 +207,8 @@ Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.jso
       "patterns": 2.0,
       "file_paths": 2.5
     },
-    "activation_threshold": 3.0
+    "activation_threshold": 3.0,
+    "pretooluse_threshold": 1.5
   },
   "skills": [
     {
@@ -237,6 +266,15 @@ Configure hooks in `.claude/settings.json`:
           "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=claudify:csharp-coder"
         }]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{
+          "type": "command",
+          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\""
+        }]
+      }
     ]
   }
 }
@@ -244,7 +282,13 @@ Configure hooks in `.claude/settings.json`:
 
 ### Logs
 
-View activation history:
+View activation history with the interactive real-time dashboard:
+
+```bash
+claudify logs
+```
+
+New entries stream live via SSE as skills activate. Or inspect raw log entries:
 
 ```bash
 tail -20 .claude/logs/skill-router.log | jq .

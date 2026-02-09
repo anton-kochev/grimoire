@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skill Router — Log Viewer</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --orange: #d29922;
+    --purple: #bc8cff;
+    --cyan: #39d2c0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 24px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+  h2 { font-size: 14px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 24px;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.05);
+  }
+  .drop-zone p { color: var(--text-muted); font-size: 14px; }
+  .drop-zone .big { font-size: 16px; color: var(--text); margin-bottom: 4px; }
+  .drop-zone input { display: none; }
+
+  /* Dashboard */
+  .dashboard { display: none; }
+  .dashboard.visible { display: block; }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .stat-card .value { font-size: 28px; font-weight: 700; }
+  .stat-card .label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .stat-card.activated .value { color: var(--green); }
+  .stat-card.no-match .value { color: var(--text-muted); }
+
+  /* Filters */
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .filters label { font-size: 12px; color: var(--text-muted); margin-right: 4px; }
+  select, input[type="text"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 13px;
+    outline: none;
+  }
+  select:focus, input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"] { width: 220px; }
+  .filter-group { display: flex; align-items: center; gap: 4px; }
+  .btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--text); }
+  .btn.active { background: rgba(88, 166, 255, 0.15); border-color: var(--accent); color: var(--accent); }
+
+  /* Top skills */
+  .top-skills {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  .skill-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .skill-bar .name { width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .skill-bar .bar-bg {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .skill-bar .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+  .skill-bar .count { width: 40px; text-align: right; color: var(--text-muted); font-size: 12px; }
+
+  /* Table */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--surface);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .sort-arrow { margin-left: 4px; font-size: 10px; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: rgba(88, 166, 255, 0.04); }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: 8px 12px; vertical-align: top; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.activated { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .badge.no-match { background: rgba(139, 148, 158, 0.15); color: var(--text-muted); }
+  .badge.hook-prompt { background: rgba(188, 140, 255, 0.15); color: var(--purple); }
+  .badge.hook-tool { background: rgba(57, 210, 192, 0.15); color: var(--cyan); }
+
+  .prompt-text {
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .prompt-text:hover { white-space: normal; word-break: break-word; }
+
+  .signal-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    margin: 1px 2px;
+    background: rgba(88, 166, 255, 0.1);
+    color: var(--accent);
+  }
+  .signal-tag.keyword { background: rgba(63, 185, 80, 0.1); color: var(--green); }
+  .signal-tag.pattern { background: rgba(210, 153, 34, 0.1); color: var(--orange); }
+  .signal-tag.extension { background: rgba(188, 140, 255, 0.1); color: var(--purple); }
+  .signal-tag.path { background: rgba(57, 210, 192, 0.1); color: var(--cyan); }
+
+  .skills-cell { min-width: 200px; }
+  .skill-match {
+    margin-bottom: 4px;
+    padding: 4px 0;
+  }
+  .skill-match .skill-name { font-weight: 600; font-size: 12px; }
+  .skill-match .skill-score { color: var(--orange); font-size: 11px; margin-left: 4px; }
+
+  .session-id {
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .time-ms { color: var(--text-muted); font-size: 12px; }
+  .time-ms.slow { color: var(--orange); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+  }
+
+  .count-badge {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: 8px;
+    font-weight: 400;
+  }
+
+  /* Sections layout */
+  .section-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 800px) { .section-row { grid-template-columns: 1fr; } }
+
+  /* Session timeline */
+  .session-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.1s;
+  }
+  .session-item:hover { color: var(--accent); }
+  .session-item .id { font-family: monospace; font-size: 11px; }
+  .session-item .meta { color: var(--text-muted); font-size: 11px; }
+
+  /* Live badge */
+  .live-badge {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green);
+    margin-left: 12px;
+    vertical-align: middle;
+  }
+  .live-badge.visible { display: inline-flex; }
+  .live-badge::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Skill Router — Log Viewer <span class="live-badge" id="liveBadge">LIVE</span></h1>
+
+<div class="drop-zone" id="dropZone">
+  <p class="big">Drop <code>skill-router.log</code> here</p>
+  <p>or click to browse</p>
+  <input type="file" id="fileInput" accept=".log,.json,.ndjson">
+</div>
+
+<div class="dashboard" id="dashboard">
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <!-- Top skills + Sessions -->
+  <div class="section-row">
+    <div>
+      <h2>Top Activated Skills</h2>
+      <div class="top-skills" id="topSkills"></div>
+    </div>
+    <div>
+      <h2>Sessions</h2>
+      <div class="session-list" id="sessionList"></div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters" id="filters">
+    <div class="filter-group">
+      <label>Outcome:</label>
+      <select id="filterOutcome">
+        <option value="">All</option>
+        <option value="activated">Activated</option>
+        <option value="no_match">No Match</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Hook:</label>
+      <select id="filterHook">
+        <option value="">All</option>
+        <option value="prompt">UserPromptSubmit</option>
+        <option value="tool">PreToolUse</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Session:</label>
+      <select id="filterSession">
+        <option value="">All</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Search:</label>
+      <input type="text" id="filterSearch" placeholder="Filter by prompt or skill...">
+    </div>
+    <button class="btn" id="btnReset">Reset</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-sort="index"># <span class="sort-arrow"></span></th>
+          <th data-sort="timestamp">Time <span class="sort-arrow"></span></th>
+          <th data-sort="hook">Hook <span class="sort-arrow"></span></th>
+          <th data-sort="prompt">Prompt <span class="sort-arrow"></span></th>
+          <th data-sort="outcome">Outcome <span class="sort-arrow"></span></th>
+          <th data-sort="skills">Skills Matched <span class="sort-arrow"></span></th>
+          <th data-sort="signals">Signals <span class="sort-arrow"></span></th>
+          <th data-sort="score">Score <span class="sort-arrow"></span></th>
+          <th data-sort="threshold">Thr <span class="sort-arrow"></span></th>
+          <th data-sort="time_ms">ms <span class="sort-arrow"></span></th>
+          <th data-sort="session">Session <span class="sort-arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let entries = [];
+let sortCol = 'timestamp';
+let sortAsc = false;
+
+// --- Append new log entries without clearing existing ones ---
+function appendLog(text) {
+  const lines = text.split('\n');
+  let buffer = '';
+  let depth = 0;
+  let added = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    buffer += (buffer ? '\n' : '') + line;
+    for (const ch of trimmed) {
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
+    }
+
+    if (depth === 0 && buffer.trim()) {
+      try {
+        const obj = JSON.parse(buffer);
+        obj._index = entries.length;
+        entries.push(obj);
+        added++;
+      } catch { /* skip malformed */ }
+      buffer = '';
+    }
+  }
+
+  if (added === 0) return;
+
+  dropZone.style.display = 'none';
+  document.getElementById('dashboard').classList.add('visible');
+  buildDashboard();
+  populateFilters();
+  renderTable();
+}
+
+// --- Auto-fetch from API when served via HTTP ---
+(function autoFetch() {
+  if (location.protocol === 'file:') return;
+
+  const es = new EventSource('/api/logs/stream');
+
+  es.onmessage = (e) => {
+    if (e.data.trim()) appendLog(e.data);
+    document.getElementById('liveBadge').classList.add('visible');
+  };
+
+  es.addEventListener('reset', () => {
+    entries = [];
+  });
+
+  es.onerror = async () => {
+    es.close();
+    document.getElementById('liveBadge').classList.remove('visible');
+    // Fall back to one-shot fetch
+    try {
+      const res = await fetch('/api/logs');
+      if (!res.ok) return;
+      const text = await res.text();
+      if (text.trim()) parseLog(text);
+    } catch { /* fall back to drag-and-drop */ }
+  };
+})();
+
+// --- File loading ---
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) loadFile(e.target.files[0]); });
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    parseLog(text);
+  };
+  reader.readAsText(file);
+}
+
+function parseLog(text) {
+  entries = [];
+  // Handle both pretty-printed and single-line NDJSON
+  // Strategy: try to extract JSON objects
+  const lines = text.split('\n');
+  let buffer = '';
+  let depth = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    buffer += (buffer ? '\n' : '') + line;
+    for (const ch of trimmed) {
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
+    }
+
+    if (depth === 0 && buffer.trim()) {
+      try {
+        const obj = JSON.parse(buffer);
+        obj._index = entries.length;
+        entries.push(obj);
+      } catch { /* skip malformed */ }
+      buffer = '';
+    }
+  }
+
+  if (entries.length === 0) {
+    alert('No valid log entries found in this file.');
+    return;
+  }
+
+  dropZone.style.display = 'none';
+  document.getElementById('dashboard').classList.add('visible');
+  buildDashboard();
+  populateFilters();
+  renderTable();
+}
+
+// --- Dashboard ---
+function buildDashboard() {
+  const total = entries.length;
+  const activated = entries.filter(e => e.outcome === 'activated').length;
+  const noMatch = entries.filter(e => e.outcome === 'no_match').length;
+  const promptHooks = entries.filter(e => !e.hook_event).length;
+  const toolHooks = entries.filter(e => e.hook_event === 'PreToolUse').length;
+  const avgMs = (entries.reduce((s, e) => s + (e.execution_time_ms || 0), 0) / total).toFixed(1);
+  const sessions = new Set(entries.map(e => e.session_id)).size;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="value">${total}</div><div class="label">Total Events</div></div>
+    <div class="stat-card activated"><div class="value">${activated}</div><div class="label">Activated (${(activated/total*100).toFixed(0)}%)</div></div>
+    <div class="stat-card no-match"><div class="value">${noMatch}</div><div class="label">No Match</div></div>
+    <div class="stat-card"><div class="value">${promptHooks}</div><div class="label">Prompt Hooks</div></div>
+    <div class="stat-card"><div class="value">${toolHooks}</div><div class="label">Tool Hooks</div></div>
+    <div class="stat-card"><div class="value">${avgMs}ms</div><div class="label">Avg Exec Time</div></div>
+    <div class="stat-card"><div class="value">${sessions}</div><div class="label">Sessions</div></div>
+  `;
+
+  // Top skills
+  const skillCounts = {};
+  for (const e of entries) {
+    for (const s of (e.skills_matched || [])) {
+      skillCounts[s.name] = (skillCounts[s.name] || 0) + 1;
+    }
+  }
+  const sorted = Object.entries(skillCounts).sort((a, b) => b[1] - a[1]);
+  const max = sorted.length ? sorted[0][1] : 1;
+  document.getElementById('topSkills').innerHTML = sorted.length
+    ? sorted.map(([name, count]) => `
+      <div class="skill-bar">
+        <div class="name" title="${name}">${name}</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${(count/max*100).toFixed(0)}%"></div></div>
+        <div class="count">${count}</div>
+      </div>`).join('')
+    : '<div class="empty-state">No skills activated yet</div>';
+
+  // Sessions
+  const sessionMap = {};
+  for (const e of entries) {
+    if (!sessionMap[e.session_id]) sessionMap[e.session_id] = { count: 0, activated: 0, first: e.timestamp };
+    sessionMap[e.session_id].count++;
+    if (e.outcome === 'activated') sessionMap[e.session_id].activated++;
+  }
+  const sessionEntries = Object.entries(sessionMap).sort((a, b) => b[1].count - a[1].count);
+  document.getElementById('sessionList').innerHTML = sessionEntries.map(([id, info]) => `
+    <div class="session-item" data-session="${id}" onclick="filterBySession('${id}')">
+      <span class="id" title="${id}">${id.length > 16 ? id.slice(0, 8) + '...' : id}</span>
+      <span class="meta">${info.count} events, ${info.activated} activated</span>
+    </div>`).join('');
+}
+
+function filterBySession(id) {
+  document.getElementById('filterSession').value = id;
+  renderTable();
+}
+
+// --- Filters ---
+function populateFilters() {
+  const sessionSelect = document.getElementById('filterSession');
+  const sessions = [...new Set(entries.map(e => e.session_id || 'unknown'))];
+  sessionSelect.innerHTML = '<option value="">All</option>' +
+    sessions.map(s => `<option value="${s}">${String(s).length > 20 ? String(s).slice(0, 8) + '...' + String(s).slice(-4) : s}</option>`).join('');
+}
+
+document.getElementById('filterOutcome').addEventListener('change', renderTable);
+document.getElementById('filterHook').addEventListener('change', renderTable);
+document.getElementById('filterSession').addEventListener('change', renderTable);
+document.getElementById('filterSearch').addEventListener('input', renderTable);
+document.getElementById('btnReset').addEventListener('click', () => {
+  document.getElementById('filterOutcome').value = '';
+  document.getElementById('filterHook').value = '';
+  document.getElementById('filterSession').value = '';
+  document.getElementById('filterSearch').value = '';
+  renderTable();
+});
+
+// --- Sorting ---
+document.querySelectorAll('thead th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.sort;
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+    renderTable();
+  });
+});
+
+function getSortValue(entry, col) {
+  switch (col) {
+    case 'index': return entry._index;
+    case 'timestamp': return entry.timestamp;
+    case 'hook': return entry.hook_event || '';
+    case 'prompt': return entry.prompt_raw || '';
+    case 'outcome': return entry.outcome;
+    case 'skills': return (entry.skills_matched || []).length;
+    case 'signals': return (entry.signals_extracted?.words_count || 0);
+    case 'score': return Math.max(0, ...(entry.skills_matched || []).map(s => s.score));
+    case 'threshold': return entry.threshold || 0;
+    case 'time_ms': return entry.execution_time_ms || 0;
+    case 'session': return entry.session_id || '';
+    default: return 0;
+  }
+}
+
+// --- Render ---
+function renderTable() {
+  const outcome = document.getElementById('filterOutcome').value;
+  const hook = document.getElementById('filterHook').value;
+  const session = document.getElementById('filterSession').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  let filtered = entries.filter(e => {
+    if (outcome && e.outcome !== outcome) return false;
+    if (hook === 'prompt' && e.hook_event) return false;
+    if (hook === 'tool' && !e.hook_event) return false;
+    if (session && e.session_id !== session) return false;
+    if (search) {
+      const haystack = [
+        e.prompt_raw,
+        ...(e.skills_matched || []).map(s => s.name),
+        ...(e.skills_matched || []).flatMap(s => (s.matched_signals || []).map(sig => sig.value)),
+        e.tool_name || '',
+      ].join(' ').toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    const va = getSortValue(a, sortCol);
+    const vb = getSortValue(b, sortCol);
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    return sortAsc ? cmp : -cmp;
+  });
+
+  // Update sort arrows
+  document.querySelectorAll('thead th[data-sort]').forEach(th => {
+    const arrow = th.querySelector('.sort-arrow');
+    if (th.dataset.sort === sortCol) arrow.textContent = sortAsc ? '▲' : '▼';
+    else arrow.textContent = '';
+  });
+
+  const tbody = document.getElementById('tableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No entries match filters</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(e => {
+    const hookType = e.hook_event
+      ? `<span class="badge hook-tool">${e.tool_name || 'PreToolUse'}</span>`
+      : `<span class="badge hook-prompt">Prompt</span>`;
+
+    const outcomeBadge = `<span class="badge ${e.outcome === 'activated' ? 'activated' : 'no-match'}">${e.outcome}</span>`;
+
+    const prompt = e.hook_event
+      ? (e.prompt_raw || '').replace(/^\[PreToolUse:\w+\]\s*/, '')
+      : (e.prompt_raw || '');
+
+    const skillsHtml = (e.skills_matched || []).length
+      ? (e.skills_matched || []).map(s => `
+        <div class="skill-match">
+          <span class="skill-name">${esc(s.name)}</span>
+          <span class="skill-score">${s.score}</span>
+        </div>`).join('')
+      : '<span style="color:var(--text-muted);font-size:12px">—</span>';
+
+    const signalsHtml = (e.skills_matched || []).flatMap(s =>
+      (s.matched_signals || []).map(sig =>
+        `<span class="signal-tag ${sig.type}">${sig.type}:${esc(sig.value)}</span>`)
+    ).join('') || '<span style="color:var(--text-muted);font-size:12px">—</span>';
+
+    const topScore = (e.skills_matched || []).length
+      ? Math.max(...(e.skills_matched || []).map(s => s.score))
+      : '';
+
+    const ts = formatTime(e.timestamp);
+    const ms = e.execution_time_ms || 0;
+    const msClass = ms > 3 ? 'slow' : '';
+
+    return `<tr>
+      <td style="color:var(--text-muted);font-size:12px">${e._index + 1}</td>
+      <td style="white-space:nowrap;font-size:12px" title="${e.timestamp}">${ts}</td>
+      <td>${hookType}</td>
+      <td><div class="prompt-text" title="${esc(e.prompt_raw)}">${esc(prompt)}</div></td>
+      <td>${outcomeBadge}</td>
+      <td class="skills-cell">${skillsHtml}</td>
+      <td>${signalsHtml}</td>
+      <td style="font-weight:600;color:${topScore ? 'var(--orange)' : 'var(--text-muted)'}">${topScore || '—'}</td>
+      <td style="color:var(--text-muted)">${e.threshold}</td>
+      <td><span class="time-ms ${msClass}">${ms}</span></td>
+      <td><span class="session-id" title="${e.session_id || ''}">${(e.session_id || '').length > 12 ? (e.session_id || '').slice(0, 8) : (e.session_id || '')}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function formatTime(ts) {
+  try {
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+           d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  } catch { return ts; }
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
