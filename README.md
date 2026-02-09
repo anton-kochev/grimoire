@@ -159,7 +159,7 @@ The skill router automatically activates relevant skills based on context. It su
 Activates skills based on user prompt content:
 
 1. **Extracts signals** from prompts: words, file extensions, file paths
-2. **Scores skills** against signals using weighted matching
+2. **Scores skills** against signals using weighted matching (keywords support exact, stem, and fuzzy matching)
 3. **Injects matched skills** into LLM context when score exceeds threshold
 
 ### Agent Mode (SubagentStart)
@@ -186,7 +186,7 @@ Injects skill context before Edit/Write tool calls based on file path signals:
 
 1. **Detects tool type** from stdin (`tool_name: "Edit"` or `"Write"`)
 2. **Extracts signals** from `file_path` in tool input: extension, path segments, keywords
-3. **Scores skills** using the same weighted matching (keywords, extensions, paths)
+3. **Scores skills** using the same weighted matching (keywords with exact/stem/fuzzy, extensions, paths)
 4. **Injects matched skills** when score exceeds `pretooluse_threshold` (default: 1.5)
 
 This mode uses a lower threshold than prompt mode because tool inputs yield fewer signals — a single `.cs` extension match (weight 1.5) is enough to activate the relevant skill. Pattern matching is skipped since file paths don't contain natural language.

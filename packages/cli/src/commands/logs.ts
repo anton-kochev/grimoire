@@ -10,6 +10,7 @@ export interface LogsOptions {
 }
 
 const DEFAULT_LOG_PATH = '.claude/logs/skill-router.log';
+const DEFAULT_MANIFEST_PATH = '.claude/skills-manifest.json';
 
 export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<Server> {
   const logFilePath = options.logFile
@@ -41,6 +42,19 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
       } catch {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end('Failed to read log file');
+      }
+      return;
+    }
+
+    if (req.url === '/api/manifest') {
+      const manifestPath = resolve(cwd, DEFAULT_MANIFEST_PATH);
+      try {
+        const data = readFileSync(manifestPath, 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(data);
+      } catch {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Manifest not found');
       }
       return;
     }

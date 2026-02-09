@@ -109,28 +109,39 @@
     padding: 16px;
     margin-bottom: 24px;
   }
-  .skill-bar {
+  .skill-card {
+    padding: 6px 0;
+  }
+  .skill-card .skill-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
     font-size: 13px;
   }
-  .skill-bar .name { width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .skill-bar .bar-bg {
-    flex: 1;
-    height: 8px;
+  .skill-card .skill-header .name { font-weight: 600; white-space: nowrap; }
+  .skill-card .skill-header .desc { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .skill-card .count { color: var(--text-muted); font-size: 12px; white-space: nowrap; margin-left: auto; }
+  .skill-card .bar-bg {
+    width: 100%;
+    height: 2px;
     background: var(--border);
-    border-radius: 4px;
+    border-radius: 1px;
     overflow: hidden;
+    margin-top: 4px;
   }
-  .skill-bar .bar-fill {
+  .skill-card .bar-fill {
     height: 100%;
     background: var(--accent);
-    border-radius: 4px;
+    border-radius: 1px;
     transition: width 0.3s;
   }
-  .skill-bar .count { width: 40px; text-align: right; color: var(--text-muted); font-size: 12px; }
+  .skill-card .triggers {
+    display: none;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .skill-card:hover .triggers { display: flex; }
 
   /* Table */
   .table-wrap {
@@ -305,8 +316,8 @@
   <!-- Top skills + Sessions -->
   <div class="section-row">
     <div>
-      <h2>Top Activated Skills</h2>
-      <div class="top-skills" id="topSkills"></div>
+      <h2>Skills</h2>
+      <div class="top-skills" id="skillsPanel"></div>
     </div>
     <div>
       <h2>Sessions</h2>
@@ -360,7 +371,6 @@
           <th data-sort="score">Score <span class="sort-arrow"></span></th>
           <th data-sort="threshold">Thr <span class="sort-arrow"></span></th>
           <th data-sort="time_ms">ms <span class="sort-arrow"></span></th>
-          <th data-sort="session">Session <span class="sort-arrow"></span></th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -410,9 +420,66 @@ function appendLog(text) {
   renderTable();
 }
 
+// --- Load skills from manifest ---
+let manifestSkills = [];
+
+async function loadManifestSkills() {
+  try {
+    const res = await fetch('/api/manifest');
+    if (!res.ok) return;
+    const manifest = await res.json();
+    manifestSkills = manifest.skills || [];
+    renderSkillsPanel();
+  } catch { /* manifest not available in file: mode */ }
+}
+
+function renderSkillsPanel(filteredEntries) {
+  const panel = document.getElementById('skillsPanel');
+  if (!manifestSkills.length) {
+    panel.innerHTML = '<div class="empty-state">No skills configured</div>';
+    return;
+  }
+
+  // Count activations per skill from filtered entries
+  const src = filteredEntries || entries;
+  const skillCounts = {};
+  for (const e of src) {
+    for (const s of (e.skills_matched || [])) {
+      skillCounts[s.name] = (skillCounts[s.name] || 0) + 1;
+    }
+  }
+
+  const max = Math.max(1, ...manifestSkills.map(s => skillCounts[s.name] || 0));
+
+  const sorted = [...manifestSkills].sort((a, b) => (skillCounts[b.name] || 0) - (skillCounts[a.name] || 0));
+
+  panel.innerHTML = sorted.map(s => {
+    const triggers = s.triggers || {};
+    const count = skillCounts[s.name] || 0;
+    const pct = (count / max * 100).toFixed(0);
+    const tags = [
+      ...(triggers.keywords || []).map(k => `<span class="signal-tag keyword">${esc(k)}</span>`),
+      ...(triggers.file_extensions || []).map(e => `<span class="signal-tag extension">${esc(e)}</span>`),
+      ...(triggers.patterns || []).map(p => `<span class="signal-tag pattern">${esc(p)}</span>`),
+      ...(triggers.file_paths || []).map(f => `<span class="signal-tag path">${esc(f)}</span>`),
+    ];
+    return `<div class="skill-card">
+      <div class="skill-header">
+        <span class="name">${esc(s.name)}</span>
+        <span class="desc">${esc(s.description || '')}</span>
+        <span class="count">${count}</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="triggers">${tags.join('')}</div>
+    </div>`;
+  }).join('');
+}
+
 // --- Auto-fetch from API when served via HTTP ---
 (function autoFetch() {
   if (location.protocol === 'file:') return;
+
+  loadManifestSkills();
 
   const es = new EventSource('/api/logs/stream');
 
@@ -521,24 +588,6 @@ function buildDashboard() {
     <div class="stat-card"><div class="value">${sessions}</div><div class="label">Sessions</div></div>
   `;
 
-  // Top skills
-  const skillCounts = {};
-  for (const e of entries) {
-    for (const s of (e.skills_matched || [])) {
-      skillCounts[s.name] = (skillCounts[s.name] || 0) + 1;
-    }
-  }
-  const sorted = Object.entries(skillCounts).sort((a, b) => b[1] - a[1]);
-  const max = sorted.length ? sorted[0][1] : 1;
-  document.getElementById('topSkills').innerHTML = sorted.length
-    ? sorted.map(([name, count]) => `
-      <div class="skill-bar">
-        <div class="name" title="${name}">${name}</div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${(count/max*100).toFixed(0)}%"></div></div>
-        <div class="count">${count}</div>
-      </div>`).join('')
-    : '<div class="empty-state">No skills activated yet</div>';
-
   // Sessions
   const sessionMap = {};
   for (const e of entries) {
@@ -552,6 +601,8 @@ function buildDashboard() {
       <span class="id" title="${id}">${id.length > 16 ? id.slice(0, 8) + '...' : id}</span>
       <span class="meta">${info.count} events, ${info.activated} activated</span>
     </div>`).join('');
+
+  // Skills panel is updated by renderTable() with filtered entries
 }
 
 function filterBySession(id) {
@@ -630,6 +681,9 @@ function renderTable() {
     return true;
   });
 
+  // Update skills panel with filtered data
+  renderSkillsPanel(filtered);
+
   // Sort
   filtered.sort((a, b) => {
     const va = getSortValue(a, sortCol);
@@ -647,7 +701,7 @@ function renderTable() {
 
   const tbody = document.getElementById('tableBody');
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No entries match filters</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No entries match filters</td></tr>';
     return;
   }
 
@@ -694,7 +748,6 @@ function renderTable() {
       <td style="font-weight:600;color:${topScore ? 'var(--orange)' : 'var(--text-muted)'}">${topScore || '—'}</td>
       <td style="color:var(--text-muted)">${e.threshold}</td>
       <td><span class="time-ms ${msClass}">${ms}</span></td>
-      <td><span class="session-id" title="${e.session_id || ''}">${(e.session_id || '').length > 12 ? (e.session_id || '').slice(0, 8) : (e.session_id || '')}</span></td>
     </tr>`;
   }).join('');
 }

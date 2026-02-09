@@ -24,7 +24,7 @@ Collection of specialized agents and skills for Claude Code.
   - `--pick=<name>` or bare `--pick` for selective install
   - `claudify logs` opens real-time skill-router log viewer in browser (`--file`, `--port`)
 - Skill Router: `packages/skill-router/` - auto-activates skills via hooks
-  - UserPromptSubmit: Matches skills to user prompts
+  - UserPromptSubmit: Matches skills to user prompts (keywords: exact, stem, fuzzy)
   - SubagentStart: Injects skill instructions into agents (use `--agent=<name>` flag)
   - PreToolUse: Injects skill context before Edit/Write tools based on file path signals
 - Config: `.claude/skills-manifest.json` defines skill triggers, weights, and agent mappings

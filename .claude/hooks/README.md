@@ -49,7 +49,7 @@ Edit `.claude/skills-manifest.json`:
 
 | Type | Default | Description |
 |------|---------|-------------|
-| `keywords` | 1.0 | Exact word matches |
+| `keywords` | 1.0 | Word matches (exact, stem, or fuzzy at 0.8× discount) |
 | `file_extensions` | 1.5 | File type signals (.ts, .pdf) |
 | `patterns` | 2.0 | Regex pattern matches |
 | `file_paths` | 2.5 | Path prefix matches |
@@ -80,6 +80,18 @@ Two separate thresholds control activation:
 | `pretooluse_threshold` | 1.5 | PreToolUse (Edit/Write) |
 
 The PreToolUse threshold is lower because tool inputs yield fewer signals — a single file extension match (weight 1.5) is often sufficient.
+
+### Keyword Matching
+
+Keywords use a three-tier matching priority:
+
+1. **Exact** — word appears verbatim in prompt → full weight
+2. **Stem** — word form matches after suffix stripping (e.g., "testing" matches keyword "test") → full weight
+3. **Fuzzy** — Levenshtein distance within threshold (e.g., "reveiw" matches "review") → weight × 0.8
+
+Fuzzy thresholds by keyword length: no fuzzy for 1–3 chars, max distance 1 for 4–5 chars, max distance 2 for 6+ chars. Short keywords are protected from false positives.
+
+The `matchQuality` field (`exact`, `stem`, or `fuzzy`) appears in log entries for debugging.
 
 **Threshold too high?** Skills won't activate. Lower the relevant threshold.
 
@@ -122,6 +134,12 @@ Log entry fields:
 - Check `signals_extracted` in log to see what was detected
 - Verify skill triggers match expected signals
 - For PreToolUse: only keywords, extensions, and file_paths fire — patterns are skipped
+- Check `matchQuality` in log — stem/fuzzy matches may score lower than expected
+
+**Unexpected skill activations?**
+- Fuzzy matching may match similar words — check `matchQuality: "fuzzy"` in logs
+- Use longer, more specific keywords to reduce false positives
+- Short keywords (1–3 chars) are never fuzzy-matched
 
 **Performance issues?**
 - Check `execution_time_ms` in logs (should be <50ms)

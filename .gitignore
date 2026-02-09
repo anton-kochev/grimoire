@@ -1,0 +1,6 @@
+/node_modules
+/packages/cli/dist
+/packages/cli/node_modules
+/packages/skill-router/dist
+/packages/skill-router/node_modules
+/.claude/logs

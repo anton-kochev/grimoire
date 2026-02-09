@@ -8,7 +8,7 @@
       "file_paths": 2.5
     },
     "activation_threshold": 3.0,
-    "pretooluse_threshold": 1.5,
+    "pretooluse_threshold": 2.0,
     "log_path": ".claude/logs/skill-router.log"
   },
   "skills": [
@@ -17,9 +17,9 @@
       "name": "DotNet Unit Testing",
       "description": "Unit testing for C#/.NET projects",
       "triggers": {
-        "keywords": ["test", "tests", "testing", "unittest", "xunit", "nunit", "tdd"],
+        "keywords": ["unittest", "xunit", "nunit", "tdd", "moq", "nsubstitute"],
         "file_extensions": [".cs"],
-        "patterns": ["write.*test", "add.*test", "create.*test", "unit.*test"],
+        "patterns": ["write.*test", "add.*test", "create.*test", "unit.*test", "dotnet.*test"],
         "file_paths": ["tests/", "test/", "Tests/", "Test/"]
       }
     },
@@ -37,10 +37,9 @@
       "name": "README Guide",
       "description": "Create and review README files",
       "triggers": {
-        "keywords": ["readme", "documentation", "docs"],
-        "file_extensions": [".md"],
-        "patterns": ["create.*readme", "write.*readme", "update.*readme"],
-        "file_paths": ["README", "docs/"]
+        "keywords": ["readme", "documentation"],
+        "patterns": ["create.*readme", "write.*readme", "update.*readme", "change.*readme", "improve.*readme", "check.*readme"],
+        "file_paths": ["README.md"]
       }
     },
     {
@@ -80,8 +79,7 @@
       "description": "End-to-end .NET feature development",
       "triggers": {
         "keywords": ["feature", "workflow", "implement"],
-        "file_extensions": [".cs", ".csproj"],
-        "patterns": ["build.*feature", "implement.*feature", "create.*feature"]
+        "patterns": ["build.*feature", "implement.*feature", "create.*feature", "new.*feature", "dotnet.*feature"]
       }
     }
   ],
