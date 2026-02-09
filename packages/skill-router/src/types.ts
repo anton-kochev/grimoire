@@ -161,6 +161,7 @@ export type MatchedSignalType = 'keyword' | 'extension' | 'pattern' | 'path';
 export interface MatchedSignal {
   type: MatchedSignalType;
   value: string;
+  matchQuality?: 'exact' | 'stem' | 'fuzzy';
 }
 
 /**

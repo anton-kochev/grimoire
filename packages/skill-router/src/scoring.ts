@@ -9,6 +9,11 @@ import type {
   SkillScoreResult,
   MatchedSignal,
 } from './types.js';
+import {
+  buildStemmedWordMap,
+  matchKeyword,
+  FUZZY_DISCOUNT,
+} from './matching.js';
 
 /**
  * Scores a skill against extracted signals from a prompt.
@@ -30,15 +35,22 @@ export function scoreSkill(
 
   const triggers = skill.triggers;
 
-  // 6.4.1 Keyword matching
+  // 6.4.1 Keyword matching (exact, stem, fuzzy)
   if (triggers.keywords) {
+    const stemmedWords = buildStemmedWordMap(signals.words);
     for (const keyword of triggers.keywords) {
       const keywordLower = keyword.toLowerCase();
-      if (signals.words.has(keywordLower)) {
-        score += weights.keywords;
+      const result = matchKeyword(keywordLower, signals.words, stemmedWords);
+      if (result.matched) {
+        const weight =
+          result.quality === 'fuzzy'
+            ? weights.keywords * FUZZY_DISCOUNT
+            : weights.keywords;
+        score += weight;
         matchedSignals.push({
           type: 'keyword',
           value: keyword,
+          matchQuality: result.quality,
         });
       }
     }

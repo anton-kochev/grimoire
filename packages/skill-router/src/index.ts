@@ -10,6 +10,7 @@ export * from './types.js';
 export * from './normalize.js';
 export * from './signals.js';
 export * from './scoring.js';
+export * from './matching.js';
 export * from './filtering.js';
 export * from './formatting.js';
 export * from './manifest.js';

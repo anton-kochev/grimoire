@@ -45,6 +45,7 @@ describe('scoreSkill', () => {
       expect(result.matchedSignals).toContainEqual({
         type: 'keyword',
         value: 'invoice',
+        matchQuality: 'exact',
       });
     });
 
@@ -61,6 +62,82 @@ describe('scoreSkill', () => {
       const result = scoreSkill(skill, signals, 'test prompt', defaultWeights);
 
       expect(result.score).toBe(2.0); // 2 keywords * 1.0 weight
+    });
+
+    it('should match keyword via stemming at full score', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          keywords: ['test'],
+        },
+      };
+
+      const signals = createSignals(['testing']);
+      const result = scoreSkill(skill, signals, 'testing prompt', defaultWeights);
+
+      expect(result.score).toBe(1.0); // full weight for stem match
+      expect(result.matchedSignals).toContainEqual({
+        type: 'keyword',
+        value: 'test',
+        matchQuality: 'stem',
+      });
+    });
+
+    it('should match keyword via fuzzy at discounted score', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          keywords: ['test'],
+        },
+      };
+
+      const signals = createSignals(['tast']); // substitution typo
+      const result = scoreSkill(skill, signals, 'tast prompt', defaultWeights);
+
+      expect(result.score).toBe(0.8); // 1.0 * 0.8 fuzzy discount
+      expect(result.matchedSignals).toContainEqual({
+        type: 'keyword',
+        value: 'test',
+        matchQuality: 'fuzzy',
+      });
+    });
+
+    it('should prefer exact match over stem when both present', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          keywords: ['test'],
+        },
+      };
+
+      const signals = createSignals(['test', 'testing']);
+      const result = scoreSkill(skill, signals, 'test testing', defaultWeights);
+
+      expect(result.score).toBe(1.0);
+      expect(result.matchedSignals).toContainEqual({
+        type: 'keyword',
+        value: 'test',
+        matchQuality: 'exact',
+      });
+    });
+
+    it('should not fuzzy-match short keywords', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          keywords: ['go'],
+        },
+      };
+
+      const signals = createSignals(['do']);
+      const result = scoreSkill(skill, signals, 'do something', defaultWeights);
+
+      expect(result.score).toBe(0);
+      expect(result.matchedSignals).toHaveLength(0);
     });
   });
 
