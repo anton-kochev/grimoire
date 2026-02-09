@@ -2,6 +2,7 @@
  * Skill scoring functions
  */
 
+import picomatch from 'picomatch';
 import type {
   SkillDefinition,
   SkillWeights,
@@ -89,25 +90,27 @@ export function scoreSkill(
     }
   }
 
-  // 6.4.4 File path matching
+  // 6.4.4 File path matching (glob patterns)
   if (triggers.file_paths) {
-    for (const pathPrefix of triggers.file_paths) {
-      const pathPrefixLower = pathPrefix.toLowerCase();
-      let matched = false;
-
-      for (const promptPath of signals.paths) {
-        if (promptPath.startsWith(pathPrefixLower)) {
-          matched = true;
-          break; // Only count each path_prefix once
+    for (const pathPattern of triggers.file_paths) {
+      try {
+        const isMatch = picomatch(pathPattern, { nocase: true });
+        let matched = false;
+        for (const promptPath of signals.paths) {
+          if (isMatch(promptPath)) {
+            matched = true;
+            break;
+          }
         }
-      }
-
-      if (matched) {
-        score += weights.file_paths;
-        matchedSignals.push({
-          type: 'path',
-          value: pathPrefix,
-        });
+        if (matched) {
+          score += weights.file_paths;
+          matchedSignals.push({
+            type: 'path',
+            value: pathPattern,
+          });
+        }
+      } catch {
+        console.warn(`Invalid glob pattern: ${pathPattern}`);
       }
     }
   }

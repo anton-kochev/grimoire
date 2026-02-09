@@ -17,19 +17,30 @@
       "name": "DotNet Unit Testing",
       "description": "Unit testing for C#/.NET projects",
       "triggers": {
-        "keywords": ["unittest", "xunit", "nunit", "tdd", "moq", "nsubstitute"],
-        "file_extensions": [".cs"],
-        "patterns": ["write.*test", "add.*test", "create.*test", "unit.*test", "dotnet.*test"],
-        "file_paths": ["tests/", "test/", "Tests/", "Test/"]
-      }
-    },
-    {
-      "path": ".claude/skills/claudify:conventional-commit",
-      "name": "Conventional Commit",
-      "description": "Git commits following Conventional Commits spec",
-      "triggers": {
-        "keywords": ["commit", "commits", "conventional"],
-        "patterns": ["git.*commit", "create.*commit", "make.*commit"]
+        "keywords": [
+          "unittest",
+          "xunit",
+          "nunit",
+          "tdd",
+          "moq",
+          "nsubstitute"
+        ],
+        "file_extensions": [
+          ".cs"
+        ],
+        "patterns": [
+          "write.*test",
+          "add.*test",
+          "create.*test",
+          "unit.*test",
+          "dotnet.*test"
+        ],
+        "file_paths": [
+          "tests/**",
+          "test/**",
+          "Tests/**",
+          "Test/**"
+        ]
       }
     },
     {
@@ -37,9 +48,21 @@
       "name": "README Guide",
       "description": "Create and review README files",
       "triggers": {
-        "keywords": ["readme", "documentation"],
-        "patterns": ["create.*readme", "write.*readme", "update.*readme", "change.*readme", "improve.*readme", "check.*readme"],
-        "file_paths": ["README.md"]
+        "keywords": [
+          "readme",
+          "documentation"
+        ],
+        "patterns": [
+          "create.*readme",
+          "write.*readme",
+          "update.*readme",
+          "change.*readme",
+          "improve.*readme",
+          "check.*readme"
+        ],
+        "file_paths": [
+          "**/README.md"
+        ]
       }
     },
     {
@@ -47,19 +70,17 @@
       "name": "Context File Guide",
       "description": "CLAUDE.md project context files",
       "triggers": {
-        "keywords": ["claude.md", "context"],
-        "patterns": ["create.*claude", "update.*claude\\.md"],
-        "file_paths": ["CLAUDE.md"]
-      }
-    },
-    {
-      "path": ".claude/skills/claudify:skill-developer",
-      "name": "Skill Developer",
-      "description": "Create custom Claude Code skills",
-      "triggers": {
-        "keywords": ["skill", "skills"],
-        "patterns": ["create.*skill", "new.*skill", "build.*skill"],
-        "file_paths": [".claude/skills/"]
+        "keywords": [
+          "claude.md",
+          "context"
+        ],
+        "patterns": [
+          "create.*claude",
+          "update.*claude\\.md"
+        ],
+        "file_paths": [
+          "**/CLAUDE.md"
+        ]
       }
     },
     {
@@ -67,10 +88,27 @@
       "name": "Modern TypeScript",
       "description": "Modern TypeScript best practices and type system patterns",
       "triggers": {
-        "keywords": ["typescript", "ts", "tsconfig", "generics", "types"],
-        "file_extensions": [".ts", ".tsx", ".mts", ".cts"],
-        "patterns": ["type.*safe", "strict.*mode", "discriminated.*union", "branded.*type", "modern.*typescript"],
-        "file_paths": ["tsconfig", ".ts"]
+        "keywords": [
+          "typescript",
+          "ts",
+          "tsconfig"
+        ],
+        "file_extensions": [
+          ".ts",
+          ".tsx",
+          ".mts",
+          ".cts"
+        ],
+        "patterns": [
+          "type.*safe",
+          "strict.*mode",
+          "discriminated.*union",
+          "branded.*type",
+          "modern.*typescript"
+        ],
+        "file_paths": [
+          "**/tsconfig*"
+        ]
       }
     },
     {
@@ -78,8 +116,18 @@
       "name": "DotNet Feature Workflow",
       "description": "End-to-end .NET feature development",
       "triggers": {
-        "keywords": ["feature", "workflow", "implement"],
-        "patterns": ["build.*feature", "implement.*feature", "create.*feature", "new.*feature", "dotnet.*feature"]
+        "keywords": [
+          "feature",
+          "workflow",
+          "implement"
+        ],
+        "patterns": [
+          "build.*feature",
+          "implement.*feature",
+          "create.*feature",
+          "new.*feature",
+          "dotnet.*feature"
+        ]
       }
     }
   ],

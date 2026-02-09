@@ -31,7 +31,7 @@ describe('processToolUse (integration)', () => {
           keywords: ['typescript', 'ts'],
           file_extensions: ['.ts', '.tsx'],
           patterns: ['type.*safe'],
-          file_paths: ['src/', 'tsconfig'],
+          file_paths: ['src/**', '**/tsconfig*'],
         },
       },
       {
@@ -41,7 +41,7 @@ describe('processToolUse (integration)', () => {
           keywords: ['test', 'testing'],
           file_extensions: ['.cs'],
           patterns: ['write.*test'],
-          file_paths: ['tests/', 'Tests/'],
+          file_paths: ['tests/**', 'Tests/**'],
         },
       },
       {
@@ -50,7 +50,7 @@ describe('processToolUse (integration)', () => {
         triggers: {
           keywords: ['readme'],
           file_extensions: ['.md'],
-          file_paths: ['README', 'docs/'],
+          file_paths: ['**/README*', 'docs/**'],
         },
       },
     ],

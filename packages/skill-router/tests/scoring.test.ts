@@ -212,7 +212,7 @@ describe('scoreSkill', () => {
         path: '/skills/test',
         name: 'Test Skill',
         triggers: {
-          file_paths: ['invoices/', 'receipts/'],
+          file_paths: ['invoices/**', 'receipts/**'],
         },
       };
 
@@ -222,7 +222,7 @@ describe('scoreSkill', () => {
       expect(result.score).toBe(2.5); // 1 path * 2.5 weight
       expect(result.matchedSignals).toContainEqual({
         type: 'path',
-        value: 'invoices/',
+        value: 'invoices/**',
       });
     });
 
@@ -231,7 +231,7 @@ describe('scoreSkill', () => {
         path: '/skills/test',
         name: 'Test Skill',
         triggers: {
-          file_paths: ['invoices/'],
+          file_paths: ['invoices/**'],
         },
       };
 
@@ -245,6 +245,73 @@ describe('scoreSkill', () => {
       // Should only count prefix once
       expect(result.score).toBe(2.5);
     });
+
+    it('should match deep paths with ** glob', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          file_paths: ['**/README.md'],
+        },
+      };
+
+      const signals = createSignals([], [], ['docs/README.md']);
+      const result = scoreSkill(skill, signals, 'test prompt', defaultWeights);
+
+      expect(result.score).toBe(2.5);
+      expect(result.matchedSignals).toContainEqual({
+        type: 'path',
+        value: '**/README.md',
+      });
+    });
+
+    it('should match root paths with ** glob (nocase)', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          file_paths: ['**/README.md'],
+        },
+      };
+
+      const signals = createSignals([], [], ['readme.md']);
+      const result = scoreSkill(skill, signals, 'test prompt', defaultWeights);
+
+      expect(result.score).toBe(2.5);
+    });
+
+    it('should match nested paths with directory glob', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          file_paths: ['src/**'],
+        },
+      };
+
+      const signals = createSignals([], [], ['src/utils/helper.ts']);
+      const result = scoreSkill(skill, signals, 'test prompt', defaultWeights);
+
+      expect(result.score).toBe(2.5);
+    });
+
+    it('should handle invalid glob pattern gracefully', () => {
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          file_paths: ['[invalid'],
+        },
+      };
+
+      const signals = createSignals([], [], ['some/path.ts']);
+      const result = scoreSkill(skill, signals, 'test prompt', defaultWeights);
+
+      expect(result.score).toBe(0);
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('combined scoring', () => {
@@ -256,7 +323,7 @@ describe('scoreSkill', () => {
           keywords: ['invoice'],
           file_extensions: ['.pdf'],
           patterns: ['process.*invoice'],
-          file_paths: ['invoices/'],
+          file_paths: ['invoices/**'],
         },
       };
 
@@ -287,7 +354,7 @@ describe('scoreSkill', () => {
           keywords: ['invoice', 'receipt', 'billing', 'expense'],
           file_extensions: ['.pdf'],
           patterns: ['process.*invoice', 'extract.*receipt'],
-          file_paths: ['invoices/', 'receipts/', 'expenses/'],
+          file_paths: ['invoices/**', 'receipts/**', 'expenses/**'],
         },
       };
 
@@ -307,7 +374,7 @@ describe('scoreSkill', () => {
       // Keyword "invoice": +1.0
       // Extension ".pdf": +1.5
       // Pattern "process.*invoice": +2.0
-      // Path "invoices/": +2.5
+      // Path "invoices/**": +2.5
       // Total: 7.0
       expect(result.score).toBe(7.0);
     });

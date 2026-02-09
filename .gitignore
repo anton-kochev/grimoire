@@ -4,3 +4,4 @@
 /packages/skill-router/dist
 /packages/skill-router/node_modules
 /.claude/logs
+/.playwright-mcp

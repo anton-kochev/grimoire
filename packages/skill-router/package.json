@@ -20,11 +20,15 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0",
+    "@types/picomatch": "^4.0.2",
     "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "picomatch": "^4.0.3"
   }
 }

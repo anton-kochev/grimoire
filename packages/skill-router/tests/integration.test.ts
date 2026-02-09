@@ -28,7 +28,7 @@ describe('processPrompt (integration)', () => {
           keywords: ['invoice', 'receipt', 'billing'],
           file_extensions: ['.pdf'],
           patterns: ['process.*invoice'],
-          file_paths: ['invoices/'],
+          file_paths: ['invoices/**'],
         },
       },
       {

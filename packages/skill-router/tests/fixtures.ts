@@ -26,7 +26,7 @@ export const sampleManifest = {
         keywords: ['invoice', 'receipt', 'billing', 'expense'],
         file_extensions: ['.pdf'],
         patterns: ['process.*invoice', 'extract.*receipt'],
-        file_paths: ['invoices/', 'receipts/', 'expenses/'],
+        file_paths: ['invoices/**', 'receipts/**', 'expenses/**'],
       },
     },
     {
@@ -37,7 +37,7 @@ export const sampleManifest = {
         keywords: ['review', 'code', 'refactor'],
         file_extensions: ['.ts', '.js', '.py'],
         patterns: ['review.*code', 'check.*quality'],
-        file_paths: ['src/', 'lib/'],
+        file_paths: ['src/**', 'lib/**'],
       },
     },
   ],
