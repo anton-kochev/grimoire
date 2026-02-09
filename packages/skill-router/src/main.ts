@@ -2,7 +2,7 @@
  * Main execution flow for the Skill Router
  */
 
-import type { HookInput, HookOutput, PreToolUseInput, PreToolUseOutput } from './types.js';
+import type { ExtractedSignals, HookInput, HookOutput, PreToolUseInput, PreToolUseOutput } from './types.js';
 import { normalizePrompt } from './normalize.js';
 import { extractSignals } from './signals.js';
 import { scoreSkill } from './scoring.js';
@@ -240,9 +240,16 @@ export function processToolUse(
     // Extract signals from tool input (file path)
     const signals = extractToolSignals(input.tool_input, projectDir);
 
-    // Score all skills (pass empty string as normalizedPrompt — no pattern matching)
+    // Score all skills — only file_extensions and file_paths are meaningful for
+    // PreToolUse (keywords match path components, not user intent; patterns need
+    // a prompt). Empty words disables keywords; empty string disables patterns.
+    const fileOnlySignals: ExtractedSignals = {
+      words: new Set(),
+      extensions: signals.extensions,
+      paths: signals.paths,
+    };
     const results = manifest.skills.map((skill) =>
-      scoreSkill(skill, signals, '', manifest.config.weights)
+      scoreSkill(skill, fileOnlySignals, '', manifest.config.weights)
     );
 
     // Filter by pretooluse_threshold
@@ -260,7 +267,7 @@ export function processToolUse(
       sessionId: input.session_id,
       promptRaw: `[PreToolUse:${input.tool_name}] ${typeof input.tool_input['file_path'] === 'string' ? input.tool_input['file_path'] : ''}`,
       promptNormalized: '',
-      signals,
+      signals: fileOnlySignals,
       skillsEvaluated: manifest.skills.length,
       matchedSkills: matched,
       threshold,

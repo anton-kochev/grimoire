@@ -90,8 +90,10 @@
       "triggers": {
         "keywords": [
           "typescript",
-          "ts",
-          "tsconfig"
+          "tsconfig",
+          "satisfies",
+          "narrowing",
+          "readonly"
         ],
         "file_extensions": [
           ".ts",
@@ -104,10 +106,23 @@
           "strict.*mode",
           "discriminated.*union",
           "branded.*type",
-          "modern.*typescript"
+          "modern.*typescript",
+          "typescript.*generic",
+          "typescript.*pattern",
+          "typescript.*best",
+          "type.*error",
+          "type.*guard",
+          "configure.*tsconfig",
+          "write.*typescript",
+          "review.*typescript",
+          "refactor.*type"
         ],
         "file_paths": [
-          "**/tsconfig*"
+          "**/tsconfig*",
+          "**/*.ts",
+          "**/*.tsx",
+          "**/*.mts",
+          "**/*.cts"
         ]
       }
     },
@@ -118,15 +133,33 @@
       "triggers": {
         "keywords": [
           "feature",
-          "workflow",
-          "implement"
+          "dotnet",
+          "csharp",
+          "scaffold",
+          "endpoint"
+        ],
+        "file_extensions": [
+          ".cs",
+          ".csproj",
+          ".sln"
         ],
         "patterns": [
           "build.*feature",
           "implement.*feature",
           "create.*feature",
           "new.*feature",
-          "dotnet.*feature"
+          "add.*feature",
+          "develop.*feature",
+          "csharp.*feature",
+          "handle.*whole",
+          "end.*to.*end",
+          "implement.*endpoint",
+          "build.*endpoint",
+          "add.*endpoint"
+        ],
+        "file_paths": [
+          "**/*.csproj",
+          "**/*.sln"
         ]
       }
     }
