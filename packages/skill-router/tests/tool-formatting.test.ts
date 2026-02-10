@@ -61,11 +61,11 @@ describe('formatToolUseContext', () => {
     expect(indexA).toBeLessThan(indexB);
   });
 
-  it('should include read reminder', () => {
+  it('should include activation reminder', () => {
     const skills = [makeResult('Test', '/test', 1.5)];
     const output = formatToolUseContext(skills, 'Edit');
 
-    expect(output).toContain('Read the SKILL.md');
+    expect(output).toContain('Make sure to activate the skill(s) listed above before continuing with this Edit operation.');
   });
 
   it('should handle skill with no matched signals', () => {

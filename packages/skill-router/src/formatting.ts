@@ -54,11 +54,16 @@ export function summarizeSignals(signals: MatchedSignal[]): string {
 
 /**
  * Formats matched skills into context injection message.
+ * When skill content is provided, injects the SKILL.md body directly.
  *
  * @param matchedSkills - Array of skill score results
+ * @param skillContents - Optional map of skill path to SKILL.md body content
  * @returns Formatted context string for LLM injection
  */
-export function formatContext(matchedSkills: SkillScoreResult[]): string {
+export function formatContext(
+  matchedSkills: SkillScoreResult[],
+  skillContents?: Map<string, string>
+): string {
   const lines: string[] = [];
 
   lines.push(
@@ -79,10 +84,32 @@ export function formatContext(matchedSkills: SkillScoreResult[]): string {
     }
   }
 
-  lines.push('');
-  lines.push(
-    'Please read the SKILL.md file(s) listed above using the view tool before proceeding with the task.'
-  );
+  // Inject skill content if available
+  const injectedAny = skillContents != null && skillContents.size > 0 &&
+    matchedSkills.some((r) => skillContents.has(r.skill.path));
+
+  if (injectedAny) {
+    for (const result of matchedSkills) {
+      const content = skillContents!.get(result.skill.path);
+      if (content) {
+        lines.push('');
+        lines.push('---');
+        lines.push(`### ${result.skill.name} (${result.skill.path}/SKILL.md)`);
+        lines.push('');
+        lines.push(content);
+      }
+    }
+
+    lines.push('');
+    lines.push(
+      'Follow the skill instructions above. Read referenced files within skills as needed.'
+    );
+  } else {
+    lines.push('');
+    lines.push(
+      'Please read the SKILL.md file(s) listed above using the view tool before proceeding with the task.'
+    );
+  }
 
   return lines.join('\n');
 }

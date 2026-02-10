@@ -10,6 +10,7 @@ import { filterByThreshold, sortDescendingByScore } from './filtering.js';
 import { formatContext, formatAgentContext } from './formatting.js';
 import { formatToolUseContext } from './tool-formatting.js';
 import { loadManifest, getAgentConfig } from './manifest.js';
+import { readSkillBody } from './skill-content.js';
 import { parseStdinInput, readStdin } from './input.js';
 import { buildLogEntry, writeLog } from './logging.js';
 import { buildHookOutput } from './output.js';
@@ -24,11 +25,13 @@ const DEFAULT_PRETOOLUSE_THRESHOLD = 1.5;
  *
  * @param input - Parsed hook input
  * @param manifestPath - Path to the skill manifest
+ * @param projectDir - Optional project directory for SKILL.md content injection
  * @returns HookOutput if skills matched, null otherwise
  */
 export function processPrompt(
   input: HookInput,
-  manifestPath: string
+  manifestPath: string,
+  projectDir?: string
 ): HookOutput | null {
   const startTime = Date.now();
   let logPath = '.claude/logs/skill-router.log';
@@ -81,7 +84,19 @@ export function processPrompt(
 
     // Return output if skills matched
     if (matched.length > 0) {
-      const context = formatContext(matched);
+      // Read SKILL.md content when projectDir is available
+      let skillContents: Map<string, string> | undefined;
+      if (projectDir) {
+        skillContents = new Map();
+        for (const result of matched) {
+          const body = readSkillBody(result.skill.path, projectDir);
+          if (body) {
+            skillContents.set(result.skill.path, body);
+          }
+        }
+      }
+
+      const context = formatContext(matched, skillContents);
       return buildHookOutput(context);
     }
 
@@ -343,7 +358,7 @@ export async function main(): Promise<void> {
       output = processAgentPrompt(stdinInput.input, manifestPath, args.agent);
     } else {
       // Original UserPromptSubmit mode
-      output = processPrompt(stdinInput.input, manifestPath);
+      output = processPrompt(stdinInput.input, manifestPath, projectDir);
     }
 
     // Write output if skills matched

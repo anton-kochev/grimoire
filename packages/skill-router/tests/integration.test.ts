@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { processPrompt } from '../src/main.js';
-import { writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync, rmSync, readFileSync, existsSync, realpathSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -180,6 +180,106 @@ describe('processPrompt (integration)', () => {
     if (codeIndex !== -1) {
       expect(invoiceIndex).toBeLessThan(codeIndex);
     }
+  });
+});
+
+describe('processPrompt with projectDir (content injection)', () => {
+  let testDir: string;
+  let manifestPath: string;
+  let logPath: string;
+
+  beforeEach(() => {
+    const raw = join(tmpdir(), `skill-router-inject-${Date.now()}`);
+    mkdirSync(raw, { recursive: true });
+    testDir = realpathSync(raw);
+    manifestPath = join(testDir, 'manifest.json');
+    logPath = join(testDir, 'logs', 'router.log');
+
+    // Create skill directory with SKILL.md
+    const skillDir = join(testDir, '.claude', 'skills', 'invoice');
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      '---\nname: invoice\ndescription: "Invoice processing"\n---\n\n# Invoice Skill\n\nProcess invoices carefully.'
+    );
+
+    const manifest = {
+      version: '1.0.0',
+      config: {
+        weights: { keywords: 1.0, file_extensions: 1.5, patterns: 2.0, file_paths: 2.5 },
+        activation_threshold: 3.0,
+        log_path: logPath,
+      },
+      skills: [
+        {
+          path: '.claude/skills/invoice',
+          name: 'Invoice Processor',
+          triggers: {
+            keywords: ['invoice', 'receipt', 'billing'],
+            file_extensions: ['.pdf'],
+            patterns: ['process.*invoice'],
+            file_paths: ['invoices/**'],
+          },
+        },
+      ],
+    };
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('should inject SKILL.md content when projectDir is provided', () => {
+    const input = {
+      prompt: 'Process the invoice in invoices/march.pdf',
+      session_id: 'test-123',
+      timestamp: new Date().toISOString(),
+    };
+
+    const result = processPrompt(input, manifestPath, testDir);
+
+    expect(result).not.toBeNull();
+    const context = result!.hookSpecificOutput.additionalContext;
+    expect(context).toContain('Invoice Processor');
+    expect(context).toContain('# Invoice Skill');
+    expect(context).toContain('Process invoices carefully.');
+    expect(context).toContain('Follow the skill instructions above.');
+  });
+
+  it('should use fallback message when projectDir is not provided', () => {
+    const input = {
+      prompt: 'Process the invoice in invoices/march.pdf',
+      session_id: 'test-123',
+      timestamp: new Date().toISOString(),
+    };
+
+    const result = processPrompt(input, manifestPath);
+
+    expect(result).not.toBeNull();
+    const context = result!.hookSpecificOutput.additionalContext;
+    expect(context).toContain('Invoice Processor');
+    expect(context).toContain('Please read the SKILL.md');
+    expect(context).not.toContain('# Invoice Skill');
+  });
+
+  it('should gracefully handle missing SKILL.md when projectDir is provided', () => {
+    // Remove the SKILL.md file
+    rmSync(join(testDir, '.claude', 'skills', 'invoice', 'SKILL.md'));
+
+    const input = {
+      prompt: 'Process the invoice in invoices/march.pdf',
+      session_id: 'test-123',
+      timestamp: new Date().toISOString(),
+    };
+
+    const result = processPrompt(input, manifestPath, testDir);
+
+    expect(result).not.toBeNull();
+    const context = result!.hookSpecificOutput.additionalContext;
+    expect(context).toContain('Invoice Processor');
+    // Falls back to read message since no content could be loaded
+    expect(context).toContain('Please read the SKILL.md');
   });
 });
 

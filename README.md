@@ -25,6 +25,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [context-file-guide](#context-file-guide)
   - [skill-developer](#skill-developer)
   - [readme-guide](#readme-guide)
+  - [business-logic-docs](#business-logic-docs)
 - [Creating New Skills](#creating-new-skills)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
@@ -460,6 +461,23 @@ Creates professional README files following industry standards.
 - Suggest appropriate badges using Shields.io
 - Review existing READMEs against best practices
 
+### business-logic-docs
+
+Guides Claude through creating and maintaining a structured knowledge base of a project's business logic.
+
+**Trigger:** When documenting business rules, domain knowledge, invariants, or workflows
+
+**Capabilities:**
+
+- Discover domain areas from codebase structure and interview developers
+- Generate three-tier documentation: overview, per-domain-area files, decision log
+- Update existing docs when business logic changes
+- Integrate with CLAUDE.md for automatic context loading
+
+**Output:** Markdown files in `docs/business-logic/` with glossary, business rules, state diagrams, and decision log.
+
+**Reference files:** `tier2-template.md`
+
 ## Creating New Skills
 
 ### Quick Start
@@ -567,8 +585,12 @@ claudify/
         │   ├── templates/
         │   ├── examples/
         │   └── reference/
-        └── claudify:readme-guide/
-            └── SKILL.md
+        ├── claudify:readme-guide/
+        │   └── SKILL.md
+        └── business-logic-docs/
+            ├── SKILL.md
+            └── references/
+                └── tier2-template.md
 ```
 
 ## Contributing

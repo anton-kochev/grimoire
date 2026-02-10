@@ -128,6 +128,93 @@ describe('formatContext', () => {
     const context = formatContext(results);
     expect(context).toContain('7.0');
   });
+
+  it('should keep fallback read message when no content map provided', () => {
+    const results = [
+      createResult('Test', '/skills/test', 5.0, []),
+    ];
+
+    const context = formatContext(results);
+
+    expect(context).toContain('Please read the SKILL.md');
+  });
+
+  it('should keep fallback read message when content map is empty', () => {
+    const results = [
+      createResult('Test', '/skills/test', 5.0, []),
+    ];
+
+    const context = formatContext(results, new Map());
+
+    expect(context).toContain('Please read the SKILL.md');
+  });
+
+  it('should inject skill body when content map has matching entry', () => {
+    const results = [
+      createResult('Invoice Processor', '/skills/invoice', 5.0, [
+        { type: 'keyword', value: 'invoice' },
+      ]),
+    ];
+    const contents = new Map([['/skills/invoice', '# Invoice Processor\n\nProcess invoices.']]);
+
+    const context = formatContext(results, contents);
+
+    expect(context).toContain('# Invoice Processor');
+    expect(context).toContain('Process invoices.');
+  });
+
+  it('should change closing message when content is injected', () => {
+    const results = [
+      createResult('Test Skill', '/skills/test', 5.0, []),
+    ];
+    const contents = new Map([['/skills/test', '# Test\n\nBody.']]);
+
+    const context = formatContext(results, contents);
+
+    expect(context).toContain('Follow the skill instructions above.');
+    expect(context).not.toContain('Please read the SKILL.md');
+  });
+
+  it('should still list skills without content in map normally', () => {
+    const results = [
+      createResult('Skill A', '/skills/a', 7.0, [
+        { type: 'keyword', value: 'test' },
+      ]),
+      createResult('Skill B', '/skills/b', 5.0, [
+        { type: 'extension', value: '.ts' },
+      ]),
+    ];
+    // Only Skill A has content
+    const contents = new Map([['/skills/a', '# Skill A\n\nContent A.']]);
+
+    const context = formatContext(results, contents);
+
+    // Both listed in summary
+    expect(context).toContain('Skill A');
+    expect(context).toContain('Skill B');
+    // Only Skill A content injected
+    expect(context).toContain('Content A.');
+    // Still uses injected message since at least one was injected
+    expect(context).toContain('Follow the skill instructions above.');
+  });
+
+  it('should separate injected content sections with dividers', () => {
+    const results = [
+      createResult('Skill A', '/skills/a', 7.0, []),
+      createResult('Skill B', '/skills/b', 5.0, []),
+    ];
+    const contents = new Map([
+      ['/skills/a', '# Skill A\n\nContent A.'],
+      ['/skills/b', '# Skill B\n\nContent B.'],
+    ]);
+
+    const context = formatContext(results, contents);
+
+    expect(context).toContain('Content A.');
+    expect(context).toContain('Content B.');
+    // Dividers between sections
+    expect(context).toContain('---');
+  });
 });
 
 describe('formatAgentContext', () => {

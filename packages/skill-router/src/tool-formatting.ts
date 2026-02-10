@@ -37,7 +37,7 @@ export function formatToolUseContext(
 
   lines.push('');
   lines.push(
-    'Read the SKILL.md file(s) above if you have not already loaded them in this session.'
+    `Make sure to activate the skill(s) listed above before continuing with this ${toolName} operation.`
   );
 
   return lines.join('\n');
