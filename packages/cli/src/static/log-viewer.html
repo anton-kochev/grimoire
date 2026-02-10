@@ -591,11 +591,12 @@ function buildDashboard() {
   // Sessions
   const sessionMap = {};
   for (const e of entries) {
-    if (!sessionMap[e.session_id]) sessionMap[e.session_id] = { count: 0, activated: 0, first: e.timestamp };
+    if (!sessionMap[e.session_id]) sessionMap[e.session_id] = { count: 0, activated: 0, last: e.timestamp };
     sessionMap[e.session_id].count++;
     if (e.outcome === 'activated') sessionMap[e.session_id].activated++;
+    if (e.timestamp > sessionMap[e.session_id].last) sessionMap[e.session_id].last = e.timestamp;
   }
-  const sessionEntries = Object.entries(sessionMap).sort((a, b) => b[1].count - a[1].count);
+  const sessionEntries = Object.entries(sessionMap).sort((a, b) => b[1].last < a[1].last ? -1 : b[1].last > a[1].last ? 1 : 0);
   document.getElementById('sessionList').innerHTML = sessionEntries.map(([id, info]) => `
     <div class="session-item" data-session="${id}" onclick="filterBySession('${id}')">
       <span class="id" title="${id}">${id.length > 16 ? id.slice(0, 8) + '...' : id}</span>
