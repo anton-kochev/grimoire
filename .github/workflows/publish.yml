@@ -1,0 +1,64 @@
+name: Publish
+
+on:
+  push:
+    tags: ['cli/v*', 'skill-router/v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Parse tag
+        id: tag
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          PREFIX=${TAG%/v*}
+          VERSION=${TAG#*/v}
+          case "$PREFIX" in
+            cli) DIR=packages/cli ;;
+            skill-router) DIR=packages/skill-router ;;
+            *) echo "Unknown tag prefix: $PREFIX" && exit 1 ;;
+          esac
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate version matches package.json
+        run: |
+          PKG_VERSION=$(node -p "require('./${{ steps.tag.outputs.dir }}/package.json').version")
+          if [ "$PKG_VERSION" != "${{ steps.tag.outputs.version }}" ]; then
+            echo "Tag version (${{ steps.tag.outputs.version }}) != package.json ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        working-directory: ${{ steps.tag.outputs.dir }}
