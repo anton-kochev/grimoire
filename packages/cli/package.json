@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "CLI tool for installing Claudify agent and skill packs",
   "type": "module",
+  "license": "MIT",
+  "author": "Anton Kochev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anton-kochev/claudify",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/anton-kochev/claudify/tree/main/packages/cli",
+  "bugs": "https://github.com/anton-kochev/claudify/issues",
+  "keywords": ["claude", "claude-code", "agents", "skills", "cli"],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
@@ -14,13 +24,15 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "files": ["dist/"],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build": "tsc",
-    "postbuild": "cp -r src/static dist/src/static",
-    "dev": "tsx src/bin.ts"
+    "postbuild": "cp -r src/static dist/static",
+    "dev": "tsx src/bin.ts",
+    "prepublishOnly": "pnpm test && pnpm build"
   },
   "dependencies": {
     "citty": "^0.1.6",
