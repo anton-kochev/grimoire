@@ -43,3 +43,12 @@ export interface InstallSummary {
   readonly packVersion: string;
   readonly results: readonly InstallResult[];
 }
+
+export interface RemoveResult {
+  readonly item: InstallItem;
+  readonly removed: boolean;
+}
+
+export interface RemoveSummary {
+  readonly results: readonly RemoveResult[];
+}

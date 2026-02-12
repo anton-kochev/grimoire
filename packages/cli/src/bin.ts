@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from 'citty';
 import { runAdd } from './commands/add.js';
+import { runRemove } from './commands/remove.js';
 import { runLogs } from './commands/logs.js';
 
 const addCommand = defineCommand({
@@ -25,6 +26,27 @@ const addCommand = defineCommand({
   },
   async run({ args }) {
     await runAdd(args.pack, args.pick, process.cwd(), args.enableAutoActivation);
+  },
+});
+
+const removeCommand = defineCommand({
+  meta: {
+    name: 'remove',
+    description: 'Remove agents and skills from your project',
+  },
+  args: {
+    name: {
+      type: 'positional',
+      description: 'Item name to remove',
+      required: false,
+    },
+    pick: {
+      type: 'string',
+      description: 'Interactive selection of items to remove',
+    },
+  },
+  async run({ args }) {
+    await runRemove(args.name, args.pick, process.cwd());
   },
 });
 
@@ -70,6 +92,7 @@ const main = defineCommand({
   },
   subCommands: {
     add: addCommand,
+    remove: removeCommand,
     logs: logsCommand,
   },
 });

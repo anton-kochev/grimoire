@@ -7,6 +7,8 @@ export { runAdd } from './commands/add.js';
 export { runLogs } from './commands/logs.js';
 export type { LogsOptions } from './commands/logs.js';
 export { mergeSettings, mergeManifest, setupRouter } from './setup.js';
+export { scanInstalled, removeItems, cleanManifest } from './remove.js';
+export { runRemove } from './commands/remove.js';
 export type {
   PackSkillTriggers,
   PackAgentEntry,
@@ -15,4 +17,6 @@ export type {
   InstallItem,
   InstallResult,
   InstallSummary,
+  RemoveResult,
+  RemoveSummary,
 } from './types.js';
