@@ -30,7 +30,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build": "tsc",
-    "postbuild": "cp -r src/static dist/static",
+    "postbuild": "cp -r src/static/ dist/static/",
     "dev": "tsx src/bin.ts",
     "prepublishOnly": "pnpm test && pnpm build"
   },
