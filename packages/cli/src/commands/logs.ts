@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { readFileSync, accessSync, constants, statSync, openSync, readSync, closeSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { exec } from 'node:child_process';
 
@@ -18,18 +18,15 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
     : resolve(cwd, DEFAULT_LOG_PATH);
 
   // Validate log file exists up front
-  try {
-    accessSync(logFilePath, constants.R_OK);
-  } catch {
-    throw new Error(
-      `Log file not found: ${logFilePath}\n\n` +
-      'The skill-router has not produced any logs yet.\n' +
-      'Logs are created after the skill-router hook runs for the first time.\n\n' +
-      'To get started:\n' +
-      '  1. Install a pack with auto-activation: grimoire add <pack> --enable-auto-activation\n' +
-      '  2. Open Claude Code in the project and send a prompt\n' +
-      '  3. Run this command again',
-    );
+  if (!existsSync(logFilePath)) {
+    console.error(`Log file not found: ${logFilePath}\n`);
+    console.error('The skill-router has not produced any logs yet.');
+    console.error('Logs are created after the skill-router hook runs for the first time.\n');
+    console.error('To get started:');
+    console.error('  1. Install a pack with auto-activation: grimoire add <pack> --enable-auto-activation');
+    console.error('  2. Open Claude Code in the project and send a prompt');
+    console.error('  3. Run this command again');
+    process.exit(1);
   }
 
   const htmlPath = resolve(import.meta.dirname, '..', 'static', 'log-viewer.html');

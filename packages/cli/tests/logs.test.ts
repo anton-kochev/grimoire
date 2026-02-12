@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mkdirSync, realpathSync, rmSync, writeFileSync, appendFileSync, chmodSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -42,12 +42,20 @@ describe('runLogs', () => {
     return logPath;
   }
 
-  it('should throw with helpful message when log file is missing', async () => {
+  it('should exit with helpful message when log file is missing', async () => {
     projectDir = makeTmpDir('missing');
 
-    await expect(
-      runLogs(projectDir, { open: false }),
-    ).rejects.toThrow(/skill-router has not produced any logs/i);
+    const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await runLogs(projectDir, { open: false }).catch(() => {});
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+    const output = mockError.mock.calls.map((c) => c[0]).join('\n');
+    expect(output).toMatch(/skill-router has not produced any logs/i);
+
+    mockExit.mockRestore();
+    mockError.mockRestore();
   });
 
   it('should start server and return Server instance', async () => {
