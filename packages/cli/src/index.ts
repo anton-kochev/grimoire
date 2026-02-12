@@ -6,6 +6,7 @@ export { promptForItems } from './prompt.js';
 export { runAdd } from './commands/add.js';
 export { runLogs } from './commands/logs.js';
 export type { LogsOptions } from './commands/logs.js';
+export { mergeSettings, mergeManifest, setupRouter } from './setup.js';
 export type {
   PackSkillTriggers,
   PackAgentEntry,

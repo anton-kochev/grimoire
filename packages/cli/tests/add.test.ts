@@ -101,6 +101,45 @@ describe('runAdd', () => {
     expect(summary.results[0]?.item.name).toBe('skill-b');
   });
 
+  it('should configure skill-router when setup=true', async () => {
+    // Add triggers to the pack manifest
+    rmSync(join(packDir, 'grimoire.json'));
+    writeFileSync(
+      join(packDir, 'grimoire.json'),
+      JSON.stringify({
+        name: 'test-pack',
+        version: '1.0.0',
+        agents: [
+          { name: 'agent-a', path: 'agents/agent-a.md', description: 'Agent A' },
+        ],
+        skills: [
+          {
+            name: 'skill-b',
+            path: 'skills/skill-b',
+            description: 'Skill B',
+            triggers: { keywords: ['test'], file_extensions: [], patterns: [], file_paths: [] },
+          },
+        ],
+      }),
+    );
+
+    await runAdd('test-pack', undefined, projectDir, /* enableAutoActivation */ true);
+
+    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
+    expect(existsSync(join(projectDir, '.claude', 'skills-manifest.json'))).toBe(true);
+
+    const manifest = JSON.parse(readFileSync(join(projectDir, '.claude', 'skills-manifest.json'), 'utf-8'));
+    const skillNames = manifest.skills.map((s: { name: string }) => s.name);
+    expect(skillNames).toContain('skill-b');
+  });
+
+  it('should not create config files when setup is not passed', async () => {
+    await runAdd('test-pack', undefined, projectDir);
+
+    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
+    expect(existsSync(join(projectDir, '.claude', 'skills-manifest.json'))).toBe(false);
+  });
+
   it('should end-to-end: fixture pack -> target dir has correct files', async () => {
     // Use the actual fixture pack
     const fixtureDir = join(

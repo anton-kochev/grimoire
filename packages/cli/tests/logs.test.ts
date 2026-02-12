@@ -42,12 +42,12 @@ describe('runLogs', () => {
     return logPath;
   }
 
-  it('should throw when log file is missing', async () => {
+  it('should throw with helpful message when log file is missing', async () => {
     projectDir = makeTmpDir('missing');
 
     await expect(
       runLogs(projectDir, { open: false }),
-    ).rejects.toThrow(/log file not found/i);
+    ).rejects.toThrow(/skill-router has not produced any logs/i);
   });
 
   it('should start server and return Server instance', async () => {

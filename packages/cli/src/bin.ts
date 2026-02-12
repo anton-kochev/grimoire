@@ -18,9 +18,13 @@ const addCommand = defineCommand({
       type: 'string',
       description: 'Pick specific item by name, or use bare --pick for interactive selection',
     },
+    enableAutoActivation: {
+      type: 'boolean',
+      description: 'Configure skill-router hooks and manifest for automatic skill activation',
+    },
   },
   async run({ args }) {
-    await runAdd(args.pack, args.pick, process.cwd());
+    await runAdd(args.pack, args.pick, process.cwd(), args.enableAutoActivation);
   },
 });
 

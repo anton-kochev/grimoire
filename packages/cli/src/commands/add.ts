@@ -3,6 +3,7 @@ import { loadManifest } from '../manifest.js';
 import { copyItems } from '../copy.js';
 import { printSummary } from '../summary.js';
 import { promptForItems } from '../prompt.js';
+import { setupRouter } from '../setup.js';
 import type { InstallItem, InstallSummary, PackManifest } from '../types.js';
 
 /**
@@ -12,12 +13,14 @@ import type { InstallItem, InstallSummary, PackManifest } from '../types.js';
  * @param packageName - npm package name to install from
  * @param pick - undefined = all, "" = interactive, "name" = specific item
  * @param cwd - Target project directory (defaults to process.cwd())
+ * @param enableAutoActivation - If true, configure skill-router hooks and manifest
  * @returns The install summary
  */
 export async function runAdd(
   packageName: string,
   pick: string | undefined,
   cwd?: string | undefined,
+  enableAutoActivation?: boolean,
 ): Promise<InstallSummary> {
   const projectDir = cwd ?? process.cwd();
   const packDir = resolvePackDir(packageName, projectDir);
@@ -35,6 +38,10 @@ export async function runAdd(
   };
 
   printSummary(summary);
+
+  if (enableAutoActivation) {
+    setupRouter(projectDir, manifest);
+  }
 
   return summary;
 }

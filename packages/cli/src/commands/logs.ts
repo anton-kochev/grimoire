@@ -21,7 +21,15 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
   try {
     accessSync(logFilePath, constants.R_OK);
   } catch {
-    throw new Error(`Log file not found: ${logFilePath}`);
+    throw new Error(
+      `Log file not found: ${logFilePath}\n\n` +
+      'The skill-router has not produced any logs yet.\n' +
+      'Logs are created after the skill-router hook runs for the first time.\n\n' +
+      'To get started:\n' +
+      '  1. Install a pack with auto-activation: grimoire add <pack> --enable-auto-activation\n' +
+      '  2. Open Claude Code in the project and send a prompt\n' +
+      '  3. Run this command again',
+    );
   }
 
   const htmlPath = resolve(import.meta.dirname, '..', 'static', 'log-viewer.html');
