@@ -12,7 +12,7 @@ const addCommand = defineCommand({
   args: {
     pack: {
       type: 'positional',
-      description: 'Pack name (npm package)',
+      description: 'Pack name (npm package, e.g. @grimoire-cc/dotnet-pack). Must be installed first via npm/pnpm.',
       required: true,
     },
     pick: {
