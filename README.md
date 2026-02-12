@@ -25,7 +25,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [context-file-guide](#context-file-guide)
   - [skill-developer](#skill-developer)
   - [readme-guide](#readme-guide)
-  - [business-logic-docs](#business-logic-docs)
+  - [grimoire:business-logic-docs](#grimoirebusiness-logic-docs)
 - [Creating New Skills](#creating-new-skills)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
@@ -461,7 +461,7 @@ Creates professional README files following industry standards.
 - Suggest appropriate badges using Shields.io
 - Review existing READMEs against best practices
 
-### business-logic-docs
+### grimoire:business-logic-docs
 
 Guides Claude through creating and maintaining a structured knowledge base of a project's business logic.
 
@@ -587,7 +587,7 @@ grimoire/
         │   └── reference/
         ├── grimoire:readme-guide/
         │   └── SKILL.md
-        └── business-logic-docs/
+        └── grimoire:business-logic-docs/
             ├── SKILL.md
             └── references/
                 └── tier2-template.md
