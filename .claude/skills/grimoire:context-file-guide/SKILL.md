@@ -1,5 +1,5 @@
 ---
-name: claudify:context-file-guide
+name: grimoire:context-file-guide
 description: "Best practices for writing CLAUDE.md project context files. Use when creating, reviewing, or improving CLAUDE.md files for Claude Code projects."
 ---
 

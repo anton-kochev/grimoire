@@ -9,7 +9,7 @@ tools:
 
 # Sample Agent
 
-This is a sample agent used for testing the claudify CLI.
+This is a sample agent used for testing the grimoire CLI.
 
 ## Instructions
 

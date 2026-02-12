@@ -60,9 +60,9 @@ const logsCommand = defineCommand({
 
 const main = defineCommand({
   meta: {
-    name: 'claudify',
+    name: 'grimoire',
     version: '0.1.0',
-    description: 'CLI tool for installing Claudify agent and skill packs',
+    description: 'CLI tool for installing Grimoire agent and skill packs',
   },
   subCommands: {
     add: addCommand,

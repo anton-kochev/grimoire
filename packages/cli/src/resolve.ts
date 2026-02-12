@@ -5,7 +5,7 @@ import { dirname, join } from 'path';
 /**
  * Resolves the directory path of an installed npm pack.
  *
- * @param packageName - npm package name (e.g., "@claudify/dotnet-pack")
+ * @param packageName - npm package name (e.g., "@grimoire-cc/dotnet-pack")
  * @param cwd - Working directory to resolve from (defaults to process.cwd())
  * @returns Absolute path to the pack's root directory
  * @throws Error if the package cannot be found

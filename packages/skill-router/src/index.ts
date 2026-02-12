@@ -1,5 +1,5 @@
 /**
- * @claudify/skill-router
+ * @grimoire-cc/skill-router
  *
  * Skill auto-activation system for Claude Code.
  * Matches user prompts against configured skill triggers

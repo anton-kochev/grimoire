@@ -8,7 +8,7 @@ describe('loadManifest', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `claudify-cli-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = join(tmpdir(), `grimoire-cli-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
   });
 
@@ -42,7 +42,7 @@ describe('loadManifest', () => {
   };
 
   it('should load valid manifest with agents and skills', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     writeFileSync(manifestPath, JSON.stringify(validManifest));
 
     const manifest = loadManifest(testDir);
@@ -56,7 +56,7 @@ describe('loadManifest', () => {
   });
 
   it('should load manifest with empty agents and skills arrays', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     const emptyManifest = { ...validManifest, agents: [], skills: [] };
     writeFileSync(manifestPath, JSON.stringify(emptyManifest));
 
@@ -67,7 +67,7 @@ describe('loadManifest', () => {
   });
 
   it('should load manifest with skill triggers', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     writeFileSync(manifestPath, JSON.stringify(validManifest));
 
     const manifest = loadManifest(testDir);
@@ -79,19 +79,19 @@ describe('loadManifest', () => {
     expect(skill?.triggers?.file_paths).toEqual(['src/test/']);
   });
 
-  it('should throw on missing claudify.json file', () => {
+  it('should throw on missing grimoire.json file', () => {
     expect(() => loadManifest(testDir)).toThrow(/not found|ENOENT/i);
   });
 
   it('should throw on invalid JSON', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     writeFileSync(manifestPath, '{ invalid json }');
 
     expect(() => loadManifest(testDir)).toThrow(/parse|JSON/i);
   });
 
   it('should throw on missing name field', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     const { name: _, ...noName } = validManifest;
     writeFileSync(manifestPath, JSON.stringify(noName));
 
@@ -99,7 +99,7 @@ describe('loadManifest', () => {
   });
 
   it('should throw on missing version field', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     const { version: _, ...noVersion } = validManifest;
     writeFileSync(manifestPath, JSON.stringify(noVersion));
 
@@ -107,7 +107,7 @@ describe('loadManifest', () => {
   });
 
   it('should throw on missing agents field', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     const { agents: _, ...noAgents } = validManifest;
     writeFileSync(manifestPath, JSON.stringify(noAgents));
 
@@ -115,7 +115,7 @@ describe('loadManifest', () => {
   });
 
   it('should throw on missing skills field', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     const { skills: _, ...noSkills } = validManifest;
     writeFileSync(manifestPath, JSON.stringify(noSkills));
 
@@ -123,7 +123,7 @@ describe('loadManifest', () => {
   });
 
   it('should throw on agent entry missing required fields', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     const badAgent = {
       ...validManifest,
       agents: [{ name: 'missing-path' }],
@@ -134,7 +134,7 @@ describe('loadManifest', () => {
   });
 
   it('should throw on skill entry missing required fields', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     const badSkill = {
       ...validManifest,
       skills: [{ name: 'missing-path' }],
@@ -145,7 +145,7 @@ describe('loadManifest', () => {
   });
 
   it('should accept skills without triggers (optional)', () => {
-    const manifestPath = join(testDir, 'claudify.json');
+    const manifestPath = join(testDir, 'grimoire.json');
     const noTriggers = {
       ...validManifest,
       skills: [

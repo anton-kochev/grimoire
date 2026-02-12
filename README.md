@@ -1,4 +1,4 @@
-# Claudify
+# Grimoire
 
 A collection of specialized agents and skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
@@ -33,7 +33,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 ## Features
 
-- **CLI Tool** - Install agents and skills from npm packs with `claudify add`, view logs with `claudify logs`
+- **CLI Tool** - Install agents and skills from npm packs with `grimoire add`, view logs with `grimoire logs`
 - **Pre-built Agents** - Domain experts for .NET architecture, unit testing, and fact verification
 - **Reusable Skills** - Workflows for conventional commits, README generation, and skill development
 - **Validation Tooling** - Scripts to ensure skills meet Anthropic's requirements
@@ -44,15 +44,15 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 ### Using the CLI (Recommended)
 
-Install agents and skills from npm packs using the `claudify` CLI:
+Install agents and skills from npm packs using the `grimoire` CLI:
 
 ```bash
 # For JS/TS projects — install as a dev dependency
-pnpm add -D claudify @claudify/dotnet-pack
-claudify add @claudify/dotnet-pack
+pnpm add -D @grimoire-cc/cli @grimoire-cc/dotnet-pack
+grimoire add @grimoire-cc/dotnet-pack
 
 # For non-JS projects — run on demand
-npx -p claudify -p @claudify/dotnet-pack claudify add @claudify/dotnet-pack
+npx -p @grimoire-cc/cli -p @grimoire-cc/dotnet-pack grimoire add @grimoire-cc/dotnet-pack
 ```
 
 See the [CLI](#cli) section for full usage details.
@@ -64,7 +64,7 @@ See the [CLI](#cli) section for full usage details.
 Copy a skill directory to your project's `.claude/skills/` folder:
 
 ```bash
-cp -r .claude/skills/claudify:conventional-commit /path/to/your/project/.claude/skills/
+cp -r .claude/skills/grimoire:conventional-commit /path/to/your/project/.claude/skills/
 ```
 
 #### Agents
@@ -81,32 +81,32 @@ To enable automatic skill activation:
 
 ## CLI
 
-The `claudify` CLI installs agents and skills from npm packs into your project's `.claude/` directory.
+The `grimoire` CLI installs agents and skills from npm packs into your project's `.claude/` directory.
 
 ### Usage
 
 ```bash
 # Install everything from a pack
-claudify add @claudify/dotnet-pack
+grimoire add @grimoire-cc/dotnet-pack
 
 # Install a specific item by name
-claudify add @claudify/dotnet-pack --pick=csharp-reviewer
+grimoire add @grimoire-cc/dotnet-pack --pick=csharp-reviewer
 
 # Interactive selection — choose items from a checklist
-claudify add @claudify/dotnet-pack --pick
+grimoire add @grimoire-cc/dotnet-pack --pick
 ```
 
 ### Log Viewer
 
 ```bash
 # Open the skill-router log viewer in your browser
-claudify logs
+grimoire logs
 
 # Use a custom log file
-claudify logs --file path/to/custom.log
+grimoire logs --file path/to/custom.log
 
 # Specify a port
-claudify logs --port 3000
+grimoire logs --port 3000
 ```
 
 Starts a local server and opens an interactive dashboard with stats, filters, and a sortable table for analyzing skill-router activation history. The viewer streams new entries in real-time via SSE — a green "LIVE" badge indicates active streaming. Press `Ctrl+C` to stop.
@@ -120,11 +120,11 @@ Starts a local server and opens an interactive dashboard with stats, filters, an
 
 ### Pack Manifest
 
-Each pack includes a `claudify.json` manifest describing its contents:
+Each pack includes a `grimoire.json` manifest describing its contents:
 
 ```json
 {
-  "name": "@claudify/dotnet-pack",
+  "name": "@grimoire-cc/dotnet-pack",
   "version": "1.0.0",
   "agents": [
     {
@@ -224,11 +224,11 @@ Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.jso
     }
   ],
   "agents": {
-    "claudify:csharp-coder": {
+    "grimoire:csharp-coder": {
       "always_skills": [],
       "compatible_skills": ["DotNet Unit Testing", "Conventional Commit"]
     },
-    "claudify:dotnet-unit-test-writer": {
+    "grimoire:dotnet-unit-test-writer": {
       "always_skills": ["DotNet Unit Testing"],
       "compatible_skills": []
     }
@@ -261,10 +261,10 @@ Configure hooks in `.claude/settings.json`:
     ],
     "SubagentStart": [
       {
-        "matcher": "claudify:csharp-coder",
+        "matcher": "grimoire:csharp-coder",
         "hooks": [{
           "type": "command",
-          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=claudify:csharp-coder"
+          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=grimoire:csharp-coder"
         }]
       }
     ],
@@ -286,7 +286,7 @@ Configure hooks in `.claude/settings.json`:
 View activation history with the interactive real-time dashboard:
 
 ```bash
-claudify logs
+grimoire logs
 ```
 
 New entries stream live via SSE as skills activate. Or inspect raw log entries:
@@ -484,10 +484,10 @@ Guides Claude through creating and maintaining a structured knowledge base of a 
 
 ```bash
 # Create a new skill from template
-.claude/skills/claudify:skill-developer/scripts/create-skill.sh my-new-skill
+.claude/skills/grimoire:skill-developer/scripts/create-skill.sh my-new-skill
 
 # Validate your skill
-python3 .claude/skills/claudify:skill-developer/scripts/validate-skill.py .claude/skills/my-new-skill
+python3 .claude/skills/grimoire:skill-developer/scripts/validate-skill.py .claude/skills/my-new-skill
 ```
 
 ### Requirements
@@ -523,34 +523,34 @@ description: "What it does and when to use it"
 
 | Document | Purpose |
 | ---------- | --------- |
-| [best-practices.md](.claude/skills/claudify:skill-developer/reference/best-practices.md) | Content quality and organization |
-| [patterns.md](.claude/skills/claudify:skill-developer/reference/patterns.md) | Common skill patterns |
-| [file-organization.md](.claude/skills/claudify:skill-developer/reference/file-organization.md) | Directory structure |
-| [yaml-spec.md](.claude/skills/claudify:skill-developer/reference/yaml-spec.md) | Frontmatter requirements |
+| [best-practices.md](.claude/skills/grimoire:skill-developer/reference/best-practices.md) | Content quality and organization |
+| [patterns.md](.claude/skills/grimoire:skill-developer/reference/patterns.md) | Common skill patterns |
+| [file-organization.md](.claude/skills/grimoire:skill-developer/reference/file-organization.md) | Directory structure |
+| [yaml-spec.md](.claude/skills/grimoire:skill-developer/reference/yaml-spec.md) | Frontmatter requirements |
 
 ### Templates
 
 | Template | Use Case |
 | ---------- | ---------- |
-| [basic-skill.md](.claude/skills/claudify:skill-developer/templates/basic-skill.md) | Single-purpose skills |
-| [domain-skill.md](.claude/skills/claudify:skill-developer/templates/domain-skill.md) | Specialized expertise |
+| [basic-skill.md](.claude/skills/grimoire:skill-developer/templates/basic-skill.md) | Single-purpose skills |
+| [domain-skill.md](.claude/skills/grimoire:skill-developer/templates/domain-skill.md) | Specialized expertise |
 
 ### Examples
 
 | Example | Pattern |
 | --------- | --------- |
-| [financial-analysis.md](.claude/skills/claudify:skill-developer/examples/financial-analysis.md) | Structured data processing |
-| [brand-guidelines.md](.claude/skills/claudify:skill-developer/examples/brand-guidelines.md) | Standards enforcement |
+| [financial-analysis.md](.claude/skills/grimoire:skill-developer/examples/financial-analysis.md) | Structured data processing |
+| [brand-guidelines.md](.claude/skills/grimoire:skill-developer/examples/brand-guidelines.md) | Standards enforcement |
 
 ## Project Structure
 
 ```plain
-claudify/
+grimoire/
 ├── README.md
 ├── CLAUDE.md                          # Project context for Claude Code
 ├── package.json                       # pnpm workspace root
 ├── packages/
-│   ├── cli/                           # claudify CLI tool
+│   ├── cli/                           # grimoire CLI tool
 │   │   ├── src/                       # TypeScript source
 │   │   └── tests/                     # Vitest tests
 │   └── skill-router/                  # Auto-activation hook
@@ -562,30 +562,30 @@ claudify/
     ├── hooks/
     │   └── skill-router.ts            # Hook entry point
     ├── agents/
-    │   ├── claudify:dotnet-architect.md
-    │   ├── claudify:csharp-coder.md
-    │   ├── claudify:dotnet-unit-test-writer.md
-    │   ├── claudify:csharp-code-reviewer.md
-    │   └── claudify:fact-checker.md
+    │   ├── grimoire:dotnet-architect.md
+    │   ├── grimoire:csharp-coder.md
+    │   ├── grimoire:dotnet-unit-test-writer.md
+    │   ├── grimoire:csharp-code-reviewer.md
+    │   └── grimoire:fact-checker.md
     └── skills/
-        ├── claudify:dotnet-unit-testing/
+        ├── grimoire:dotnet-unit-testing/
         │   ├── SKILL.md
         │   ├── reference/
         │   └── templates/
-        ├── claudify:dotnet-feature-workflow/
+        ├── grimoire:dotnet-feature-workflow/
         │   └── SKILL.md
-        ├── claudify:conventional-commit/
+        ├── grimoire:conventional-commit/
         │   └── SKILL.md
-        ├── claudify:context-file-guide/
+        ├── grimoire:context-file-guide/
         │   ├── SKILL.md
         │   └── scripts/
-        ├── claudify:skill-developer/
+        ├── grimoire:skill-developer/
         │   ├── SKILL.md
         │   ├── scripts/
         │   ├── templates/
         │   ├── examples/
         │   └── reference/
-        ├── claudify:readme-guide/
+        ├── grimoire:readme-guide/
         │   └── SKILL.md
         └── business-logic-docs/
             ├── SKILL.md
@@ -605,13 +605,13 @@ claudify/
    pnpm test
 
    # Run CLI tests
-   pnpm --filter claudify test
+   pnpm --filter @grimoire-cc/cli test
 
    # Run skill-router tests
-   pnpm --filter @claudify/skill-router test
+   pnpm --filter @grimoire-cc/skill-router test
 
    # Validate any new skills
-   python3 .claude/skills/claudify:skill-developer/scripts/validate-skill.py .claude/skills/your-skill
+   python3 .claude/skills/grimoire:skill-developer/scripts/validate-skill.py .claude/skills/your-skill
    ```
 
 5. Submit a pull request

@@ -10,11 +10,11 @@ describe('copyAgent', () => {
   let projectDir: string;
 
   beforeEach(() => {
-    const raw1 = join(tmpdir(), `claudify-copy-pack-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const raw1 = join(tmpdir(), `grimoire-copy-pack-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(raw1, { recursive: true });
     packDir = realpathSync(raw1);
 
-    const raw2 = join(tmpdir(), `claudify-copy-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const raw2 = join(tmpdir(), `grimoire-copy-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(raw2, { recursive: true });
     projectDir = realpathSync(raw2);
   });
@@ -85,11 +85,11 @@ describe('copySkill', () => {
   let projectDir: string;
 
   beforeEach(() => {
-    const raw1 = join(tmpdir(), `claudify-copy-pack-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const raw1 = join(tmpdir(), `grimoire-copy-pack-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(raw1, { recursive: true });
     packDir = realpathSync(raw1);
 
-    const raw2 = join(tmpdir(), `claudify-copy-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const raw2 = join(tmpdir(), `grimoire-copy-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(raw2, { recursive: true });
     projectDir = realpathSync(raw2);
   });
@@ -156,11 +156,11 @@ describe('copyItems', () => {
   let projectDir: string;
 
   beforeEach(() => {
-    const raw1 = join(tmpdir(), `claudify-copy-pack-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const raw1 = join(tmpdir(), `grimoire-copy-pack-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(raw1, { recursive: true });
     packDir = realpathSync(raw1);
 
-    const raw2 = join(tmpdir(), `claudify-copy-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const raw2 = join(tmpdir(), `grimoire-copy-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(raw2, { recursive: true });
     projectDir = realpathSync(raw2);
   });

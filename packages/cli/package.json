@@ -1,5 +1,5 @@
 {
-  "name": "claudify",
+  "name": "@grimoire-cc/cli",
   "version": "0.1.0",
   "description": "CLI tool for installing Claudify agent and skill packs",
   "type": "module",
@@ -16,7 +16,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "claudify": "./dist/bin.js"
+    "grimoire": "./dist/bin.js"
   },
   "exports": {
     ".": {

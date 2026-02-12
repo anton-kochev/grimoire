@@ -3,14 +3,14 @@ import { join } from 'path';
 import type { PackManifest, PackAgentEntry, PackSkillEntry, PackSkillTriggers } from './types.js';
 
 /**
- * Loads and validates a claudify pack manifest from a directory.
+ * Loads and validates a grimoire pack manifest from a directory.
  *
  * @param packDir - Absolute path to the pack's root directory
  * @returns Validated PackManifest
  * @throws Error if file not found, invalid JSON, or schema validation fails
  */
 export function loadManifest(packDir: string): PackManifest {
-  const manifestPath = join(packDir, 'claudify.json');
+  const manifestPath = join(packDir, 'grimoire.json');
 
   let content: string;
   try {

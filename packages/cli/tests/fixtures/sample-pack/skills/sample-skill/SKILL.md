@@ -5,7 +5,7 @@ description: A sample skill for testing
 
 # Sample Skill
 
-This is a sample skill used for testing the claudify CLI.
+This is a sample skill used for testing the grimoire CLI.
 
 ## Usage
 

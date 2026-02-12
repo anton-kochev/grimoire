@@ -13,7 +13,7 @@
   },
   "skills": [
     {
-      "path": ".claude/skills/claudify:dotnet-unit-testing",
+      "path": ".claude/skills/grimoire:dotnet-unit-testing",
       "name": "DotNet Unit Testing",
       "description": "Unit testing for C#/.NET projects",
       "triggers": {
@@ -44,7 +44,7 @@
       }
     },
     {
-      "path": ".claude/skills/claudify:readme-guide",
+      "path": ".claude/skills/grimoire:readme-guide",
       "name": "README Guide",
       "description": "Create and review README files",
       "triggers": {
@@ -66,7 +66,7 @@
       }
     },
     {
-      "path": ".claude/skills/claudify:context-file-guide",
+      "path": ".claude/skills/grimoire:context-file-guide",
       "name": "Context File Guide",
       "description": "CLAUDE.md project context files",
       "triggers": {
@@ -127,7 +127,7 @@
       }
     },
     {
-      "path": ".claude/skills/claudify:dotnet-feature-workflow",
+      "path": ".claude/skills/grimoire:dotnet-feature-workflow",
       "name": "DotNet Feature Workflow",
       "description": "End-to-end .NET feature development",
       "triggers": {
@@ -165,14 +165,14 @@
     }
   ],
   "agents": {
-    "claudify:csharp-coder": {
+    "grimoire:csharp-coder": {
       "always_skills": [],
       "compatible_skills": [
         "DotNet Unit Testing",
         "Conventional Commit"
       ]
     },
-    "claudify:dotnet-architect": {
+    "grimoire:dotnet-architect": {
       "always_skills": [],
       "compatible_skills": [
         "DotNet Unit Testing",
@@ -180,7 +180,7 @@
         "Conventional Commit"
       ]
     },
-    "claudify:dotnet-unit-test-writer": {
+    "grimoire:dotnet-unit-test-writer": {
       "always_skills": [
         "DotNet Unit Testing"
       ],

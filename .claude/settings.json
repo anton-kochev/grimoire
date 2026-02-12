@@ -13,29 +13,29 @@
     ],
     "SubagentStart": [
       {
-        "matcher": "claudify:csharp-coder",
+        "matcher": "grimoire:csharp-coder",
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=claudify:csharp-coder"
+            "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=grimoire:csharp-coder"
           }
         ]
       },
       {
-        "matcher": "claudify:dotnet-architect",
+        "matcher": "grimoire:dotnet-architect",
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=claudify:dotnet-architect"
+            "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=grimoire:dotnet-architect"
           }
         ]
       },
       {
-        "matcher": "claudify:dotnet-unit-test-writer",
+        "matcher": "grimoire:dotnet-unit-test-writer",
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=claudify:dotnet-unit-test-writer"
+            "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=grimoire:dotnet-unit-test-writer"
           }
         ]
       }

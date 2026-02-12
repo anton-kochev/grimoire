@@ -1,5 +1,5 @@
 ---
-name: claudify:csharp-code-reviewer
+name: grimoire:csharp-code-reviewer
 description: "Expert C#/.NET code review specialist. Use immediately after writing or modifying C# code, or when explicitly requested to review C#/.NET code quality, security, performance, and best practices. ONLY reviews C# and .NET code - declines reviews of other languages."
 tools: Bash, Glob, Grep, Read, Skill
 model: inherit

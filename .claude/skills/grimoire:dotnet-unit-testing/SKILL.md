@@ -1,5 +1,5 @@
 ---
-name: claudify:dotnet-unit-testing
+name: grimoire:dotnet-unit-testing
 description: "Expert .NET unit testing specialist for C#/.NET projects. Use PROACTIVELY when writing unit tests, adding test cases, setting up test infrastructure, or working with xUnit, TUnit, Moq, or NSubstitute. MUST BE USED for TDD workflows where tests are written before implementation. Defaults to xUnit (most universal), recommends TUnit for new .NET 8+ projects."
 ---
 

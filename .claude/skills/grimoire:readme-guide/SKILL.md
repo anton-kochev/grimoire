@@ -1,5 +1,5 @@
 ---
-name: claudify:readme-guide
+name: grimoire:readme-guide
 description: "Create and review README files following industry best practices. Use for writing new READMEs, improving existing ones, checking README quality, or adding badges. Triggers: readme, documentation, project docs, repository documentation, getting started guide, shields badges."
 user_invocable: true
 disable-model-invocation: false

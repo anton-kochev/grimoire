@@ -28,17 +28,17 @@ describe('runAdd', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    const raw1 = join(tmpdir(), `claudify-add-pack-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const raw1 = join(tmpdir(), `grimoire-add-pack-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(raw1, { recursive: true });
     packDir = realpathSync(raw1);
 
-    const raw2 = join(tmpdir(), `claudify-add-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const raw2 = join(tmpdir(), `grimoire-add-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(raw2, { recursive: true });
     projectDir = realpathSync(raw2);
 
     // Set up a minimal pack
     writeFileSync(
-      join(packDir, 'claudify.json'),
+      join(packDir, 'grimoire.json'),
       JSON.stringify({
         name: 'test-pack',
         version: '1.0.0',

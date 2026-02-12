@@ -6,7 +6,7 @@ import type { Server } from 'node:http';
 import { runLogs } from '../src/commands/logs.js';
 
 function makeTmpDir(label: string): string {
-  const raw = join(tmpdir(), `claudify-logs-${label}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const raw = join(tmpdir(), `grimoire-logs-${label}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(raw, { recursive: true });
   return realpathSync(raw);
 }

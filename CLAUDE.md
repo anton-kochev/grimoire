@@ -1,4 +1,4 @@
-# Project: Claudify
+# Project: Grimoire
 
 Collection of specialized agents and skills for Claude Code.
 
@@ -9,10 +9,10 @@ Collection of specialized agents and skills for Claude Code.
 - Hook Runtime: tsx (TypeScript execution)
 
 ## Commands
-- pnpm --filter claudify test: Run CLI tests
-- pnpm --filter claudify test:watch: CLI watch mode
-- pnpm --filter @claudify/skill-router test: Run skill-router tests
-- pnpm --filter @claudify/skill-router test:watch: Watch mode
+- pnpm --filter @grimoire-cc/cli test: Run CLI tests
+- pnpm --filter @grimoire-cc/cli test:watch: CLI watch mode
+- pnpm --filter @grimoire-cc/skill-router test: Run skill-router tests
+- pnpm --filter @grimoire-cc/skill-router test:watch: Watch mode
 - python3 .claude/skills/skill-developer/scripts/validate-skill.py <path>: Validate skill
 - .claude/skills/skill-developer/scripts/create-skill.sh <name>: Scaffold new skill
 
@@ -20,9 +20,9 @@ Collection of specialized agents and skills for Claude Code.
 - Agents: Single .md files in `.claude/agents/` with persona, tools, model in frontmatter
 - Skills: Directories in `.claude/skills/<name>/` with SKILL.md + supporting files
 - CLI: `packages/cli/` - installs agents/skills from npm packs into projects
-  - `claudify add <pack>` copies agents to `.claude/agents/`, skills to `.claude/skills/`
+  - `grimoire add <pack>` copies agents to `.claude/agents/`, skills to `.claude/skills/`
   - `--pick=<name>` or bare `--pick` for selective install
-  - `claudify logs` opens real-time skill-router log viewer in browser (`--file`, `--port`)
+  - `grimoire logs` opens real-time skill-router log viewer in browser (`--file`, `--port`)
 - Skill Router: `packages/skill-router/` - auto-activates skills via hooks
   - UserPromptSubmit: Matches skills to user prompts (keywords: exact, stem, fuzzy)
   - SubagentStart: Injects skill instructions into agents (use `--agent=<name>` flag)
@@ -43,4 +43,4 @@ Collection of specialized agents and skills for Claude Code.
 ## Workflow
 - Run tests before committing: `pnpm test`
 - Follow conventional commits
-- Check logs: `claudify logs` or `tail -20 .claude/logs/skill-router.log | jq .`
+- Check logs: `grimoire logs` or `tail -20 .claude/logs/skill-router.log | jq .`

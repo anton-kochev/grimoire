@@ -106,7 +106,7 @@ The `matchQuality` field (`exact`, `stem`, or `fuzzy`) appears in log entries fo
 
 Open the interactive log viewer dashboard with real-time streaming:
 ```bash
-claudify logs
+grimoire logs
 ```
 
 New entries appear live as skills activate (green "LIVE" indicator). Or view raw log entries:
