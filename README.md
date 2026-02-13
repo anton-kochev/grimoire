@@ -2,7 +2,7 @@
 
 A collection of specialized agents and skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns. Includes ready-to-use agents for .NET development and content verification, plus skills for git commits and documentation.
+Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns. Includes ready-to-use agents for .NET development and content verification, plus skills for TypeScript, git commits, and documentation.
 
 [![CI](https://github.com/anton-kochev/claudify/actions/workflows/ci.yml/badge.svg)](https://github.com/anton-kochev/claudify/actions/workflows/ci.yml)
 
@@ -26,6 +26,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [skill-developer](#skill-developer)
   - [readme-guide](#readme-guide)
   - [grimoire:business-logic-docs](#grimoirebusiness-logic-docs)
+  - [grimoire:modern-typescript](#grimoiremodern-typescript)
 - [Creating New Skills](#creating-new-skills)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
@@ -48,11 +49,12 @@ Install agents and skills from npm packs using the `grimoire` CLI:
 
 ```bash
 # For JS/TS projects — install as a dev dependency
-pnpm add -D @grimoire-cc/cli @grimoire-cc/dotnet-pack
-grimoire add @grimoire-cc/dotnet-pack
+pnpm add -D @grimoire-cc/cli
+grimoire add dotnet-pack    # .NET agents and skills
+grimoire add ts-pack        # TypeScript skill
 
 # For non-JS projects — run on demand
-npx -p @grimoire-cc/cli -p @grimoire-cc/dotnet-pack grimoire add @grimoire-cc/dotnet-pack
+npx -p @grimoire-cc/cli grimoire add dotnet-pack
 ```
 
 See the [CLI](#cli) section for full usage details.
@@ -87,13 +89,14 @@ The `grimoire` CLI installs agents and skills from npm packs into your project's
 
 ```bash
 # Install everything from a pack
-grimoire add @grimoire-cc/dotnet-pack
+grimoire add dotnet-pack
+grimoire add ts-pack
 
 # Install a specific item by name
-grimoire add @grimoire-cc/dotnet-pack --pick=csharp-reviewer
+grimoire add dotnet-pack --pick=csharp-reviewer
 
 # Interactive selection — choose items from a checklist
-grimoire add @grimoire-cc/dotnet-pack --pick
+grimoire add dotnet-pack --pick
 ```
 
 ### Log Viewer
@@ -478,6 +481,23 @@ Guides Claude through creating and maintaining a structured knowledge base of a 
 
 **Reference files:** `tier2-template.md`
 
+### grimoire:modern-typescript
+
+Modern TypeScript best practices, patterns, and type system mastery for TS 5.7+.
+
+**Trigger:** When writing TypeScript, reviewing TS code, designing types, or configuring tsconfig
+
+**Includes:**
+
+- Core principles: strict mode, `satisfies`, branded types, discriminated unions
+- Strict `tsconfig.json` configuration with key flags explained
+- Error handling with Result types and type-safe narrowing
+- Module patterns, anti-patterns table, annotation guidelines
+
+**Reference files:** `type-system.md`, `patterns-and-idioms.md`, `modern-features.md`
+
+**Install via:** `grimoire add ts-pack`
+
 ## Creating New Skills
 
 ### Quick Start
@@ -587,10 +607,16 @@ grimoire/
         │   └── reference/
         ├── grimoire:readme-guide/
         │   └── SKILL.md
-        └── grimoire:business-logic-docs/
+        ├── grimoire:business-logic-docs/
+        │   ├── SKILL.md
+        │   └── references/
+        │       └── tier2-template.md
+        └── grimoire:modern-typescript/
             ├── SKILL.md
-            └── references/
-                └── tier2-template.md
+            └── reference/
+                ├── type-system.md
+                ├── patterns-and-idioms.md
+                └── modern-features.md
 ```
 
 ## Contributing
