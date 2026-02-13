@@ -4,7 +4,7 @@ import { copyItems } from '../copy.js';
 import { printSummary } from '../summary.js';
 import { promptForItems } from '../prompt.js';
 import { setupRouter } from '../setup.js';
-import type { InstallItem, InstallSummary, PackManifest } from '../types.js';
+import type { InstallItem, InstallSummary, PackManifest, SelectionResult } from '../types.js';
 
 /**
  * Runs the `add` command: resolves a pack, loads its manifest, determines which items
@@ -27,9 +27,9 @@ export async function runAdd(
   const manifest = loadManifest(packDir);
 
   const allItems = manifestToItems(manifest);
-  const selectedItems = await selectItems(allItems, manifest, pick);
+  const selection = await selectItems(allItems, manifest, pick);
 
-  const results = copyItems(selectedItems, packDir, projectDir);
+  const results = copyItems(selection.items, packDir, projectDir);
 
   const summary: InstallSummary = {
     packName: manifest.name,
@@ -39,7 +39,7 @@ export async function runAdd(
 
   printSummary(summary);
 
-  if (enableAutoActivation) {
+  if (enableAutoActivation || selection.enableAutoActivation) {
     setupRouter(projectDir, manifest);
   }
 
@@ -68,10 +68,10 @@ async function selectItems(
   allItems: readonly InstallItem[],
   manifest: PackManifest,
   pick: string | undefined,
-): Promise<readonly InstallItem[]> {
+): Promise<SelectionResult> {
   // No --pick: install everything
   if (pick === undefined) {
-    return allItems;
+    return { items: allItems, enableAutoActivation: false };
   }
 
   // Bare --pick (empty string): interactive prompt
@@ -88,5 +88,5 @@ async function selectItems(
     );
   }
 
-  return found;
+  return { items: found, enableAutoActivation: false };
 }

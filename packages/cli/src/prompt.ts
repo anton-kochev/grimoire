@@ -1,12 +1,13 @@
 import * as clack from '@clack/prompts';
-import type { PackManifest, InstallItem } from './types.js';
+import type { PackManifest, InstallItem, SelectionResult } from './types.js';
 
 /**
- * Displays an interactive multiselect prompt for the user to pick items from a pack manifest.
+ * Displays an interactive multiselect prompt for the user to pick items from a pack manifest,
+ * then asks whether to enable auto-activation.
  *
- * @returns The selected install items, or empty array if cancelled
+ * @returns The selected install items and auto-activation preference
  */
-export async function promptForItems(manifest: PackManifest): Promise<readonly InstallItem[]> {
+export async function promptForItems(manifest: PackManifest): Promise<SelectionResult> {
   clack.intro(`Pick items from ${manifest.name}`);
 
   const options = buildOptions(manifest);
@@ -19,11 +20,28 @@ export async function promptForItems(manifest: PackManifest): Promise<readonly I
 
   if (clack.isCancel(selected)) {
     clack.cancel('Installation cancelled.');
-    return [];
+    return { items: [], enableAutoActivation: false };
+  }
+
+  const items = selected as InstallItem[];
+
+  if (items.length === 0) {
+    clack.outro('Nothing selected.');
+    return { items: [], enableAutoActivation: false };
+  }
+
+  const autoActivate = await clack.confirm({
+    message: 'Enable auto-activation? (skill-router hooks for automatic skill matching)',
+    initialValue: true,
+  });
+
+  if (clack.isCancel(autoActivate)) {
+    clack.cancel('Installation cancelled.');
+    return { items: [], enableAutoActivation: false };
   }
 
   clack.outro('Selection complete.');
-  return selected as InstallItem[];
+  return { items, enableAutoActivation: autoActivate };
 }
 
 function buildOptions(manifest: PackManifest): Array<{ label: string; value: InstallItem; hint?: string }> {

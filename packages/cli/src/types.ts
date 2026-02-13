@@ -32,6 +32,11 @@ export interface InstallItem {
   readonly description: string;
 }
 
+export interface SelectionResult {
+  readonly items: readonly InstallItem[];
+  readonly enableAutoActivation: boolean;
+}
+
 export interface InstallResult {
   readonly item: InstallItem;
   readonly destinationPath: string;

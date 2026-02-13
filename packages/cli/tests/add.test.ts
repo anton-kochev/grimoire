@@ -16,7 +16,7 @@ vi.mock('../src/prompt.js', () => ({
 import { runAdd } from '../src/commands/add.js';
 import { resolvePackDir } from '../src/resolve.js';
 import { promptForItems } from '../src/prompt.js';
-import type { InstallItem } from '../src/types.js';
+import type { InstallItem, SelectionResult } from '../src/types.js';
 
 const mockResolvePackDir = vi.mocked(resolvePackDir);
 const mockPromptForItems = vi.mocked(promptForItems);
@@ -89,16 +89,55 @@ describe('runAdd', () => {
   });
 
   it('should call interactive prompt when bare --pick (empty string)', async () => {
-    const selectedItems: InstallItem[] = [
-      { type: 'skill', name: 'skill-b', sourcePath: 'skills/skill-b', description: 'Skill B' },
-    ];
-    mockPromptForItems.mockResolvedValue(selectedItems);
+    const selectionResult: SelectionResult = {
+      items: [
+        { type: 'skill', name: 'skill-b', sourcePath: 'skills/skill-b', description: 'Skill B' },
+      ],
+      enableAutoActivation: false,
+    };
+    mockPromptForItems.mockResolvedValue(selectionResult);
 
     const summary = await runAdd('test-pack', '', projectDir);
 
     expect(mockPromptForItems).toHaveBeenCalledTimes(1);
     expect(summary.results).toHaveLength(1);
     expect(summary.results[0]?.item.name).toBe('skill-b');
+  });
+
+  it('should configure skill-router when interactive prompt enables auto-activation', async () => {
+    // Add triggers to the pack manifest
+    rmSync(join(packDir, 'grimoire.json'));
+    writeFileSync(
+      join(packDir, 'grimoire.json'),
+      JSON.stringify({
+        name: 'test-pack',
+        version: '1.0.0',
+        agents: [
+          { name: 'agent-a', path: 'agents/agent-a.md', description: 'Agent A' },
+        ],
+        skills: [
+          {
+            name: 'skill-b',
+            path: 'skills/skill-b',
+            description: 'Skill B',
+            triggers: { keywords: ['test'], file_extensions: [], patterns: [], file_paths: [] },
+          },
+        ],
+      }),
+    );
+
+    const selectionResult: SelectionResult = {
+      items: [
+        { type: 'skill', name: 'skill-b', sourcePath: 'skills/skill-b', description: 'Skill B' },
+      ],
+      enableAutoActivation: true,
+    };
+    mockPromptForItems.mockResolvedValue(selectionResult);
+
+    await runAdd('test-pack', '', projectDir);
+
+    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
+    expect(existsSync(join(projectDir, '.claude', 'skills-manifest.json'))).toBe(true);
   });
 
   it('should configure skill-router when setup=true', async () => {
