@@ -50,11 +50,10 @@ Install agents and skills from npm packs using the `grimoire` CLI:
 ```bash
 # For JS/TS projects — install as a dev dependency
 pnpm add -D @grimoire-cc/cli
-grimoire add dotnet-pack    # .NET agents and skills
-grimoire add ts-pack        # TypeScript skill
+grimoire add    # interactive wizard
 
 # For non-JS projects — run on demand
-npx -p @grimoire-cc/cli grimoire add dotnet-pack
+npx -p @grimoire-cc/cli grimoire add
 ```
 
 See the [CLI](#cli) section for full usage details.
@@ -88,16 +87,15 @@ The `grimoire` CLI installs agents and skills from npm packs into your project's
 ### Usage
 
 ```bash
-# Install everything from a pack
-grimoire add dotnet-pack
-grimoire add ts-pack
-
-# Install a specific item by name
-grimoire add dotnet-pack --pick=csharp-reviewer
-
-# Interactive selection — choose items from a checklist
-grimoire add dotnet-pack --pick
+# Launch the interactive installer wizard
+grimoire add
 ```
+
+The wizard walks you through three steps:
+
+1. **Select packs** — choose from all available packs (e.g. `dotnet-pack`, `ts-pack`)
+2. **Select items** — pick individual agents and skills (all pre-selected by default)
+3. **Auto-activation** — optionally configure skill-router hooks for automatic skill matching
 
 ### Log Viewer
 
@@ -116,8 +114,10 @@ Starts a local server and opens an interactive dashboard with stats, filters, an
 
 ### What `add` does
 
+- Discovers all bundled packs and presents an interactive wizard
 - Copies agent `.md` files to `.claude/agents/`
 - Copies skill directories to `.claude/skills/`
+- Optionally configures skill-router hooks and manifest for auto-activation
 - Overwrites existing files with a warning if conflicts exist
 - Creates `.claude/agents/` and `.claude/skills/` directories if they don't exist
 
@@ -496,7 +496,7 @@ Modern TypeScript best practices, patterns, and type system mastery for TS 5.7+.
 
 **Reference files:** `type-system.md`, `patterns-and-idioms.md`, `modern-features.md`
 
-**Install via:** `grimoire add ts-pack`
+**Install via:** `grimoire add` and select `ts-pack`
 
 ## Creating New Skills
 

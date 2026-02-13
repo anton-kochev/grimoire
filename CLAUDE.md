@@ -20,8 +20,7 @@ Collection of specialized agents and skills for Claude Code.
 - Agents: Single .md files in `.claude/agents/` with persona, tools, model in frontmatter
 - Skills: Directories in `.claude/skills/<name>/` with SKILL.md + supporting files
 - CLI: `packages/cli/` - installs agents/skills from npm packs into projects
-  - `grimoire add <pack>` copies agents to `.claude/agents/`, skills to `.claude/skills/`
-  - `--pick=<name>` or bare `--pick` for selective install
+  - `grimoire add` launches interactive wizard (pack selection → item selection → auto-activation)
   - `grimoire logs` opens real-time skill-router log viewer in browser (`--file`, `--port`)
 - Skill Router: `packages/skill-router/` - auto-activates skills via hooks
   - UserPromptSubmit: Matches skills to user prompts (keywords: exact, stem, fuzzy)
