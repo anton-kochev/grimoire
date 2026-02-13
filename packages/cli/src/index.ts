@@ -1,5 +1,5 @@
 export { loadManifest } from './manifest.js';
-export { resolvePackDir } from './resolve.js';
+export { resolvePackDir, listAvailablePacks } from './resolve.js';
 export { copyAgent, copySkill, copyItems } from './copy.js';
 export { printSummary } from './summary.js';
 export { promptForItems } from './prompt.js';

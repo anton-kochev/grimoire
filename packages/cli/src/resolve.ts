@@ -1,47 +1,43 @@
-import { existsSync } from 'fs';
-import { createRequire } from 'module';
+import { existsSync, readdirSync } from 'fs';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 /**
- * Resolves the directory path of an installed npm pack.
+ * Resolves the directory path of a bundled pack.
  *
- * @param packageName - npm package name (e.g., "@grimoire-cc/dotnet-pack")
- * @param cwd - Working directory to resolve from (defaults to process.cwd())
+ * @param packName - Pack name (e.g., "dotnet-pack")
  * @returns Absolute path to the pack's root directory
- * @throws Error if the package cannot be found
+ * @throws Error if the pack is not found
  */
-export function resolvePackDir(packageName: string, cwd?: string | undefined): string {
-  const resolveFrom = cwd ?? process.cwd();
-  const localRequire = createRequire(resolveFrom + '/noop.js');
+export function resolvePackDir(packName: string): string {
+  const packsDir = getPacksDir();
+  const packDir = join(packsDir, packName);
 
-  try {
-    const packageJsonPath = localRequire.resolve(`${packageName}/package.json`);
-    return dirname(packageJsonPath);
-  } catch {
-    // Fallback: try resolving the main entry and walking up
-    try {
-      const mainEntry = localRequire.resolve(packageName);
-      return walkUpToPackageRoot(mainEntry);
-    } catch {
-      throw new Error(
-        `Pack "${packageName}" not found. Is it installed? Try: npm install ${packageName}`,
-      );
-    }
+  if (!existsSync(packDir)) {
+    const available = listAvailablePacks(packsDir);
+    const list = available.length > 0 ? available.join(', ') : '(none)';
+    throw new Error(
+      `Pack "${packName}" not found. Available packs: ${list}`,
+    );
   }
+  return packDir;
 }
 
-function walkUpToPackageRoot(filePath: string): string {
-  let current = dirname(filePath);
+/**
+ * Lists all available bundled packs.
+ *
+ * @param packsDir - Optional override for the packs directory path
+ * @returns Array of pack names
+ */
+export function listAvailablePacks(packsDir?: string | undefined): string[] {
+  const dir = packsDir ?? getPacksDir();
+  if (!existsSync(dir)) return [];
 
-  // Walk up until we find package.json or hit filesystem root
-  for (;;) {
-    if (existsSync(join(current, 'package.json'))) {
-      return current;
-    }
-    const parent = dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+}
 
-  throw new Error(`Could not find package root for: ${filePath}`);
+function getPacksDir(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), '..', 'packs');
 }

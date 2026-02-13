@@ -3,6 +3,7 @@ import { defineCommand, runMain } from 'citty';
 import { runAdd } from './commands/add.js';
 import { runRemove } from './commands/remove.js';
 import { runLogs } from './commands/logs.js';
+import { listAvailablePacks } from './resolve.js';
 
 const addCommand = defineCommand({
   meta: {
@@ -12,8 +13,12 @@ const addCommand = defineCommand({
   args: {
     pack: {
       type: 'positional',
-      description: 'Pack name (npm package, e.g. @grimoire-cc/dotnet-pack). Must be installed first via npm/pnpm.',
-      required: true,
+      description: 'Pack name (e.g. dotnet-pack). Run grimoire add --list to see available packs.',
+      required: false,
+    },
+    list: {
+      type: 'boolean',
+      description: 'List available packs',
     },
     pick: {
       type: 'string',
@@ -25,6 +30,24 @@ const addCommand = defineCommand({
     },
   },
   async run({ args }) {
+    if (args.list) {
+      const packs = listAvailablePacks();
+      if (packs.length === 0) {
+        console.log('No packs available.');
+      } else {
+        console.log('Available packs:');
+        for (const name of packs) {
+          console.log(`  ${name}`);
+        }
+      }
+      return;
+    }
+
+    if (!args.pack) {
+      console.error('Error: Missing required argument "pack". Run grimoire add --list to see available packs.');
+      process.exit(1);
+    }
+
     await runAdd(args.pack, args.pick, process.cwd(), args.enableAutoActivation);
   },
 });

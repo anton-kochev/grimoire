@@ -23,7 +23,7 @@ export async function runAdd(
   enableAutoActivation?: boolean,
 ): Promise<InstallSummary> {
   const projectDir = cwd ?? process.cwd();
-  const packDir = resolvePackDir(packageName, projectDir);
+  const packDir = resolvePackDir(packageName);
   const manifest = loadManifest(packDir);
 
   const allItems = manifestToItems(manifest);
