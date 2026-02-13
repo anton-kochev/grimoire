@@ -281,6 +281,37 @@ describe('mergeManifest', () => {
     expect(agentConfig['compatible_skills']).toEqual([]);
   });
 
+  it('should use directory name from path (not name) for skill path in manifest', () => {
+    const packWithPrefixedName: PackManifest = {
+      name: 'test-pack',
+      version: '1.0.0',
+      agents: [],
+      skills: [
+        {
+          name: 'grimoire:modern-typescript',
+          path: 'skills/gr.modern-typescript',
+          description: 'TS skill',
+          triggers: {
+            keywords: ['typescript'],
+            file_extensions: ['.ts'],
+            patterns: [],
+            file_paths: [],
+          },
+        },
+      ],
+    };
+
+    mergeManifest(projectDir, packWithPrefixedName);
+
+    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
+    const skills = manifest['skills'] as Array<{ path: string; name: string }>;
+
+    expect(skills).toHaveLength(1);
+    // Path should use directory name from skill.path, not skill.name (which contains ':')
+    expect(skills[0]!.path).toBe('.claude/skills/gr.modern-typescript');
+    expect(skills[0]!.name).toBe('grimoire:modern-typescript');
+  });
+
   it('should skip skills without triggers', () => {
     const manifestWithNoTriggers: PackManifest = {
       name: 'test-pack',

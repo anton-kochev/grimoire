@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import type { PackManifest } from './types.js';
 
 const SKILL_ROUTER_COMMAND = 'npx @grimoire-cc/skill-router';
@@ -108,7 +108,8 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
   for (const skill of packManifest.skills) {
     if (!skill.triggers) continue;
 
-    const skillPath = `.claude/skills/${skill.name}`;
+    const dirName = basename(skill.path);
+    const skillPath = `.claude/skills/${dirName}`;
     const existingIndex = manifest.skills.findIndex((s) => s.path === skillPath);
 
     const entry: ManifestSkill = {
