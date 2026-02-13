@@ -2,6 +2,7 @@
  * Hook input parsing
  */
 
+import { readFileSync } from 'fs';
 import type { HookInput, PreToolUseInput } from './types.js';
 import { isPreToolUseInput, parsePreToolUseInput } from './tool-input.js';
 
@@ -98,9 +99,8 @@ export function parseHookInput(jsonString: string): HookInput {
  * @returns Raw string from stdin
  */
 export function readStdin(): string {
-  const fs = require('fs');
   try {
-    return fs.readFileSync(0, 'utf-8');
+    return readFileSync(0, 'utf-8');
   } catch {
     return '';
   }

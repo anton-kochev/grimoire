@@ -11,6 +11,9 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "bin": {
+    "skill-router": "./dist/bin.js"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
