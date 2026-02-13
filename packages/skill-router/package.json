@@ -1,6 +1,6 @@
 {
   "name": "@grimoire-cc/skill-router",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Skill auto-activation system for Claude Code",
   "type": "module",
   "main": "./dist/index.js",
@@ -32,7 +32,7 @@
   "files": ["dist/"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/anton-kochev/claudify",
+    "url": "https://github.com/anton-kochev/grimoire",
     "directory": "packages/skill-router"
   },
   "engines": {
