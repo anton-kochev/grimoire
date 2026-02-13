@@ -40,6 +40,11 @@ Collection of specialized agents and skills for Claude Code.
 - Reference files >100 lines require table of contents
 - Total bundle max 8 MB; max 8 skills per request
 
+## Publishing
+- CLI: git tag `cli/vX.Y.Z` (e.g. `cli/v0.3.0`)
+- Skill Router: git tag `skill-router/vX.Y.Z` (e.g. `skill-router/v1.0.0`)
+- Any other tag format will not trigger the npm publish workflow
+
 ## Workflow
 - Run tests before committing: `pnpm test`
 - Follow conventional commits
