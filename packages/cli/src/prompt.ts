@@ -1,35 +1,103 @@
 import * as clack from '@clack/prompts';
-import type { PackManifest, InstallItem, SelectionResult } from './types.js';
+import type { PackOption, InstallItem, WizardResult } from './types.js';
 
 /**
- * Displays an interactive multiselect prompt for the user to pick items from a pack manifest,
- * then asks whether to enable auto-activation.
+ * Runs a 3-step interactive wizard:
+ * 1. Select packs to install
+ * 2. Select individual items (all pre-selected)
+ * 3. Enable auto-activation?
  *
- * @returns The selected install items and auto-activation preference
+ * @returns The wizard result with selected items grouped by pack, or empty on cancel
  */
-export async function promptForItems(manifest: PackManifest): Promise<SelectionResult> {
-  clack.intro(`Pick items from ${manifest.name}`);
+export async function runWizard(packs: readonly PackOption[]): Promise<WizardResult> {
+  const empty: WizardResult = { selections: [], enableAutoActivation: false };
 
-  const options = buildOptions(manifest);
+  clack.intro('Grimoire Installer');
 
-  const selected = await clack.multiselect({
+  // Step 1 — Pack selection
+  const packOptions = packs.map((pack) => {
+    const agentCount = pack.manifest.agents.length;
+    const skillCount = pack.manifest.skills.length;
+    const parts: string[] = [];
+    if (agentCount > 0) parts.push(`${agentCount} agent${agentCount !== 1 ? 's' : ''}`);
+    if (skillCount > 0) parts.push(`${skillCount} skill${skillCount !== 1 ? 's' : ''}`);
+    return {
+      label: pack.name,
+      value: pack,
+      hint: parts.join(', '),
+    };
+  });
+
+  const selectedPacks = await clack.multiselect({
+    message: 'Select packs to install:',
+    options: packOptions,
+    required: true,
+  });
+
+  if (clack.isCancel(selectedPacks)) {
+    clack.cancel('Installation cancelled.');
+    return empty;
+  }
+
+  const chosenPacks = selectedPacks as PackOption[];
+
+  // Step 2 — Item selection (all pre-selected)
+  const itemOptions: Array<{ label: string; value: { pack: PackOption; item: InstallItem }; hint?: string }> = [];
+
+  for (const pack of chosenPacks) {
+    for (const agent of pack.manifest.agents) {
+      itemOptions.push({
+        label: `[${pack.name} | agent] ${agent.name}`,
+        value: {
+          pack,
+          item: {
+            type: 'agent' as const,
+            name: agent.name,
+            sourcePath: agent.path,
+            description: agent.description,
+          },
+        },
+        hint: agent.description,
+      });
+    }
+
+    for (const skill of pack.manifest.skills) {
+      itemOptions.push({
+        label: `[${pack.name} | skill] ${skill.name}`,
+        value: {
+          pack,
+          item: {
+            type: 'skill' as const,
+            name: skill.name,
+            sourcePath: skill.path,
+            description: skill.description,
+          },
+        },
+        hint: skill.description,
+      });
+    }
+  }
+
+  const selectedItems = await clack.multiselect({
     message: 'Select items to install (Space to toggle, Enter to confirm):',
-    options,
+    options: itemOptions,
+    initialValues: itemOptions.map((o) => o.value),
     required: false,
   });
 
-  if (clack.isCancel(selected)) {
+  if (clack.isCancel(selectedItems)) {
     clack.cancel('Installation cancelled.');
-    return { items: [], enableAutoActivation: false };
+    return empty;
   }
 
-  const items = selected as InstallItem[];
+  const chosenItems = selectedItems as Array<{ pack: PackOption; item: InstallItem }>;
 
-  if (items.length === 0) {
+  if (chosenItems.length === 0) {
     clack.outro('Nothing selected.');
-    return { items: [], enableAutoActivation: false };
+    return empty;
   }
 
+  // Step 3 — Auto-activation
   const autoActivate = await clack.confirm({
     message: 'Enable auto-activation? (skill-router hooks for automatic skill matching)',
     initialValue: true,
@@ -37,35 +105,25 @@ export async function promptForItems(manifest: PackManifest): Promise<SelectionR
 
   if (clack.isCancel(autoActivate)) {
     clack.cancel('Installation cancelled.');
-    return { items: [], enableAutoActivation: false };
+    return empty;
   }
 
   clack.outro('Selection complete.');
-  return { items, enableAutoActivation: autoActivate };
-}
 
-function buildOptions(manifest: PackManifest): Array<{ label: string; value: InstallItem; hint?: string }> {
-  const agentOptions = manifest.agents.map((agent) => ({
-    label: `[agent] ${agent.name}`,
-    value: {
-      type: 'agent' as const,
-      name: agent.name,
-      sourcePath: agent.path,
-      description: agent.description,
-    },
-    hint: agent.description,
-  }));
+  // Group items by pack
+  const groupMap = new Map<string, { packDir: string; manifest: PackOption['manifest']; items: InstallItem[] }>();
 
-  const skillOptions = manifest.skills.map((skill) => ({
-    label: `[skill] ${skill.name}`,
-    value: {
-      type: 'skill' as const,
-      name: skill.name,
-      sourcePath: skill.path,
-      description: skill.description,
-    },
-    hint: skill.description,
-  }));
+  for (const { pack, item } of chosenItems) {
+    let group = groupMap.get(pack.name);
+    if (!group) {
+      group = { packDir: pack.dir, manifest: pack.manifest, items: [] };
+      groupMap.set(pack.name, group);
+    }
+    group.items.push(item);
+  }
 
-  return [...agentOptions, ...skillOptions];
+  return {
+    selections: [...groupMap.values()],
+    enableAutoActivation: autoActivate,
+  };
 }

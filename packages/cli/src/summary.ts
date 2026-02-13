@@ -1,10 +1,13 @@
-import type { InstallSummary, InstallResult } from './types.js';
+import type { InstallSummary } from './types.js';
 
 /**
  * Prints a formatted summary of installed items to the console.
  */
 export function printSummary(summary: InstallSummary): void {
-  console.log(`\nInstalled pack: ${summary.packName}@${summary.packVersion}`);
+  if (summary.packs.length > 0) {
+    const packList = summary.packs.map((p) => `${p.name}@${p.version}`).join(', ');
+    console.log(`\nInstalled from: ${packList}`);
+  }
 
   if (summary.results.length === 0) {
     console.log('  nothing to install');

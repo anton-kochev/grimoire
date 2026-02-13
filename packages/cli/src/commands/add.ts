@@ -1,92 +1,54 @@
-import { resolvePackDir } from '../resolve.js';
-import { loadManifest } from '../manifest.js';
+import { loadAllPacks } from '../resolve.js';
 import { copyItems } from '../copy.js';
 import { printSummary } from '../summary.js';
-import { promptForItems } from '../prompt.js';
+import { runWizard } from '../prompt.js';
 import { setupRouter } from '../setup.js';
-import type { InstallItem, InstallSummary, PackManifest, SelectionResult } from '../types.js';
+import type { InstallResult, InstallSummary } from '../types.js';
 
 /**
- * Runs the `add` command: resolves a pack, loads its manifest, determines which items
- * to install, copies them, and prints a summary.
+ * Runs the `add` command as an interactive wizard: loads all available packs,
+ * prompts the user through pack/item selection, copies items, and prints a summary.
  *
- * @param packageName - npm package name to install from
- * @param pick - undefined = all, "" = interactive, "name" = specific item
  * @param cwd - Target project directory (defaults to process.cwd())
- * @param enableAutoActivation - If true, configure skill-router hooks and manifest
  * @returns The install summary
  */
-export async function runAdd(
-  packageName: string,
-  pick: string | undefined,
-  cwd?: string | undefined,
-  enableAutoActivation?: boolean,
-): Promise<InstallSummary> {
+export async function runAdd(cwd?: string | undefined): Promise<InstallSummary> {
   const projectDir = cwd ?? process.cwd();
-  const packDir = resolvePackDir(packageName);
-  const manifest = loadManifest(packDir);
+  const packs = loadAllPacks();
 
-  const allItems = manifestToItems(manifest);
-  const selection = await selectItems(allItems, manifest, pick);
+  if (packs.length === 0) {
+    console.log('No packs available.');
+    return { packs: [], results: [] };
+  }
 
-  const results = copyItems(selection.items, packDir, projectDir);
+  const wizard = await runWizard(packs);
+
+  if (wizard.selections.length === 0) {
+    return { packs: [], results: [] };
+  }
+
+  const allResults: InstallResult[] = [];
+  const packInfo: Array<{ name: string; version: string }> = [];
+
+  for (const selection of wizard.selections) {
+    const results = copyItems(selection.items, selection.packDir, projectDir);
+    allResults.push(...results);
+    packInfo.push({
+      name: selection.manifest.name,
+      version: selection.manifest.version,
+    });
+
+    if (wizard.enableAutoActivation) {
+      setupRouter(projectDir, selection.manifest);
+    }
+  }
 
   const summary: InstallSummary = {
-    packName: manifest.name,
-    packVersion: manifest.version,
-    results,
+    packs: packInfo,
+    results: allResults,
   };
 
   printSummary(summary);
 
-  if (enableAutoActivation || selection.enableAutoActivation) {
-    setupRouter(projectDir, manifest);
-  }
-
   return summary;
-}
-
-function manifestToItems(manifest: PackManifest): readonly InstallItem[] {
-  const agents: InstallItem[] = manifest.agents.map((agent) => ({
-    type: 'agent' as const,
-    name: agent.name,
-    sourcePath: agent.path,
-    description: agent.description,
-  }));
-
-  const skills: InstallItem[] = manifest.skills.map((skill) => ({
-    type: 'skill' as const,
-    name: skill.name,
-    sourcePath: skill.path,
-    description: skill.description,
-  }));
-
-  return [...agents, ...skills];
-}
-
-async function selectItems(
-  allItems: readonly InstallItem[],
-  manifest: PackManifest,
-  pick: string | undefined,
-): Promise<SelectionResult> {
-  // No --pick: install everything
-  if (pick === undefined) {
-    return { items: allItems, enableAutoActivation: false };
-  }
-
-  // Bare --pick (empty string): interactive prompt
-  if (pick === '') {
-    return promptForItems(manifest);
-  }
-
-  // --pick=<name>: find specific item
-  const found = allItems.filter((item) => item.name === pick);
-  if (found.length === 0) {
-    const available = allItems.map((i) => i.name).join(', ');
-    throw new Error(
-      `Item not found: "${pick}". Available items: ${available}`,
-    );
-  }
-
-  return { items: found, enableAutoActivation: false };
 }

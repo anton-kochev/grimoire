@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { PackManifest, InstallItem } from '../src/types.js';
+import type { PackOption, InstallItem } from '../src/types.js';
 
 vi.mock('@clack/prompts', () => ({
   multiselect: vi.fn(),
@@ -10,98 +10,165 @@ vi.mock('@clack/prompts', () => ({
   isCancel: vi.fn(),
 }));
 
-import { promptForItems } from '../src/prompt.js';
+import { runWizard } from '../src/prompt.js';
 import * as clack from '@clack/prompts';
 
 const mockMultiselect = vi.mocked(clack.multiselect);
 const mockConfirm = vi.mocked(clack.confirm);
 const mockIsCancel = vi.mocked(clack.isCancel);
 
-describe('promptForItems', () => {
-  const manifest: PackManifest = {
-    name: 'test-pack',
-    version: '1.0.0',
-    agents: [
-      { name: 'my-agent', path: 'agents/my-agent.md', description: 'Agent A' },
-    ],
-    skills: [
-      { name: 'my-skill', path: 'skills/my-skill', description: 'Skill S' },
-    ],
-  };
+describe('runWizard', () => {
+  const packs: PackOption[] = [
+    {
+      name: 'dotnet-pack',
+      dir: '/packs/dotnet-pack',
+      manifest: {
+        name: 'dotnet-pack',
+        version: '1.0.0',
+        agents: [
+          { name: 'csharp-coder', path: 'agents/csharp-coder.md', description: 'C# coder' },
+        ],
+        skills: [
+          { name: 'dotnet-workflow', path: 'skills/dotnet-workflow', description: 'Dotnet workflow' },
+        ],
+      },
+    },
+    {
+      name: 'ts-pack',
+      dir: '/packs/ts-pack',
+      manifest: {
+        name: 'ts-pack',
+        version: '2.0.0',
+        agents: [],
+        skills: [
+          { name: 'modern-ts', path: 'skills/modern-ts', description: 'Modern TypeScript' },
+        ],
+      },
+    },
+  ];
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsCancel.mockReturnValue(false);
-    mockConfirm.mockResolvedValue(true);
   });
 
-  it('should return selected items with auto-activation enabled', async () => {
-    const expectedItems: InstallItem[] = [
-      { type: 'agent', name: 'my-agent', sourcePath: 'agents/my-agent.md', description: 'Agent A' },
+  it('should return selections grouped by pack with auto-activation', async () => {
+    // Step 1: select both packs
+    mockMultiselect.mockResolvedValueOnce(packs);
+
+    // Step 2: select all items (the wizard builds item options from selected packs)
+    const expectedItems = [
+      { pack: packs[0], item: { type: 'agent' as const, name: 'csharp-coder', sourcePath: 'agents/csharp-coder.md', description: 'C# coder' } },
+      { pack: packs[0], item: { type: 'skill' as const, name: 'dotnet-workflow', sourcePath: 'skills/dotnet-workflow', description: 'Dotnet workflow' } },
+      { pack: packs[1], item: { type: 'skill' as const, name: 'modern-ts', sourcePath: 'skills/modern-ts', description: 'Modern TypeScript' } },
     ];
-    mockMultiselect.mockResolvedValue(expectedItems);
+    mockMultiselect.mockResolvedValueOnce(expectedItems);
+
+    // Step 3: enable auto-activation
     mockConfirm.mockResolvedValue(true);
 
-    const result = await promptForItems(manifest);
+    const result = await runWizard(packs);
 
-    expect(result.items).toEqual(expectedItems);
     expect(result.enableAutoActivation).toBe(true);
+    expect(result.selections).toHaveLength(2);
+    expect(result.selections[0]?.items).toHaveLength(2);
+    expect(result.selections[0]?.packDir).toBe('/packs/dotnet-pack');
+    expect(result.selections[1]?.items).toHaveLength(1);
+    expect(result.selections[1]?.packDir).toBe('/packs/ts-pack');
   });
 
   it('should return auto-activation disabled when declined', async () => {
-    const expectedItems: InstallItem[] = [
-      { type: 'agent', name: 'my-agent', sourcePath: 'agents/my-agent.md', description: 'Agent A' },
-    ];
-    mockMultiselect.mockResolvedValue(expectedItems);
+    mockMultiselect.mockResolvedValueOnce([packs[0]]);
+    mockMultiselect.mockResolvedValueOnce([
+      { pack: packs[0], item: { type: 'agent' as const, name: 'csharp-coder', sourcePath: 'agents/csharp-coder.md', description: 'C# coder' } },
+    ]);
     mockConfirm.mockResolvedValue(false);
 
-    const result = await promptForItems(manifest);
+    const result = await runWizard(packs);
 
-    expect(result.items).toEqual(expectedItems);
     expect(result.enableAutoActivation).toBe(false);
+    expect(result.selections).toHaveLength(1);
   });
 
-  it('should build correct options list from manifest', async () => {
-    mockMultiselect.mockResolvedValue([]);
-
-    await promptForItems(manifest);
-
-    expect(mockMultiselect).toHaveBeenCalledTimes(1);
-    const call = mockMultiselect.mock.calls[0]?.[0] as { options: Array<{ label: string; value: InstallItem }> };
-    const labels = call.options.map((o) => o.label);
-    expect(labels).toContain('[agent] my-agent');
-    expect(labels).toContain('[skill] my-skill');
-  });
-
-  it('should handle multiselect cancellation', async () => {
-    mockMultiselect.mockResolvedValue(Symbol('cancel'));
+  it('should build correct pack options with hints', async () => {
+    mockMultiselect.mockResolvedValueOnce([]);
     mockIsCancel.mockReturnValueOnce(true);
 
-    const result = await promptForItems(manifest);
+    await runWizard(packs);
 
-    expect(result).toEqual({ items: [], enableAutoActivation: false });
+    const call = mockMultiselect.mock.calls[0]?.[0] as { options: Array<{ label: string; hint: string }> };
+    expect(call.options[0]?.label).toBe('dotnet-pack');
+    expect(call.options[0]?.hint).toBe('1 agent, 1 skill');
+    expect(call.options[1]?.label).toBe('ts-pack');
+    expect(call.options[1]?.hint).toBe('1 skill');
+  });
+
+  it('should build item options with pack name prefix', async () => {
+    mockMultiselect.mockResolvedValueOnce(packs);
+    mockMultiselect.mockResolvedValueOnce([]);
+    // Empty selection → returns empty without reaching confirm
+
+    await runWizard(packs);
+
+    const call = mockMultiselect.mock.calls[1]?.[0] as { options: Array<{ label: string }> };
+    const labels = call.options.map((o) => o.label);
+    expect(labels).toContain('[dotnet-pack | agent] csharp-coder');
+    expect(labels).toContain('[dotnet-pack | skill] dotnet-workflow');
+    expect(labels).toContain('[ts-pack | skill] modern-ts');
+  });
+
+  it('should pre-select all items via initialValues', async () => {
+    mockMultiselect.mockResolvedValueOnce(packs);
+    mockMultiselect.mockResolvedValueOnce([]);
+
+    await runWizard(packs);
+
+    const call = mockMultiselect.mock.calls[1]?.[0] as { initialValues: unknown[] };
+    expect(call.initialValues).toHaveLength(3);
+  });
+
+  it('should handle pack selection cancellation', async () => {
+    mockMultiselect.mockResolvedValueOnce(Symbol('cancel'));
+    mockIsCancel.mockReturnValueOnce(true);
+
+    const result = await runWizard(packs);
+
+    expect(result).toEqual({ selections: [], enableAutoActivation: false });
+    expect(mockMultiselect).toHaveBeenCalledTimes(1);
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('should handle item selection cancellation', async () => {
+    mockMultiselect.mockResolvedValueOnce(packs);
+    mockMultiselect.mockResolvedValueOnce(Symbol('cancel'));
+    mockIsCancel.mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    const result = await runWizard(packs);
+
+    expect(result).toEqual({ selections: [], enableAutoActivation: false });
     expect(mockConfirm).not.toHaveBeenCalled();
   });
 
   it('should handle confirm cancellation', async () => {
-    const items: InstallItem[] = [
-      { type: 'agent', name: 'my-agent', sourcePath: 'agents/my-agent.md', description: 'Agent A' },
-    ];
-    mockMultiselect.mockResolvedValue(items);
+    mockMultiselect.mockResolvedValueOnce([packs[0]]);
+    mockMultiselect.mockResolvedValueOnce([
+      { pack: packs[0], item: { type: 'agent' as const, name: 'csharp-coder', sourcePath: 'agents/csharp-coder.md', description: 'C# coder' } },
+    ]);
     mockConfirm.mockResolvedValue(Symbol('cancel') as never);
-    mockIsCancel.mockReturnValueOnce(false).mockReturnValueOnce(true);
+    mockIsCancel.mockReturnValueOnce(false).mockReturnValueOnce(false).mockReturnValueOnce(true);
 
-    const result = await promptForItems(manifest);
+    const result = await runWizard(packs);
 
-    expect(result).toEqual({ items: [], enableAutoActivation: false });
+    expect(result).toEqual({ selections: [], enableAutoActivation: false });
   });
 
-  it('should skip confirm when no items selected', async () => {
-    mockMultiselect.mockResolvedValue([]);
+  it('should return empty when no items selected', async () => {
+    mockMultiselect.mockResolvedValueOnce(packs);
+    mockMultiselect.mockResolvedValueOnce([]);
 
-    const result = await promptForItems(manifest);
+    const result = await runWizard(packs);
 
-    expect(result).toEqual({ items: [], enableAutoActivation: false });
+    expect(result).toEqual({ selections: [], enableAutoActivation: false });
     expect(mockConfirm).not.toHaveBeenCalled();
   });
 });

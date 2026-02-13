@@ -1,8 +1,8 @@
 export { loadManifest } from './manifest.js';
-export { resolvePackDir, listAvailablePacks } from './resolve.js';
+export { resolvePackDir, listAvailablePacks, loadAllPacks } from './resolve.js';
 export { copyAgent, copySkill, copyItems } from './copy.js';
 export { printSummary } from './summary.js';
-export { promptForItems } from './prompt.js';
+export { runWizard } from './prompt.js';
 export { runAdd } from './commands/add.js';
 export { runLogs } from './commands/logs.js';
 export type { LogsOptions } from './commands/logs.js';
@@ -14,6 +14,8 @@ export type {
   PackAgentEntry,
   PackSkillEntry,
   PackManifest,
+  PackOption,
+  WizardResult,
   InstallItem,
   InstallResult,
   InstallSummary,

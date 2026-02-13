@@ -10,7 +10,7 @@ vi.mock('url', () => ({
   fileURLToPath: () => join(mockPacksDir, 'fake-src', 'resolve.js'),
 }));
 
-import { resolvePackDir, listAvailablePacks } from '../src/resolve.js';
+import { resolvePackDir, listAvailablePacks, loadAllPacks } from '../src/resolve.js';
 
 describe('resolvePackDir', () => {
   let testDir: string;
@@ -97,5 +97,65 @@ describe('listAvailablePacks', () => {
     const result = listAvailablePacks();
 
     expect(result).toContain('my-pack');
+  });
+});
+
+describe('loadAllPacks', () => {
+  let testDir: string;
+
+  beforeEach(() => {
+    const raw = join(tmpdir(), `grimoire-loadall-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(raw, { recursive: true });
+    testDir = realpathSync(raw);
+    mockPacksDir = testDir;
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('should load all packs with their manifests', () => {
+    const packsDir = join(testDir, 'packs');
+    const packA = join(packsDir, 'pack-a');
+    mkdirSync(packA, { recursive: true });
+    writeFileSync(
+      join(packA, 'grimoire.json'),
+      JSON.stringify({
+        name: 'pack-a',
+        version: '1.0.0',
+        agents: [{ name: 'agent-1', path: 'agents/agent-1.md', description: 'Agent 1' }],
+        skills: [],
+      }),
+    );
+
+    const packB = join(packsDir, 'pack-b');
+    mkdirSync(packB, { recursive: true });
+    writeFileSync(
+      join(packB, 'grimoire.json'),
+      JSON.stringify({
+        name: 'pack-b',
+        version: '2.0.0',
+        agents: [],
+        skills: [{ name: 'skill-1', path: 'skills/skill-1', description: 'Skill 1' }],
+      }),
+    );
+
+    const result = loadAllPacks();
+
+    expect(result).toHaveLength(2);
+    expect(result[0]?.name).toBe('pack-a');
+    expect(result[0]?.manifest.version).toBe('1.0.0');
+    expect(result[0]?.manifest.agents).toHaveLength(1);
+    expect(result[1]?.name).toBe('pack-b');
+    expect(result[1]?.manifest.version).toBe('2.0.0');
+    expect(result[1]?.manifest.skills).toHaveLength(1);
+  });
+
+  it('should return empty array when no packs exist', () => {
+    mkdirSync(join(testDir, 'packs'), { recursive: true });
+
+    const result = loadAllPacks();
+
+    expect(result).toEqual([]);
   });
 });

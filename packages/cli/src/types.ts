@@ -32,8 +32,18 @@ export interface InstallItem {
   readonly description: string;
 }
 
-export interface SelectionResult {
-  readonly items: readonly InstallItem[];
+export interface PackOption {
+  readonly name: string;
+  readonly dir: string;
+  readonly manifest: PackManifest;
+}
+
+export interface WizardResult {
+  readonly selections: ReadonlyArray<{
+    readonly packDir: string;
+    readonly manifest: PackManifest;
+    readonly items: readonly InstallItem[];
+  }>;
   readonly enableAutoActivation: boolean;
 }
 
@@ -44,8 +54,7 @@ export interface InstallResult {
 }
 
 export interface InstallSummary {
-  readonly packName: string;
-  readonly packVersion: string;
+  readonly packs: ReadonlyArray<{ readonly name: string; readonly version: string }>;
   readonly results: readonly InstallResult[];
 }
 

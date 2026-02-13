@@ -1,6 +1,8 @@
 import { existsSync, readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { loadManifest } from './manifest.js';
+import type { PackOption } from './types.js';
 
 /**
  * Resolves the directory path of a bundled pack.
@@ -36,6 +38,20 @@ export function listAvailablePacks(packsDir?: string | undefined): string[] {
   return readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name);
+}
+
+/**
+ * Lists all available packs and loads their manifests.
+ *
+ * @returns Array of PackOption with name, resolved dir, and parsed manifest
+ */
+export function loadAllPacks(): PackOption[] {
+  const names = listAvailablePacks();
+  return names.map((name) => {
+    const dir = resolvePackDir(name);
+    const manifest = loadManifest(dir);
+    return { name, dir, manifest };
+  });
 }
 
 function getPacksDir(): string {

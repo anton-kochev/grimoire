@@ -19,8 +19,7 @@ describe('printSummary', () => {
 
   it('should format agents and skills with destination paths', () => {
     const summary: InstallSummary = {
-      packName: 'test-pack',
-      packVersion: '1.0.0',
+      packs: [{ name: 'test-pack', version: '1.0.0' }],
       results: [
         {
           item: { type: 'agent', name: 'my-agent', sourcePath: 'agents/my-agent.md', description: 'Agent' },
@@ -47,8 +46,7 @@ describe('printSummary', () => {
 
   it('should show (overwritten) tag for overwritten items', () => {
     const summary: InstallSummary = {
-      packName: 'test-pack',
-      packVersion: '1.0.0',
+      packs: [{ name: 'test-pack', version: '1.0.0' }],
       results: [
         {
           item: { type: 'agent', name: 'my-agent', sourcePath: 'agents/my-agent.md', description: 'Agent' },
@@ -66,8 +64,7 @@ describe('printSummary', () => {
 
   it('should handle empty results gracefully', () => {
     const summary: InstallSummary = {
-      packName: 'test-pack',
-      packVersion: '1.0.0',
+      packs: [{ name: 'test-pack', version: '1.0.0' }],
       results: [],
     };
 
@@ -76,5 +73,27 @@ describe('printSummary', () => {
     const output = logs.join('\n');
     expect(output).toContain('test-pack');
     expect(output).toContain('nothing');
+  });
+
+  it('should show multiple pack names', () => {
+    const summary: InstallSummary = {
+      packs: [
+        { name: 'dotnet-pack', version: '1.0.0' },
+        { name: 'ts-pack', version: '2.0.0' },
+      ],
+      results: [
+        {
+          item: { type: 'agent', name: 'my-agent', sourcePath: 'agents/my-agent.md', description: 'Agent' },
+          destinationPath: '.claude/agents/my-agent.md',
+          overwritten: false,
+        },
+      ],
+    };
+
+    printSummary(summary);
+
+    const output = logs.join('\n');
+    expect(output).toContain('dotnet-pack@1.0.0');
+    expect(output).toContain('ts-pack@2.0.0');
   });
 });
