@@ -16,6 +16,11 @@ const addCommand = defineCommand({
       description: 'Pack name (e.g. dotnet-pack). Run grimoire add --list to see available packs.',
       required: false,
     },
+    item: {
+      type: 'positional',
+      description: 'Item name to install (e.g. grimoire:csharp-coder). Omit to install all.',
+      required: false,
+    },
     list: {
       type: 'boolean',
       description: 'List available packs',
@@ -48,7 +53,8 @@ const addCommand = defineCommand({
       process.exit(1);
     }
 
-    await runAdd(args.pack, args.pick, process.cwd(), args.enableAutoActivation);
+    const pick = args.pick ?? args.item;
+    await runAdd(args.pack, pick, process.cwd(), args.enableAutoActivation);
   },
 });
 

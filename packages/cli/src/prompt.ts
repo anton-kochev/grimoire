@@ -12,7 +12,7 @@ export async function promptForItems(manifest: PackManifest): Promise<readonly I
   const options = buildOptions(manifest);
 
   const selected = await clack.multiselect({
-    message: 'Select items to install:',
+    message: 'Select items to install (Space to toggle, Enter to confirm):',
     options,
     required: false,
   });

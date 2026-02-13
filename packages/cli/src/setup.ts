@@ -148,4 +148,16 @@ export function setupRouter(projectDir: string, packManifest: PackManifest): voi
   console.log('\nSkill router configured:');
   console.log('  hooks: .claude/settings.json');
   console.log('  manifest: .claude/skills-manifest.json');
+
+  if (!isSkillRouterInstalled(projectDir)) {
+    console.log('\n⚠ @grimoire-cc/skill-router is not installed.');
+    console.log('  Auto-activation requires it. Install with:');
+    console.log('  npm install -D @grimoire-cc/skill-router');
+  }
+}
+
+function isSkillRouterInstalled(projectDir: string): boolean {
+  // Check node_modules for the skill-router package
+  const routerPath = join(projectDir, 'node_modules', '@grimoire-cc', 'skill-router');
+  return existsSync(routerPath);
 }
