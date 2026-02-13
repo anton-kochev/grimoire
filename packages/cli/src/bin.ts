@@ -116,7 +116,7 @@ const logsCommand = defineCommand({
 const main = defineCommand({
   meta: {
     name: 'grimoire',
-    version: '0.4.0',
+    version: '0.4.1',
     description: 'CLI tool for installing Grimoire agent and skill packs',
   },
   subCommands: {
