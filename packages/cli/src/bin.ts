@@ -1,8 +1,12 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { defineCommand, runMain } from 'citty';
 import { runAdd } from './commands/add.js';
 import { runRemove } from './commands/remove.js';
 import { runLogs } from './commands/logs.js';
+
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
 
 const addCommand = defineCommand({
   meta: {
@@ -72,7 +76,7 @@ const logsCommand = defineCommand({
 const main = defineCommand({
   meta: {
     name: 'grimoire',
-    version: '0.6.0',
+    version,
     description: 'CLI tool for installing Grimoire agent and skill packs',
   },
   subCommands: {
