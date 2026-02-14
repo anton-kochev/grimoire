@@ -1,0 +1,72 @@
+{
+  "name": "meta-pack",
+  "version": "1.0.0",
+  "agents": [],
+  "skills": [
+    {
+      "name": "grimoire:context-file-guide",
+      "path": "skills/gr.context-file-guide",
+      "description": "Best practices for writing CLAUDE.md project context files. Use when creating, reviewing, or improving CLAUDE.md files for Claude Code projects.",
+      "triggers": {
+        "keywords": [],
+        "file_extensions": [],
+        "patterns": [
+          "create.*claude\\.md",
+          "write.*claude\\.md",
+          "review.*claude\\.md",
+          "improve.*claude\\.md",
+          "update.*claude\\.md"
+        ],
+        "file_paths": [
+          "**/CLAUDE.md"
+        ]
+      }
+    },
+    {
+      "name": "grimoire:readme-guide",
+      "path": "skills/gr.readme-guide",
+      "description": "Create and review README files following industry best practices. Use for writing new READMEs, improving existing ones, checking README quality, or adding badges.",
+      "triggers": {
+        "keywords": [
+          "readme"
+        ],
+        "file_extensions": [],
+        "patterns": [
+          "create.*readme",
+          "write.*readme",
+          "review.*readme",
+          "improve.*readme",
+          "update.*readme",
+          "repository.*description"
+        ],
+        "file_paths": [
+          "**/README.md",
+          "**/README"
+        ]
+      }
+    },
+    {
+      "name": "grimoire:skill-developer",
+      "path": "skills/gr.skill-developer",
+      "description": "Create and maintain custom skills for Claude Code following official Anthropic patterns. Use when creating new skills, updating existing skills, or organizing skill documentation.",
+      "triggers": {
+        "keywords": [
+          "skill-developer",
+          "skill-authoring"
+        ],
+        "file_extensions": [],
+        "patterns": [
+          "create.*skill",
+          "new.*skill",
+          "build.*skill",
+          "write.*skill",
+          "update.*skill",
+          "improve.*skill"
+        ],
+        "file_paths": [
+          "**/.claude/skills/**/SKILL.md"
+        ]
+      }
+    }
+  ]
+}
