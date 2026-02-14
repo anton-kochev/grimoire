@@ -1,0 +1,12 @@
+{
+  "name": "dev-pack",
+  "version": "1.0.0",
+  "agents": [
+    {
+      "name": "grimoire:code-reviewer",
+      "path": "agents/gr.code-reviewer.md",
+      "description": "Language-agnostic code review specialist. Use immediately after writing or modifying code, or when explicitly requested to review code quality, security, performance, and best practices. Works with any programming language — detects language automatically and applies idiomatic conventions."
+    }
+  ],
+  "skills": []
+}

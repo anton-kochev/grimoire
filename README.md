@@ -2,7 +2,7 @@
 
 A collection of specialized agents and skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns. Includes ready-to-use agents for .NET development and content verification, plus skills for TypeScript, git commits, and documentation.
+Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns. Includes ready-to-use agents for code review, .NET development, and content verification, plus skills for TypeScript, git commits, and documentation.
 
 [![CI](https://github.com/anton-kochev/claudify/actions/workflows/ci.yml/badge.svg)](https://github.com/anton-kochev/claudify/actions/workflows/ci.yml)
 
@@ -17,6 +17,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [csharp-coder](#csharp-coder)
   - [dotnet-unit-test-writer](#dotnet-unit-test-writer)
   - [csharp-code-reviewer](#csharp-code-reviewer)
+  - [code-reviewer](#code-reviewer)
   - [fact-checker](#fact-checker)
 - [Skills](#skills)
   - [dotnet-unit-testing](#dotnet-unit-testing)
@@ -93,7 +94,7 @@ grimoire add
 
 The wizard walks you through three steps:
 
-1. **Select packs** — choose from all available packs (e.g. `dotnet-pack`, `ts-pack`)
+1. **Select packs** — choose from all available packs (e.g. `dotnet-pack`, `ts-pack`, `meta-pack`)
 2. **Select items** — pick individual agents and skills (all pre-selected by default)
 3. **Auto-activation** — optionally configure skill-router hooks for automatic skill matching
 
@@ -357,6 +358,19 @@ Expert C#/.NET code review specialist.
 
 **When to use:** After writing or modifying C# code, before merging PRs.
 
+### code-reviewer
+
+Language-agnostic code review specialist that works with any programming language.
+
+**Capabilities:**
+
+- Detects language from file extensions and applies idiomatic conventions
+- Security, performance, correctness, and maintainability review
+- Deterministic quality rating system (0-10 scale)
+- Severity-based checklist (Critical, High, Medium, Low)
+
+**When to use:** After writing or modifying code in any language, before merging PRs.
+
 ### fact-checker
 
 Verifies accuracy of written content before publishing.
@@ -586,6 +600,7 @@ grimoire/
     │   ├── grimoire:csharp-coder.md
     │   ├── grimoire:dotnet-unit-test-writer.md
     │   ├── grimoire:csharp-code-reviewer.md
+    │   ├── grimoire:code-reviewer.md
     │   └── grimoire:fact-checker.md
     └── skills/
         ├── grimoire:dotnet-unit-testing/
