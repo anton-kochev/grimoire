@@ -18,6 +18,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [dotnet-unit-test-writer](#dotnet-unit-test-writer)
   - [csharp-code-reviewer](#csharp-code-reviewer)
   - [code-reviewer](#code-reviewer)
+  - [tdd-specialist](#tdd-specialist)
   - [fact-checker](#fact-checker)
 - [Skills](#skills)
   - [dotnet-unit-testing](#dotnet-unit-testing)
@@ -27,6 +28,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [skill-developer](#skill-developer)
   - [readme-guide](#readme-guide)
   - [grimoire:business-logic-docs](#grimoirebusiness-logic-docs)
+  - [grimoire:tdd-specialist](#grimoiretdd-specialist)
   - [grimoire:modern-typescript](#grimoiremodern-typescript)
 - [Creating New Skills](#creating-new-skills)
 - [Project Structure](#project-structure)
@@ -36,7 +38,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 ## Features
 
 - **CLI Tool** - Install agents and skills from npm packs with `grimoire add`, view logs with `grimoire logs`
-- **Pre-built Agents** - Domain experts for .NET architecture, unit testing, and fact verification
+- **Pre-built Agents** - Domain experts for .NET architecture, unit testing, TDD, code review, and fact verification
 - **Reusable Skills** - Workflows for conventional commits, README generation, and skill development
 - **Validation Tooling** - Scripts to ensure skills meet Anthropic's requirements
 - **Templates & Examples** - Scaffolding for creating your own agents and skills
@@ -371,6 +373,21 @@ Language-agnostic code review specialist that works with any programming languag
 
 **When to use:** After writing or modifying code in any language, before merging PRs.
 
+### tdd-specialist
+
+Language-agnostic TDD and unit testing specialist that works with any programming language.
+
+**Capabilities:**
+
+- Auto-detects project language and test framework
+- Supports pytest, jest, vitest, mocha, JUnit, go test, cargo test, xUnit, RSpec, and more
+- 4-step workflow: Analyze, Plan (with approval gate), Write, Explain
+- Loads the [grimoire:tdd-specialist](#grimoiretdd-specialist) skill for TDD knowledge base
+
+**When to use:** Writing unit tests, adding test coverage, TDD workflows in any language.
+
+**Install via:** `grimoire add` and select `dev-pack`
+
 ### fact-checker
 
 Verifies accuracy of written content before publishing.
@@ -495,6 +512,26 @@ Guides Claude through creating and maintaining a structured knowledge base of a 
 
 **Reference files:** `tier2-template.md`
 
+### grimoire:tdd-specialist
+
+Language-agnostic TDD and unit testing patterns for any programming language.
+
+**Trigger:** When writing unit tests, TDD workflows, or working with any test framework
+
+**Frameworks:** pytest, Vitest, Jest, Mocha, JUnit 5, Go testing, Rust #[test], xUnit, RSpec
+
+**Includes:**
+
+- Language and framework auto-detection
+- Universal testing principles (AAA pattern, naming, isolation, mocking)
+- 4-step workflow with mandatory approval gate
+- Anti-patterns guide (The Liar, The Giant, Excessive Setup, and more)
+- TDD workflow patterns (Red-Green-Refactor, Transformation Priority Premise)
+
+**Reference files:** `language-frameworks.md`, `anti-patterns.md`, `tdd-workflow-patterns.md`
+
+**Install via:** `grimoire add` and select `dev-pack`
+
 ### grimoire:modern-typescript
 
 Modern TypeScript best practices, patterns, and type system mastery for TS 5.7+.
@@ -601,6 +638,7 @@ grimoire/
     │   ├── grimoire:dotnet-unit-test-writer.md
     │   ├── grimoire:csharp-code-reviewer.md
     │   ├── grimoire:code-reviewer.md
+    │   ├── grimoire:tdd-specialist.md
     │   └── grimoire:fact-checker.md
     └── skills/
         ├── grimoire:dotnet-unit-testing/
@@ -622,6 +660,12 @@ grimoire/
         │   └── reference/
         ├── grimoire:readme-guide/
         │   └── SKILL.md
+        ├── grimoire:tdd-specialist/
+        │   ├── SKILL.md
+        │   └── reference/
+        │       ├── language-frameworks.md
+        │       ├── anti-patterns.md
+        │       └── tdd-workflow-patterns.md
         ├── grimoire:business-logic-docs/
         │   ├── SKILL.md
         │   └── references/
