@@ -1,0 +1,30 @@
+{
+  "name": "docs-pack",
+  "version": "1.0.0",
+  "agents": [],
+  "skills": [
+    {
+      "name": "grimoire:business-logic-docs",
+      "path": "skills/gr.business-logic-docs",
+      "description": "Create and maintain structured business logic documentation for AI assistants and developers. Use when documenting business rules, domain knowledge, invariants, workflows, state machines, entity relationships, decision logs, or building a business logic knowledge base.",
+      "triggers": {
+        "keywords": [],
+        "file_extensions": [],
+        "patterns": [
+          "document.*business",
+          "business.*logic",
+          "business.*rule",
+          "domain.*knowledge",
+          "knowledge.*base",
+          "document.*domain",
+          "document.*invariant",
+          "document.*workflow",
+          "decision.*log"
+        ],
+        "file_paths": [
+          "**/docs/business-logic/**"
+        ]
+      }
+    }
+  ]
+}
