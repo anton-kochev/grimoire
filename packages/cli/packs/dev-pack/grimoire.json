@@ -6,7 +6,50 @@
       "name": "grimoire:code-reviewer",
       "path": "agents/gr.code-reviewer.md",
       "description": "Language-agnostic code review specialist. Use immediately after writing or modifying code, or when explicitly requested to review code quality, security, performance, and best practices. Works with any programming language — detects language automatically and applies idiomatic conventions."
+    },
+    {
+      "name": "grimoire:tdd-specialist",
+      "path": "agents/gr.tdd-specialist.md",
+      "description": "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, or doing test-driven development in ANY language. Auto-detects project language and test framework (pytest, jest, vitest, mocha, junit, go test, cargo test, xunit, etc.). Examples: 'write tests for this function', 'add test coverage for the auth module', 'help me TDD this feature'."
     }
   ],
-  "skills": []
+  "skills": [
+    {
+      "name": "grimoire:tdd-specialist",
+      "path": "skills/gr.tdd-specialist",
+      "description": "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, doing test-driven development, or setting up test infrastructure in ANY language. Auto-detects project language and test framework.",
+      "triggers": {
+        "keywords": [
+          "tdd",
+          "test-driven",
+          "unittest",
+          "unit-test",
+          "pytest",
+          "jest",
+          "vitest",
+          "junit",
+          "gotest",
+          "cargo-test",
+          "mocha",
+          "rspec"
+        ],
+        "file_extensions": [],
+        "patterns": [
+          "write.*test",
+          "add.*test",
+          "create.*test",
+          "test.*coverage",
+          "red.green.refactor"
+        ],
+        "file_paths": [
+          "tests/**",
+          "test/**",
+          "__tests__/**",
+          "*_test.go",
+          "**/*.test.*",
+          "**/*.spec.*"
+        ]
+      }
+    }
+  ]
 }

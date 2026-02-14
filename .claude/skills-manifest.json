@@ -127,6 +127,43 @@
       }
     },
     {
+      "path": ".claude/skills/grimoire:tdd-specialist",
+      "name": "TDD Specialist",
+      "description": "Language-agnostic TDD and unit testing specialist",
+      "triggers": {
+        "keywords": [
+          "tdd",
+          "test-driven",
+          "unittest",
+          "unit-test",
+          "pytest",
+          "jest",
+          "vitest",
+          "junit",
+          "gotest",
+          "cargo-test",
+          "mocha",
+          "rspec"
+        ],
+        "file_extensions": [],
+        "patterns": [
+          "write.*test",
+          "add.*test",
+          "create.*test",
+          "test.*coverage",
+          "red.green.refactor"
+        ],
+        "file_paths": [
+          "tests/**",
+          "test/**",
+          "__tests__/**",
+          "*_test.go",
+          "**/*.test.*",
+          "**/*.spec.*"
+        ]
+      }
+    },
+    {
       "path": ".claude/skills/grimoire:dotnet-feature-workflow",
       "name": "DotNet Feature Workflow",
       "description": "End-to-end .NET feature development",
@@ -183,6 +220,12 @@
     "grimoire:dotnet-unit-test-writer": {
       "always_skills": [
         "DotNet Unit Testing"
+      ],
+      "compatible_skills": []
+    },
+    "grimoire:tdd-specialist": {
+      "always_skills": [
+        "TDD Specialist"
       ],
       "compatible_skills": []
     }
