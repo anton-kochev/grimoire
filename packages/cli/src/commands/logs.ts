@@ -1,7 +1,7 @@
-import { createServer, type Server } from 'node:http';
-import { readFileSync, existsSync, statSync, openSync, readSync, closeSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { exec } from 'node:child_process';
+import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
+import { resolve } from 'node:path';
 
 export interface LogsOptions {
   readonly logFile?: string | undefined;
