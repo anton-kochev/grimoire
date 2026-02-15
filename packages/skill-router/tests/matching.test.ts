@@ -150,19 +150,20 @@ describe('levenshteinDistance', () => {
 });
 
 describe('fuzzyThreshold', () => {
-  it('should return 0 for short words (1-3 chars)', () => {
+  it('should return 0 for short words (1-4 chars)', () => {
     expect(fuzzyThreshold(1)).toBe(0);
     expect(fuzzyThreshold(2)).toBe(0);
     expect(fuzzyThreshold(3)).toBe(0);
+    expect(fuzzyThreshold(4)).toBe(0);
   });
 
-  it('should return 1 for medium words (4-5 chars)', () => {
-    expect(fuzzyThreshold(4)).toBe(1);
+  it('should return 1 for medium words (5-6 chars)', () => {
     expect(fuzzyThreshold(5)).toBe(1);
+    expect(fuzzyThreshold(6)).toBe(1);
   });
 
-  it('should return 2 for long words (6+ chars)', () => {
-    expect(fuzzyThreshold(6)).toBe(2);
+  it('should return 2 for long words (7+ chars)', () => {
+    expect(fuzzyThreshold(7)).toBe(2);
     expect(fuzzyThreshold(10)).toBe(2);
     expect(fuzzyThreshold(20)).toBe(2);
   });
@@ -222,14 +223,14 @@ describe('matchKeyword', () => {
   });
 
   it('should match via fuzzy when no exact or stem match', () => {
-    const words = new Set(['tast']); // substitution typo of "test"
+    const words = new Set(['invoce']); // substitution typo of "invoice" (7 chars, threshold 2)
     const stemmed = buildStemmedWordMap(words);
 
-    const result = matchKeyword('test', words, stemmed);
+    const result = matchKeyword('invoice', words, stemmed);
 
     expect(result.matched).toBe(true);
     expect(result.quality).toBe('fuzzy');
-    expect(result.matchedWord).toBe('tast');
+    expect(result.matchedWord).toBe('invoce');
   });
 
   it('should not fuzzy-match short words', () => {
@@ -250,28 +251,46 @@ describe('matchKeyword', () => {
     expect(result.matched).toBe(false);
   });
 
-  it('should respect fuzzy distance thresholds', () => {
-    // "test" (4 chars) → max distance 1
+  it('should not fuzzy-match 4-char keywords (threshold 0)', () => {
+    // "test" (4 chars) → no fuzzy matching allowed
     const words = new Set(['txst']); // distance 1 from "test"
     const stemmed = buildStemmedWordMap(words);
 
-    expect(matchKeyword('test', words, stemmed).matched).toBe(true);
-
-    // distance 2 from "test" with a 4-char keyword → no match
-    const words2 = new Set(['txsx']);
-    const stemmed2 = buildStemmedWordMap(words2);
-
-    expect(matchKeyword('test', words2, stemmed2).matched).toBe(false);
+    expect(matchKeyword('test', words, stemmed).matched).toBe(false);
   });
 
-  it('should allow distance 2 for keywords of 6+ chars', () => {
-    const words = new Set(['deploiy']); // distance 2 from "deploy"
+  it('should allow distance 1 for keywords of 5-6 chars', () => {
+    const words = new Set(['dxplxy']); // distance 2 from "deploy" (6 chars, threshold 1)
     const stemmed = buildStemmedWordMap(words);
 
-    const result = matchKeyword('deploy', words, stemmed);
+    // distance 2 exceeds threshold 1 → no match
+    expect(matchKeyword('deploy', words, stemmed).matched).toBe(false);
+
+    // distance 1 → match
+    const words2 = new Set(['deploi']); // distance 1 from "deploy"
+    const stemmed2 = buildStemmedWordMap(words2);
+
+    const result = matchKeyword('deploy', words2, stemmed2);
+    expect(result.matched).toBe(true);
+    expect(result.quality).toBe('fuzzy');
+  });
+
+  it('should allow distance 2 for keywords of 7+ chars', () => {
+    const words = new Set(['invoce']); // distance 2 from "invoice" (7 chars)
+    const stemmed = buildStemmedWordMap(words);
+
+    const result = matchKeyword('invoice', words, stemmed);
 
     expect(result.matched).toBe(true);
     expect(result.quality).toBe('fuzzy');
+  });
+
+  it('should not fuzzy-match "dotnet" against "done"', () => {
+    // Regression: "dotnet" (6 chars, threshold 1) vs "done" (distance 2) → no match
+    const words = new Set(['done', 'update', 'business', 'documentation']);
+    const stemmed = buildStemmedWordMap(words);
+
+    expect(matchKeyword('dotnet', words, stemmed).matched).toBe(false);
   });
 
   it('should prefer exact over stem when both words present', () => {

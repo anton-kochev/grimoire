@@ -75,7 +75,9 @@ export function scoreSkill(
   if (triggers.patterns) {
     for (const pattern of triggers.patterns) {
       try {
-        const regex = new RegExp(pattern, 'i');
+        // Bound greedy .* to max ~10 words to prevent cross-prompt matching
+        const boundedPattern = pattern.replace(/\.\*/g, '.{0,60}');
+        const regex = new RegExp(boundedPattern, 'i');
         if (regex.test(normalizedPrompt)) {
           score += weights.patterns;
           matchedSignals.push({

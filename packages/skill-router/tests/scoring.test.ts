@@ -89,17 +89,17 @@ describe('scoreSkill', () => {
         path: '/skills/test',
         name: 'Test Skill',
         triggers: {
-          keywords: ['test'],
+          keywords: ['xunit'], // 5 chars → fuzzy threshold 1
         },
       };
 
-      const signals = createSignals(['tast']); // substitution typo
-      const result = scoreSkill(skill, signals, 'tast prompt', defaultWeights);
+      const signals = createSignals(['xunis']); // distance 1 substitution (t→s)
+      const result = scoreSkill(skill, signals, 'xunis prompt', defaultWeights);
 
       expect(result.score).toBe(0.8); // 1.0 * 0.8 fuzzy discount
       expect(result.matchedSignals).toContainEqual({
         type: 'keyword',
-        value: 'test',
+        value: 'xunit',
         matchQuality: 'fuzzy',
       });
     });
@@ -407,6 +407,93 @@ describe('scoreSkill', () => {
 
       expect(result.skill.path).toBe('/skills/test');
       expect(result.skill.name).toBe('Test Skill');
+    });
+  });
+
+  describe('pattern proximity bounding', () => {
+    it('should match patterns within proximity limit', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          patterns: ['create.*feature'],
+        },
+      };
+
+      const signals = createSignals();
+      const result = scoreSkill(
+        skill,
+        signals,
+        'create a new feature for the app',
+        defaultWeights
+      );
+
+      expect(result.score).toBe(2.0);
+    });
+
+    it('should not match patterns across distant text (>60 chars)', () => {
+      const skill: SkillDefinition = {
+        path: '/skills/test',
+        name: 'Test Skill',
+        triggers: {
+          patterns: ['create.*feature'],
+        },
+      };
+
+      // "create" and "feature" separated by >60 chars
+      const filler = 'x '.repeat(40); // 80 chars
+      const signals = createSignals();
+      const result = scoreSkill(
+        skill,
+        signals,
+        `create shipment ${filler} needed feature`,
+        defaultWeights
+      );
+
+      expect(result.score).toBe(0);
+    });
+  });
+
+  describe('regression: business docs false positive', () => {
+    it('should not activate dotnet-feature-workflow for business documentation prompt', () => {
+      const dotnetFeatureWorkflow: SkillDefinition = {
+        path: '.claude/skills/grimoire:dotnet-feature-workflow',
+        name: 'DotNet Feature Workflow',
+        triggers: {
+          keywords: ['dotnet', 'csharp', 'scaffold', 'endpoint'],
+          file_extensions: ['.cs', '.csproj', '.sln'],
+          patterns: [
+            'build.*feature',
+            'implement.*feature',
+            'create.*feature',
+            'new.*feature',
+            'add.*feature',
+            'develop.*feature',
+            'csharp.*feature',
+            'handle.*whole',
+            'implement.*endpoint',
+            'build.*endpoint',
+            'add.*endpoint',
+          ],
+          file_paths: ['**/*.csproj', '**/*.sln'],
+        },
+      };
+
+      const prompt =
+        'update business documentation with meeting notes about create shipment flow ' +
+        'and needed feature for vendor portal pending incomplete shipment done';
+      const signals = createSignals(
+        ['update', 'business', 'documentation', 'meeting', 'notes', 'create',
+         'shipment', 'flow', 'needed', 'feature', 'vendor', 'portal',
+         'pending', 'incomplete', 'done'],
+        [],
+        ['pending/incomplete']
+      );
+
+      const result = scoreSkill(dotnetFeatureWorkflow, signals, prompt, defaultWeights);
+
+      // Should score well below the activation threshold of 3.0
+      expect(result.score).toBeLessThan(3.0);
     });
   });
 

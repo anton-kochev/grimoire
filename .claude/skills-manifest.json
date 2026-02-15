@@ -169,7 +169,6 @@
       "description": "End-to-end .NET feature development",
       "triggers": {
         "keywords": [
-          "feature",
           "dotnet",
           "csharp",
           "scaffold",
@@ -189,7 +188,6 @@
           "develop.*feature",
           "csharp.*feature",
           "handle.*whole",
-          "end.*to.*end",
           "implement.*endpoint",
           "build.*endpoint",
           "add.*endpoint"
@@ -197,6 +195,33 @@
         "file_paths": [
           "**/*.csproj",
           "**/*.sln"
+        ]
+      }
+    },
+    {
+      "path": ".claude/skills/grimoire:business-logic-docs",
+      "name": "Business Logic Documentation",
+      "description": "Structured business logic documentation",
+      "triggers": {
+        "keywords": [
+          "business-logic",
+          "business-rule",
+          "domain",
+          "invariant",
+          "workflow",
+          "state-machine",
+          "decision-log"
+        ],
+        "patterns": [
+          "document.*business",
+          "update.*business",
+          "business.*documentation",
+          "business.*rule",
+          "domain.*knowledge",
+          "document.*meeting"
+        ],
+        "file_paths": [
+          "**/docs/business-logic/**"
         ]
       }
     }

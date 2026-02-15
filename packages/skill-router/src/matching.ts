@@ -146,8 +146,8 @@ export function levenshteinDistance(
  * Short words (1-3 chars) get no fuzzy matching to avoid false positives.
  */
 export function fuzzyThreshold(wordLength: number): number {
-  if (wordLength <= 3) return 0;
-  if (wordLength <= 5) return 1;
+  if (wordLength <= 4) return 0;
+  if (wordLength <= 6) return 1;
   return 2;
 }
 
