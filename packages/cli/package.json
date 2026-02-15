@@ -1,6 +1,6 @@
 {
   "name": "@grimoire-cc/cli",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "CLI tool for installing Grimoire agent and skill packs",
   "type": "module",
   "license": "MIT",
