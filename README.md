@@ -497,20 +497,21 @@ Creates professional README files following industry standards.
 
 ### grimoire:business-logic-docs
 
-Guides Claude through creating and maintaining a structured knowledge base of a project's business logic.
+Guides Claude through creating, updating, and auditing a structured knowledge base of a project's business logic.
 
-**Trigger:** When documenting business rules, domain knowledge, invariants, or workflows
+**Trigger:** When documenting business rules, domain knowledge, invariants, workflows, or reviewing docs for staleness
 
 **Capabilities:**
 
 - Discover domain areas from codebase structure and interview developers
 - Generate three-tier documentation: overview, per-domain-area files, decision log
-- Update existing docs when business logic changes
+- Update existing docs from user stories, change requests, or discussion summaries (5-step structured workflow)
+- Audit knowledge base for staleness, terminology inconsistencies, and documentation gaps
 - Integrate with CLAUDE.md for automatic context loading
 
-**Output:** Markdown files in `docs/business-logic/` with glossary, business rules, state diagrams, and decision log.
+**Output:** Markdown files in `docs/business-logic/` with glossary, business rules, constraints, state diagrams, decision trees, and decision log.
 
-**Reference files:** `tier2-template.md`
+**Reference files:** `tier2-template.md`, `audit-checklist.md`
 
 ### grimoire:tdd-specialist
 
@@ -669,7 +670,8 @@ grimoire/
         ├── grimoire:business-logic-docs/
         │   ├── SKILL.md
         │   └── references/
-        │       └── tier2-template.md
+        │       ├── tier2-template.md
+        │       └── audit-checklist.md
         └── grimoire:modern-typescript/
             ├── SKILL.md
             └── reference/
