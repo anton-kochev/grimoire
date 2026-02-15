@@ -57,6 +57,17 @@ Add a reference to the knowledge base in the project's `CLAUDE.md` (create one i
 
 Use this when business logic changes. Updates are driven by text input — user stories, change requests, discussion transcripts/summaries — not by code analysis.
 
+### Step 0: Triage the Input
+
+When the input is unstructured (meeting notes, transcripts, raw discussions), classify each item before proceeding:
+
+- **Business rule/constraint** — what the system MUST or MUST NOT allow → document these
+- **UX/presentation decision** — how something is displayed or interacted with → skip unless it has enforcement implications (e.g., a disabled button that enforces a state constraint)
+- **Feature request / planned capability** — something that doesn't exist yet → skip, not documentation material
+- **Action item / tangent** — not documentation material → skip
+
+Present the classification to the user for confirmation before proceeding. For well-structured input (user stories with clear acceptance criteria, formal change requests), this step can be brief or skipped.
+
 ### Step 1: Understand the Change
 
 Read the provided input (user story, change request, discussion transcript/summary). Extract:
@@ -74,6 +85,7 @@ Read the affected Tier 2 file(s). For each change from Step 1, check:
 - Does it modify an existing rule or add a new one?
 - Does it affect workflows, entities, or integration points?
 - Does it invalidate any existing constraints, examples, or counterexamples?
+- **Terminology cross-reference**: Does the input use different terms for concepts already documented? Flag mismatches to the user (e.g., "The transcript says 'Dispatched' — does this map to the existing 'InTransit' status in the docs?"). Check the glossary in `_overview.md` and entity names in affected Tier 2 files.
 
 Flag any conflicts or ambiguities to the user before making changes.
 
@@ -98,6 +110,9 @@ Only add information you are certain about from the provided input.
 - **New domain areas**: Create a new Tier 2 file and add it to the table of contents in `_overview.md`.
 - **"Enforced in" fields**: Leave empty or mark with `<!-- TODO: add code location after implementation -->` — code locations are filled in after implementation, not before.
 - **Diagrams and glossary**: Update as needed to reflect changes.
+- **Feature requests**: MUST NOT be added to business logic docs. If the input contains feature requests or planned capabilities, exclude them and mention to the user what was excluded and why.
+- **UX-only decisions**: Do not document in business logic docs unless they enforce a business constraint (e.g., a disabled button that prevents an invalid state transition is a constraint; a button label rename is not).
+- **Template compliance**: Do NOT invent new template sections. Only use sections defined in [references/tier2-template.md](references/tier2-template.md). If information doesn't fit an existing section, it likely doesn't belong in business logic docs.
 
 ### Step 5: Validate and Present
 
@@ -193,6 +208,14 @@ Each entry follows:
 **Affected areas:** Which Tier 2 files are impacted.
 ```
 
+**Threshold for a decision log entry** — only add an entry when:
+
+- The decision involves a non-obvious tradeoff where rejected alternatives had real consequences
+- Future developers might question or accidentally reverse the decision
+- The "why" is not self-evident from the rule itself
+
+Do NOT add decision log entries for: UI label changes, default value tweaks, deferred features without evaluated alternatives, or any decision where there was no meaningful alternative considered.
+
 ## Writing Principles
 
 Follow these when writing or updating business logic docs:
@@ -217,7 +240,7 @@ Follow these when writing or updating business logic docs:
 
 10. **Use decision trees for complex conditional logic.** Any logic with 3+ branches MUST use sequential if-then format. Mark mutually exclusive paths explicitly. No prose-only descriptions for multi-branch logic.
 
-11. **Mark information sources.** Tag rules with their origin: `[SOURCE: user-story]`, `[SOURCE: discussion]`, `[SOURCE: change-request]`. During audits (Workflow 3 only), rules surfaced from code analysis get `[SOURCE: code-audit — unconfirmed]` and MUST be confirmed with the user before being treated as business rules. Incorrect docs are worse than missing docs.
+11. **Mark information sources.** Tag rules with their origin using the format `[SOURCE: type — YYYY-MM-DD]` when a date is available: e.g., `[SOURCE: user-story — 2025-01-15]`, `[SOURCE: discussion — 2025-02-10]`. The date is optional — omit the suffix when no date is explicitly provided (e.g., `[SOURCE: change-request]` is fine). During audits (Workflow 3 only), rules surfaced from code analysis get `[SOURCE: code-audit — unconfirmed]` and MUST be confirmed with the user before being treated as business rules. Incorrect docs are worse than missing docs.
 
 12. **State machines over prose for workflows.** Any process with 3+ states MUST use a mermaid stateDiagram plus a transition table. No prose-only workflow descriptions for stateful processes.
 
@@ -253,6 +276,8 @@ Docs describe the current state, not history:
 - NEVER use "previously was" / "changed from X to Y" / history annotations — docs describe current state, git tracks history
 - NEVER leave diagrams contradicting documented transitions
 - NEVER duplicate rules across files — reference the canonical location instead
+- NEVER add feature requests, roadmap items, or planned capabilities to business logic docs — these are not current-state business rules
+- NEVER invent template sections not defined in `tier2-template.md`
 
 ## CLAUDE.md Integration
 
