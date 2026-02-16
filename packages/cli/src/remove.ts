@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
-import type { InstallItem, RemoveResult } from './types.js';
+import type { InstallItem, PackManifest, RemoveResult } from './types.js';
 
 /**
  * Scans the project's .claude/ directory for installed agents and skills.
@@ -81,30 +81,86 @@ interface SkillsManifest {
 }
 
 /**
+ * Converts a PackManifest into InstallItem[] using filesystem-derived names.
+ */
+export function resolvePackItems(packManifest: PackManifest): readonly InstallItem[] {
+  const items: InstallItem[] = [];
+
+  for (const agent of packManifest.agents) {
+    items.push({
+      type: 'agent',
+      name: basename(agent.path, '.md'),
+      sourcePath: '',
+      description: agent.description,
+    });
+  }
+
+  for (const skill of packManifest.skills) {
+    items.push({
+      type: 'skill',
+      name: basename(skill.path),
+      sourcePath: '',
+      description: skill.description,
+    });
+  }
+
+  return items;
+}
+
+/**
  * Removes entries for the given items from skills-manifest.json.
  * Removes skill entries, agent entries, and agent references from other agents.
+ *
+ * Skills are matched by path (`.claude/skills/{dirName}`) to handle namespaced names.
+ * An optional `manifestNames` parameter provides additional agent/skill names
+ * to match (for pack removal where manifest names differ from filesystem names).
  */
 export function cleanManifest(
   items: readonly InstallItem[],
   projectDir: string,
+  manifestNames?: {
+    readonly agentNames?: readonly string[];
+    readonly skillNames?: readonly string[];
+  },
 ): void {
   const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
   if (!existsSync(manifestPath)) return;
 
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as SkillsManifest;
 
-  const removedSkillNames = new Set(
-    items.filter((i) => i.type === 'skill').map((i) => i.name),
+  // Build path-based removal set for skills
+  const removedSkillPaths = new Set(
+    items.filter((i) => i.type === 'skill').map((i) => `.claude/skills/${i.name}`),
   );
+
+  // Build agent removal set from both filesystem names and manifest names
   const removedAgentNames = new Set(
     items.filter((i) => i.type === 'agent').map((i) => i.name),
   );
+  if (manifestNames?.agentNames) {
+    for (const name of manifestNames.agentNames) {
+      removedAgentNames.add(name);
+    }
+  }
 
-  // Remove skill entries
-  if (removedSkillNames.size > 0) {
-    manifest.skills = manifest.skills.filter(
-      (s) => !removedSkillNames.has(s.name),
-    );
+  // Remove skill entries by path, collecting their manifest names for reference cleanup
+  const removedSkillManifestNames = new Set<string>();
+  if (manifestNames?.skillNames) {
+    for (const name of manifestNames.skillNames) {
+      removedSkillManifestNames.add(name);
+    }
+  }
+
+  if (removedSkillPaths.size > 0) {
+    const kept: ManifestSkill[] = [];
+    for (const s of manifest.skills) {
+      if (removedSkillPaths.has(s.path)) {
+        removedSkillManifestNames.add(s.name);
+      } else {
+        kept.push(s);
+      }
+    }
+    manifest.skills = kept;
   }
 
   // Remove agent entries
@@ -113,13 +169,13 @@ export function cleanManifest(
   }
 
   // Remove skill references from remaining agents
-  if (removedSkillNames.size > 0) {
+  if (removedSkillManifestNames.size > 0) {
     for (const agentConfig of Object.values(manifest.agents)) {
       agentConfig.always_skills = agentConfig.always_skills.filter(
-        (s) => !removedSkillNames.has(s),
+        (s) => !removedSkillManifestNames.has(s),
       );
       agentConfig.compatible_skills = agentConfig.compatible_skills.filter(
-        (s) => !removedSkillNames.has(s),
+        (s) => !removedSkillManifestNames.has(s),
       );
     }
   }

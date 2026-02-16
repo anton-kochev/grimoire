@@ -1,4 +1,6 @@
-import { scanInstalled, removeItems, cleanManifest } from '../remove.js';
+import { scanInstalled, removeItems, cleanManifest, resolvePackItems } from '../remove.js';
+import { resolvePackDir } from '../resolve.js';
+import { loadManifest } from '../manifest.js';
 import type { RemoveSummary } from '../types.js';
 
 /**
@@ -43,7 +45,37 @@ export async function runRemove(
   return { results };
 }
 
-function printRemoveSummary(
+/**
+ * Removes all items from a pack and cleans up the manifest.
+ */
+export async function runRemovePack(
+  packName: string,
+  cwd?: string | undefined,
+): Promise<RemoveSummary> {
+  const projectDir = cwd ?? process.cwd();
+  const packDir = resolvePackDir(packName);
+  const packManifest = loadManifest(packDir);
+  const packItems = resolvePackItems(packManifest);
+
+  // Only remove items that are actually installed
+  const installed = scanInstalled(projectDir);
+  const installedNames = new Set(installed.map((i) => i.name));
+  const toRemove = packItems.filter((i) => installedNames.has(i.name));
+
+  const results = removeItems(toRemove, projectDir);
+
+  // Collect pack manifest names for proper manifest cleanup
+  const agentNames = packManifest.agents.map((a) => a.name);
+  const skillNames = packManifest.skills.map((s) => s.name);
+
+  cleanManifest(toRemove, projectDir, { agentNames, skillNames });
+
+  printRemoveSummary(results.filter((r) => r.removed));
+
+  return { results };
+}
+
+export function printRemoveSummary(
   results: readonly { item: { type: string; name: string }; removed: boolean }[],
 ): void {
   if (results.length === 0) {
