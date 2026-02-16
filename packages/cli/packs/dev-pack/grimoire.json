@@ -50,6 +50,25 @@
           "**/*.spec.*"
         ]
       }
+    },
+    {
+      "name": "grimoire:conventional-commit",
+      "path": "skills/gr.conventional-commit",
+      "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes.",
+      "triggers": {
+        "keywords": [
+          "conventional-commit",
+          "git-commit"
+        ],
+        "file_extensions": [],
+        "patterns": [
+          "commit.*change",
+          "create.*commit",
+          "make.*commit",
+          "conventional.*commit"
+        ],
+        "file_paths": []
+      }
     }
   ]
 }
