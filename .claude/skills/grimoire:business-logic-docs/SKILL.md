@@ -62,11 +62,28 @@ Use this when business logic changes. Updates are driven by text input — user 
 When the input is unstructured (meeting notes, transcripts, raw discussions), classify each item before proceeding:
 
 - **Business rule/constraint** — what the system MUST or MUST NOT allow → document these
-- **UX/presentation decision** — how something is displayed or interacted with → skip unless it has enforcement implications (e.g., a disabled button that enforces a state constraint)
+- **UX/presentation decision** — how something is displayed or interacted with → skip. Document only if the UX element is the mechanism that enforces a business constraint (e.g., a button is disabled because the system MUST NOT allow editing after dispatch). The constraint itself is the business rule; the UI mechanism is just implementation detail noted in "Enforced in."
 - **Feature request / planned capability** — something that doesn't exist yet → skip, not documentation material
+- **Scope / phase decision** — what's included in or deferred from a release phase → skip, this is project management, not a business rule
 - **Action item / tangent** — not documentation material → skip
 
-Present the classification to the user for confirmation before proceeding. For well-structured input (user stories with clear acceptance criteria, formal change requests), this step can be brief or skipped.
+**Litmus test:** Would violating this item cause incorrect data, broken invariants, security holes, or compliance violations? If the only consequence is a suboptimal user experience, it's a UX decision, not a business rule.
+
+Examples:
+- "Users must not edit shipments after dispatch" → Business rule (data integrity)
+- "Items should not be pre-selected by default" → UX decision (no data/integrity consequence)
+- "Use 'Next' instead of 'Save' on wizard buttons" → UX decision (label preference)
+- "Save as Draft is deferred to phase 2" → Scope decision (skip)
+- "One shipment = one dock in MQS" → Business rule (hard system mapping)
+- "Create Shipment from Orders List needed" → Feature request (skip)
+
+Present the classification as a table for the user to confirm before proceeding:
+
+| Item | Classification | Reason | Action |
+|------|---------------|--------|--------|
+| ... | Business rule / UX / Feature / Scope / Tangent | Why this classification | Document / Skip |
+
+For well-structured input (user stories with clear acceptance criteria, formal change requests), this step can be brief or skipped.
 
 ### Step 1: Understand the Change
 
@@ -112,6 +129,7 @@ Only add information you are certain about from the provided input.
 - **Diagrams and glossary**: Update as needed to reflect changes.
 - **Feature requests**: MUST NOT be added to business logic docs. If the input contains feature requests or planned capabilities, exclude them and mention to the user what was excluded and why.
 - **UX-only decisions**: Do not document in business logic docs unless they enforce a business constraint (e.g., a disabled button that prevents an invalid state transition is a constraint; a button label rename is not).
+- **Scope/phase annotations**: Do not add "deferred to phase 2" or "planned for future release" annotations. Business logic docs describe what IS true now, not what's planned. If a capability doesn't exist yet, there's nothing to document.
 - **Template compliance**: Do NOT invent new template sections. Only use sections defined in [references/tier2-template.md](references/tier2-template.md). If information doesn't fit an existing section, it likely doesn't belong in business logic docs.
 
 ### Step 5: Validate and Present
