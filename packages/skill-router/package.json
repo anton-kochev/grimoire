@@ -1,6 +1,6 @@
 {
   "name": "@grimoire-cc/skill-router",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Skill auto-activation system for Claude Code",
   "type": "module",
   "main": "./dist/index.js",
