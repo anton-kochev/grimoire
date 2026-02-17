@@ -2,7 +2,7 @@
 import { createRequire } from 'node:module';
 import { defineCommand, runMain } from 'citty';
 import { runAdd } from './commands/add.js';
-import { runRemove, runRemovePack } from './commands/remove.js';
+import { runRemove, runRemoveInteractive, runRemovePack } from './commands/remove.js';
 import { runLogs } from './commands/logs.js';
 
 const require = createRequire(import.meta.url);
@@ -29,10 +29,6 @@ const removeCommand = defineCommand({
       description: 'Item name to remove',
       required: false,
     },
-    pick: {
-      type: 'string',
-      description: 'Interactive selection of items to remove',
-    },
     pack: {
       type: 'string',
       description: 'Remove all items from a pack',
@@ -45,8 +41,10 @@ const removeCommand = defineCommand({
 
     if (args.pack) {
       await runRemovePack(args.pack, process.cwd());
+    } else if (args.name) {
+      await runRemove(args.name, process.cwd());
     } else {
-      await runRemove(args.name, args.pick, process.cwd());
+      await runRemoveInteractive(process.cwd());
     }
   },
 });

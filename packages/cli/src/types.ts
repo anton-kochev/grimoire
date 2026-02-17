@@ -66,3 +66,11 @@ export interface RemoveResult {
 export interface RemoveSummary {
   readonly results: readonly RemoveResult[];
 }
+
+export interface RemoveWizardResult {
+  readonly selections: ReadonlyArray<{
+    readonly packDir: string;
+    readonly manifest: PackManifest;
+    readonly items: readonly InstallItem[];
+  }>;
+}

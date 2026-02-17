@@ -284,7 +284,7 @@ describe('runRemove', () => {
   });
 
   it('should remove specific item by name', async () => {
-    const summary = await runRemove('csharp-coder', undefined, projectDir);
+    const summary = await runRemove('csharp-coder', projectDir);
 
     expect(summary.results).toHaveLength(1);
     expect(summary.results[0]!.item.name).toBe('csharp-coder');
@@ -294,7 +294,7 @@ describe('runRemove', () => {
 
   it('should throw when item not found', async () => {
     await expect(
-      runRemove('nonexistent', undefined, projectDir),
+      runRemove('nonexistent', projectDir),
     ).rejects.toThrow(/not found.*nonexistent/i);
   });
 
@@ -302,14 +302,14 @@ describe('runRemove', () => {
     const emptyDir = makeTmpDir('empty');
 
     await expect(
-      runRemove('anything', undefined, emptyDir),
+      runRemove('anything', emptyDir),
     ).rejects.toThrow(/no agents or skills/i);
 
     rmSync(emptyDir, { recursive: true, force: true });
   });
 
   it('should clean manifest when removing skill', async () => {
-    await runRemove('dotnet-testing', undefined, projectDir);
+    await runRemove('dotnet-testing', projectDir);
 
     const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
       skills: Array<{ name: string }>;
