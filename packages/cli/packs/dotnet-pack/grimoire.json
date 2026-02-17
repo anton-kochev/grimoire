@@ -23,30 +23,5 @@
       "description": "Expert .NET unit testing specialist for C#/.NET projects. Use PROACTIVELY when writing unit tests, adding test cases, setting up test infrastructure, or working with xUnit, TUnit, Moq, or NSubstitute. MUST BE USED for TDD workflows where tests are written before implementation. Defaults to xUnit (most universal), recommends TUnit for new .NET 8+ projects."
     }
   ],
-  "skills": [
-    {
-      "name": "grimoire:dotnet-feature-workflow",
-      "path": "skills/gr.dotnet-feature-workflow",
-      "description": "Orchestrates end-to-end .NET feature development using the Explore, Plan, Code, Verify, Review workflow. Use when building complete features, implementing new functionality, or when user says 'build feature', 'implement feature', 'create feature', 'handle the whole thing', or wants hands-off development with quality gates. Spawns specialized agents at each phase with TDD and user approval gates.",
-      "triggers": {
-        "keywords": ["feature", "dotnet", "csharp", "scaffold", "endpoint"],
-        "file_extensions": [".cs", ".csproj", ".sln"],
-        "patterns": [
-          "build.*feature",
-          "implement.*feature",
-          "create.*feature",
-          "new.*feature",
-          "add.*feature",
-          "develop.*feature",
-          "csharp.*feature",
-          "handle.*whole",
-          "end.*to.*end",
-          "implement.*endpoint",
-          "build.*endpoint",
-          "add.*endpoint"
-        ],
-        "file_paths": ["**/*.csproj", "**/*.sln"]
-      }
-    }
-  ]
+  "skills": []
 }
