@@ -14,7 +14,8 @@ import { summarizeSignals } from './formatting.js';
  */
 export function formatToolUseContext(
   matchedSkills: SkillScoreResult[],
-  toolName: ToolName
+  toolName: ToolName,
+  skillContents?: Map<string, string>
 ): string {
   const lines: string[] = [];
 
@@ -35,10 +36,31 @@ export function formatToolUseContext(
     }
   }
 
-  lines.push('');
-  lines.push(
-    `Make sure to activate the skill(s) listed above before continuing with this ${toolName} operation.`
-  );
+  // Check if we have any skill content to inject
+  const hasContent = skillContents && skillContents.size > 0;
+
+  if (hasContent) {
+    // Inject skill bodies directly (aligned with UserPromptSubmit behavior)
+    for (const result of matchedSkills) {
+      const body = skillContents.get(result.skill.path);
+      if (body) {
+        lines.push('');
+        lines.push('---');
+        lines.push(body);
+      }
+    }
+
+    lines.push('');
+    lines.push(
+      `Follow the skill instructions above for this ${toolName} operation.`
+    );
+  } else {
+    // Fallback: ask Claude to read the files
+    lines.push('');
+    lines.push(
+      `Please read the SKILL.md file(s) listed above using the Read tool before continuing with this ${toolName} operation.`
+    );
+  }
 
   return lines.join('\n');
 }

@@ -61,11 +61,43 @@ describe('formatToolUseContext', () => {
     expect(indexA).toBeLessThan(indexB);
   });
 
-  it('should include activation reminder', () => {
+  it('should show read instruction when no content provided', () => {
     const skills = [makeResult('Test', '/test', 1.5)];
     const output = formatToolUseContext(skills, 'Edit');
 
-    expect(output).toContain('Make sure to activate the skill(s) listed above before continuing with this Edit operation.');
+    expect(output).toContain(
+      'Please read the SKILL.md file(s) listed above using the Read tool before continuing with this Edit operation.'
+    );
+    expect(output).not.toContain('Make sure to activate');
+  });
+
+  it('should show read instruction when content map is empty', () => {
+    const skills = [makeResult('Test', '/test', 1.5)];
+    const output = formatToolUseContext(skills, 'Edit', new Map());
+
+    expect(output).toContain(
+      'Please read the SKILL.md file(s) listed above using the Read tool before continuing with this Edit operation.'
+    );
+  });
+
+  it('should inject skill content when provided', () => {
+    const skills = [
+      makeResult('Modern TypeScript', '.claude/skills/modern-typescript', 1.5, [
+        { type: 'extension', value: '.ts' },
+      ]),
+    ];
+    const contents = new Map([
+      ['.claude/skills/modern-typescript', '# Modern TypeScript\n\nUse strict mode always.'],
+    ]);
+
+    const output = formatToolUseContext(skills, 'Edit', contents);
+
+    expect(output).toContain('# Modern TypeScript');
+    expect(output).toContain('Use strict mode always.');
+    expect(output).toContain(
+      'Follow the skill instructions above for this Edit operation.'
+    );
+    expect(output).not.toContain('Please read the SKILL.md');
   });
 
   it('should handle skill with no matched signals', () => {

@@ -296,7 +296,20 @@ export function processToolUse(
 
     // Return output if skills matched
     if (matched.length > 0) {
-      const context = formatToolUseContext(matched, input.tool_name);
+      // Read SKILL.md content for injection (same pattern as processPrompt)
+      const skillContents = new Map<string, string>();
+      for (const result of matched) {
+        const body = readSkillBody(result.skill.path, projectDir);
+        if (body) {
+          skillContents.set(result.skill.path, body);
+        }
+      }
+
+      const context = formatToolUseContext(
+        matched,
+        input.tool_name,
+        skillContents
+      );
       return buildPreToolUseOutput(context);
     }
 

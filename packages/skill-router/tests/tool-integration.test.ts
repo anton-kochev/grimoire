@@ -177,6 +177,35 @@ describe('processToolUse (integration)', () => {
     expect(result).not.toBeNull();
   });
 
+  it('should inject SKILL.md body when file exists', () => {
+    // Create a SKILL.md on disk
+    const skillDir = join(testDir, '.claude', 'skills', 'modern-typescript');
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      '---\nname: modern-typescript\ndescription: TS best practices\n---\n\n# Modern TypeScript\n\nAlways use strict mode.'
+    );
+
+    const input = makeInput('Edit', `${testDir}/src/main.ts`);
+    const result = processToolUse(input, manifestPath, testDir);
+
+    expect(result).not.toBeNull();
+    const ctx = result?.hookSpecificOutput.additionalContext ?? '';
+    expect(ctx).toContain('# Modern TypeScript');
+    expect(ctx).toContain('Always use strict mode.');
+    expect(ctx).toContain('Follow the skill instructions above for this Edit operation.');
+  });
+
+  it('should fall back to read instruction when SKILL.md missing', () => {
+    // No SKILL.md on disk — only manifest entry
+    const input = makeInput('Edit', `${testDir}/src/main.ts`);
+    const result = processToolUse(input, manifestPath, testDir);
+
+    expect(result).not.toBeNull();
+    const ctx = result?.hookSpecificOutput.additionalContext ?? '';
+    expect(ctx).toContain('Please read the SKILL.md file(s) listed above using the Read tool');
+  });
+
   it('should match multiple skills when both exceed threshold', () => {
     // .ts in tests/ should match both TypeScript and potentially via paths
     const input = makeInput('Write', `${testDir}/tests/component.ts`);
