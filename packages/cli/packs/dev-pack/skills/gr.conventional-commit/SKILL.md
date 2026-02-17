@@ -72,7 +72,8 @@ When user invokes /commit:
    git commit -m "$(cat <<'EOF'
    type(scope): description
 
-   Optional body explaining what and why.
+   - bullet points explaining what and why
+   - one point per logical change
    EOF
    )"
    ```
@@ -102,6 +103,7 @@ Only document changes with semantic meaning or technical impact. For pure format
 - Keep description under 72 characters
 - Scope is optional but recommended for larger codebases
 - Body should explain "what" and "why", not "how"
+- Use bullet points in body when listing multiple changes — not prose paragraphs
 - Be concise—avoid redundant or verbose language
 - **Never** use `--no-verify` unless explicitly requested
 - **Never** amend commits that have been pushed to remote
@@ -126,8 +128,8 @@ feat(api): add CSV enrichment endpoint
 ```plain
 fix(validation): handle empty date fields
 
-Previously empty dates caused NullReferenceException.
-Now validates and rejects rows with empty required fields.
+- empty dates caused NullReferenceException during import
+- validate and reject rows with empty required fields
 ```
 
 **Breaking change:**
@@ -147,3 +149,11 @@ docs: update README with API examples
 
 **Multiple changes (pick primary):**
 When changes span multiple types, use the most significant one and mention others in body.
+
+```plain
+refactor(auth): simplify token refresh logic
+
+- extract refresh logic into dedicated service
+- remove redundant token cache layer
+- update tests for new service boundary
+```
