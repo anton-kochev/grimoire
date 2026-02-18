@@ -13,8 +13,8 @@ Collection of specialized agents and skills for Claude Code.
 - pnpm --filter @grimoire-cc/cli test:watch: CLI watch mode
 - pnpm --filter @grimoire-cc/skill-router test: Run skill-router tests
 - pnpm --filter @grimoire-cc/skill-router test:watch: Watch mode
-- python3 .claude/skills/skill-developer/scripts/validate-skill.py <path>: Validate skill
-- .claude/skills/skill-developer/scripts/create-skill.sh <name>: Scaffold new skill
+- python3 .claude/skills/grimoire.skill-developer/scripts/validate-skill.py <path>: Validate skill
+- .claude/skills/grimoire.skill-developer/scripts/create-skill.sh <name>: Scaffold new skill
 
 ## Architecture
 - Agents: Single .md files in `.claude/agents/` with persona, tools, model in frontmatter

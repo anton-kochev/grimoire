@@ -86,18 +86,18 @@ function setupNamespacedManifest(projectDir: string): void {
       skills: [
         {
           path: '.claude/skills/gr.dotnet-feature-workflow',
-          name: 'grimoire:dotnet-feature-workflow',
+          name: 'grimoire.dotnet-feature-workflow',
           description: 'Workflow skill',
           triggers: { keywords: ['feature'] },
         },
       ],
       agents: {
-        'grimoire:csharp-code-reviewer': {
+        'grimoire.csharp-code-reviewer': {
           always_skills: [],
-          compatible_skills: ['grimoire:dotnet-feature-workflow'],
+          compatible_skills: ['grimoire.dotnet-feature-workflow'],
         },
-        'grimoire:csharp-coder': {
-          always_skills: ['grimoire:dotnet-feature-workflow'],
+        'grimoire.csharp-coder': {
+          always_skills: ['grimoire.dotnet-feature-workflow'],
           compatible_skills: [],
         },
       },
@@ -109,11 +109,11 @@ const FAKE_PACK_MANIFEST: PackManifest = {
   name: 'dotnet-pack',
   version: '1.0.0',
   agents: [
-    { name: 'grimoire:csharp-code-reviewer', path: 'agents/gr.csharp-code-reviewer.md', description: 'Reviewer' },
-    { name: 'grimoire:csharp-coder', path: 'agents/gr.csharp-coder.md', description: 'Coder' },
+    { name: 'grimoire.csharp-code-reviewer', path: 'agents/gr.csharp-code-reviewer.md', description: 'Reviewer' },
+    { name: 'grimoire.csharp-coder', path: 'agents/gr.csharp-coder.md', description: 'Coder' },
   ],
   skills: [
-    { name: 'grimoire:dotnet-feature-workflow', path: 'skills/gr.dotnet-feature-workflow', description: 'Workflow' },
+    { name: 'grimoire.dotnet-feature-workflow', path: 'skills/gr.dotnet-feature-workflow', description: 'Workflow' },
   ],
 };
 
@@ -313,7 +313,7 @@ describe('cleanManifest with namespaced names', () => {
 
   it('should remove skill by path when filesystem name differs from manifest name', () => {
     // filesystem name is "gr.dotnet-feature-workflow"
-    // manifest name is "grimoire:dotnet-feature-workflow"
+    // manifest name is "grimoire.dotnet-feature-workflow"
     const items: InstallItem[] = [
       { type: 'skill', name: 'gr.dotnet-feature-workflow', sourcePath: '', description: '' },
     ];
@@ -336,11 +336,11 @@ describe('cleanManifest with namespaced names', () => {
     const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
       agents: Record<string, { always_skills: string[]; compatible_skills: string[] }>;
     };
-    expect(manifest.agents['grimoire:csharp-code-reviewer']!.compatible_skills).not.toContain(
-      'grimoire:dotnet-feature-workflow',
+    expect(manifest.agents['grimoire.csharp-code-reviewer']!.compatible_skills).not.toContain(
+      'grimoire.dotnet-feature-workflow',
     );
-    expect(manifest.agents['grimoire:csharp-coder']!.always_skills).not.toContain(
-      'grimoire:dotnet-feature-workflow',
+    expect(manifest.agents['grimoire.csharp-coder']!.always_skills).not.toContain(
+      'grimoire.dotnet-feature-workflow',
     );
   });
 
@@ -350,19 +350,19 @@ describe('cleanManifest with namespaced names', () => {
     ];
 
     cleanManifest(items, projectDir, {
-      agentNames: ['grimoire:csharp-code-reviewer'],
+      agentNames: ['grimoire.csharp-code-reviewer'],
     });
 
     const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
       agents: Record<string, unknown>;
     };
-    expect(manifest.agents['grimoire:csharp-code-reviewer']).toBeUndefined();
-    expect(manifest.agents['grimoire:csharp-coder']).toBeDefined();
+    expect(manifest.agents['grimoire.csharp-code-reviewer']).toBeUndefined();
+    expect(manifest.agents['grimoire.csharp-coder']).toBeDefined();
   });
 
   it('should remove namespaced agent using manifestName on the item', () => {
     const items: InstallItem[] = [
-      { type: 'agent', name: 'gr.csharp-code-reviewer', sourcePath: '', description: '', manifestName: 'grimoire:csharp-code-reviewer' },
+      { type: 'agent', name: 'gr.csharp-code-reviewer', sourcePath: '', description: '', manifestName: 'grimoire.csharp-code-reviewer' },
     ];
 
     cleanManifest(items, projectDir);
@@ -370,8 +370,8 @@ describe('cleanManifest with namespaced names', () => {
     const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
       agents: Record<string, unknown>;
     };
-    expect(manifest.agents['grimoire:csharp-code-reviewer']).toBeUndefined();
-    expect(manifest.agents['grimoire:csharp-coder']).toBeDefined();
+    expect(manifest.agents['grimoire.csharp-code-reviewer']).toBeUndefined();
+    expect(manifest.agents['grimoire.csharp-coder']).toBeDefined();
   });
 });
 

@@ -1,5 +1,5 @@
 ---
-name: grimoire:modern-typescript
+name: grimoire.modern-typescript
 description: "Modern TypeScript best practices, patterns, and type system mastery for TS 5.7+. Use when writing TypeScript, reviewing TS code, designing types, configuring tsconfig, or asking about TypeScript patterns, generics, type safety, strict mode, idiomatic TypeScript, discriminated unions, branded types, or modern TS features."
 ---
 

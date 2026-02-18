@@ -294,7 +294,7 @@ class OrderServiceTest {
 
 ## C# / .NET
 
-**If the `grimoire:dotnet-unit-testing` skill is available, defer to it for full C#/.NET guidance.** It provides comprehensive xUnit, TUnit, Moq, and NSubstitute patterns.
+**If the `grimoire.dotnet-unit-testing` skill is available, defer to it for full C#/.NET guidance.** It provides comprehensive xUnit, TUnit, Moq, and NSubstitute patterns.
 
 ### Quick Reference (when dotnet skill is unavailable)
 

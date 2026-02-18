@@ -457,7 +457,7 @@ describe('scoreSkill', () => {
   describe('regression: business docs false positive', () => {
     it('should not activate dotnet-feature-workflow for business documentation prompt', () => {
       const dotnetFeatureWorkflow: SkillDefinition = {
-        path: '.claude/skills/grimoire:dotnet-feature-workflow',
+        path: '.claude/skills/grimoire.dotnet-feature-workflow',
         name: 'DotNet Feature Workflow',
         triggers: {
           keywords: ['dotnet', 'csharp', 'scaffold', 'endpoint'],

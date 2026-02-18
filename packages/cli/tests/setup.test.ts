@@ -288,7 +288,7 @@ describe('mergeManifest', () => {
       agents: [],
       skills: [
         {
-          name: 'grimoire:modern-typescript',
+          name: 'grimoire.modern-typescript',
           path: 'skills/gr.modern-typescript',
           description: 'TS skill',
           triggers: {
@@ -309,7 +309,7 @@ describe('mergeManifest', () => {
     expect(skills).toHaveLength(1);
     // Path should use directory name from skill.path, not skill.name (which contains ':')
     expect(skills[0]!.path).toBe('.claude/skills/gr.modern-typescript');
-    expect(skills[0]!.name).toBe('grimoire:modern-typescript');
+    expect(skills[0]!.name).toBe('grimoire.modern-typescript');
   });
 
   it('should skip skills without triggers', () => {

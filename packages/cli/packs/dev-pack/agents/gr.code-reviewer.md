@@ -1,5 +1,5 @@
 ---
-name: grimoire:code-reviewer
+name: grimoire.code-reviewer
 description: "Language-agnostic code review specialist. Use immediately after writing or modifying code, or when explicitly requested to review code quality, security, performance, and best practices. Works with any programming language — detects language automatically and applies idiomatic conventions."
 tools: Bash, Glob, Grep, Read
 model: inherit

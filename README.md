@@ -27,9 +27,9 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [context-file-guide](#context-file-guide)
   - [skill-developer](#skill-developer)
   - [readme-guide](#readme-guide)
-  - [grimoire:business-logic-docs](#grimoirebusiness-logic-docs)
-  - [grimoire:tdd-specialist](#grimoiretdd-specialist)
-  - [grimoire:modern-typescript](#grimoiremodern-typescript)
+  - [grimoire.business-logic-docs](#grimoirebusiness-logic-docs)
+  - [grimoire.tdd-specialist](#grimoiretdd-specialist)
+  - [grimoire.modern-typescript](#grimoiremodern-typescript)
 - [Creating New Skills](#creating-new-skills)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
@@ -68,7 +68,7 @@ See the [CLI](#cli) section for full usage details.
 Copy a skill directory to your project's `.claude/skills/` folder:
 
 ```bash
-cp -r .claude/skills/grimoire:conventional-commit /path/to/your/project/.claude/skills/
+cp -r .claude/skills/grimoire.conventional-commit /path/to/your/project/.claude/skills/
 ```
 
 #### Agents
@@ -230,11 +230,11 @@ Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.jso
     }
   ],
   "agents": {
-    "grimoire:csharp-coder": {
+    "grimoire.csharp-coder": {
       "always_skills": [],
       "compatible_skills": ["DotNet Unit Testing", "Conventional Commit"]
     },
-    "grimoire:dotnet-unit-test-writer": {
+    "grimoire.dotnet-unit-test-writer": {
       "always_skills": ["DotNet Unit Testing"],
       "compatible_skills": []
     }
@@ -267,10 +267,10 @@ Configure hooks in `.claude/settings.json`:
     ],
     "SubagentStart": [
       {
-        "matcher": "grimoire:csharp-coder",
+        "matcher": "grimoire.csharp-coder",
         "hooks": [{
           "type": "command",
-          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=grimoire:csharp-coder"
+          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=grimoire.csharp-coder"
         }]
       }
     ],
@@ -382,7 +382,7 @@ Language-agnostic TDD and unit testing specialist that works with any programmin
 - Auto-detects project language and test framework
 - Supports pytest, jest, vitest, mocha, JUnit, go test, cargo test, xUnit, RSpec, and more
 - 4-step workflow: Analyze, Plan (with approval gate), Write, Explain
-- Loads the [grimoire:tdd-specialist](#grimoiretdd-specialist) skill for TDD knowledge base
+- Loads the [grimoire.tdd-specialist](#grimoiretdd-specialist) skill for TDD knowledge base
 
 **When to use:** Writing unit tests, adding test coverage, TDD workflows in any language.
 
@@ -495,7 +495,7 @@ Creates professional README files following industry standards.
 - Suggest appropriate badges using Shields.io
 - Review existing READMEs against best practices
 
-### grimoire:business-logic-docs
+### grimoire.business-logic-docs
 
 Guides Claude through creating, updating, and auditing a structured knowledge base of a project's business logic.
 
@@ -513,7 +513,7 @@ Guides Claude through creating, updating, and auditing a structured knowledge ba
 
 **Reference files:** `tier2-template.md`, `audit-checklist.md`
 
-### grimoire:tdd-specialist
+### grimoire.tdd-specialist
 
 Language-agnostic TDD and unit testing patterns for any programming language.
 
@@ -533,7 +533,7 @@ Language-agnostic TDD and unit testing patterns for any programming language.
 
 **Install via:** `grimoire add` and select `dev-pack`
 
-### grimoire:modern-typescript
+### grimoire.modern-typescript
 
 Modern TypeScript best practices, patterns, and type system mastery for TS 5.7+.
 
@@ -556,10 +556,10 @@ Modern TypeScript best practices, patterns, and type system mastery for TS 5.7+.
 
 ```bash
 # Create a new skill from template
-.claude/skills/grimoire:skill-developer/scripts/create-skill.sh my-new-skill
+.claude/skills/grimoire.skill-developer/scripts/create-skill.sh my-new-skill
 
 # Validate your skill
-python3 .claude/skills/grimoire:skill-developer/scripts/validate-skill.py .claude/skills/my-new-skill
+python3 .claude/skills/grimoire.skill-developer/scripts/validate-skill.py .claude/skills/my-new-skill
 ```
 
 ### Requirements
@@ -595,24 +595,24 @@ description: "What it does and when to use it"
 
 | Document | Purpose |
 | ---------- | --------- |
-| [best-practices.md](.claude/skills/grimoire:skill-developer/reference/best-practices.md) | Content quality and organization |
-| [patterns.md](.claude/skills/grimoire:skill-developer/reference/patterns.md) | Common skill patterns |
-| [file-organization.md](.claude/skills/grimoire:skill-developer/reference/file-organization.md) | Directory structure |
-| [yaml-spec.md](.claude/skills/grimoire:skill-developer/reference/yaml-spec.md) | Frontmatter requirements |
+| [best-practices.md](.claude/skills/grimoire.skill-developer/reference/best-practices.md) | Content quality and organization |
+| [patterns.md](.claude/skills/grimoire.skill-developer/reference/patterns.md) | Common skill patterns |
+| [file-organization.md](.claude/skills/grimoire.skill-developer/reference/file-organization.md) | Directory structure |
+| [yaml-spec.md](.claude/skills/grimoire.skill-developer/reference/yaml-spec.md) | Frontmatter requirements |
 
 ### Templates
 
 | Template | Use Case |
 | ---------- | ---------- |
-| [basic-skill.md](.claude/skills/grimoire:skill-developer/templates/basic-skill.md) | Single-purpose skills |
-| [domain-skill.md](.claude/skills/grimoire:skill-developer/templates/domain-skill.md) | Specialized expertise |
+| [basic-skill.md](.claude/skills/grimoire.skill-developer/templates/basic-skill.md) | Single-purpose skills |
+| [domain-skill.md](.claude/skills/grimoire.skill-developer/templates/domain-skill.md) | Specialized expertise |
 
 ### Examples
 
 | Example | Pattern |
 | --------- | --------- |
-| [financial-analysis.md](.claude/skills/grimoire:skill-developer/examples/financial-analysis.md) | Structured data processing |
-| [brand-guidelines.md](.claude/skills/grimoire:skill-developer/examples/brand-guidelines.md) | Standards enforcement |
+| [financial-analysis.md](.claude/skills/grimoire.skill-developer/examples/financial-analysis.md) | Structured data processing |
+| [brand-guidelines.md](.claude/skills/grimoire.skill-developer/examples/brand-guidelines.md) | Standards enforcement |
 
 ## Project Structure
 
@@ -634,45 +634,45 @@ grimoire/
     ├── hooks/
     │   └── skill-router.ts            # Hook entry point
     ├── agents/
-    │   ├── grimoire:dotnet-architect.md
-    │   ├── grimoire:csharp-coder.md
-    │   ├── grimoire:dotnet-unit-test-writer.md
-    │   ├── grimoire:csharp-code-reviewer.md
-    │   ├── grimoire:code-reviewer.md
-    │   ├── grimoire:tdd-specialist.md
-    │   └── grimoire:fact-checker.md
+    │   ├── grimoire.dotnet-architect.md
+    │   ├── grimoire.csharp-coder.md
+    │   ├── grimoire.dotnet-unit-test-writer.md
+    │   ├── grimoire.csharp-code-reviewer.md
+    │   ├── grimoire.code-reviewer.md
+    │   ├── grimoire.tdd-specialist.md
+    │   └── grimoire.fact-checker.md
     └── skills/
-        ├── grimoire:dotnet-unit-testing/
+        ├── grimoire.dotnet-unit-testing/
         │   ├── SKILL.md
         │   ├── reference/
         │   └── templates/
-        ├── grimoire:dotnet-feature-workflow/
+        ├── grimoire.dotnet-feature-workflow/
         │   └── SKILL.md
-        ├── grimoire:conventional-commit/
+        ├── grimoire.conventional-commit/
         │   └── SKILL.md
-        ├── grimoire:context-file-guide/
+        ├── grimoire.context-file-guide/
         │   ├── SKILL.md
         │   └── scripts/
-        ├── grimoire:skill-developer/
+        ├── grimoire.skill-developer/
         │   ├── SKILL.md
         │   ├── scripts/
         │   ├── templates/
         │   ├── examples/
         │   └── reference/
-        ├── grimoire:readme-guide/
+        ├── grimoire.readme-guide/
         │   └── SKILL.md
-        ├── grimoire:tdd-specialist/
+        ├── grimoire.tdd-specialist/
         │   ├── SKILL.md
         │   └── reference/
         │       ├── language-frameworks.md
         │       ├── anti-patterns.md
         │       └── tdd-workflow-patterns.md
-        ├── grimoire:business-logic-docs/
+        ├── grimoire.business-logic-docs/
         │   ├── SKILL.md
         │   └── references/
         │       ├── tier2-template.md
         │       └── audit-checklist.md
-        └── grimoire:modern-typescript/
+        └── grimoire.modern-typescript/
             ├── SKILL.md
             └── reference/
                 ├── type-system.md
@@ -698,7 +698,7 @@ grimoire/
    pnpm --filter @grimoire-cc/skill-router test
 
    # Validate any new skills
-   python3 .claude/skills/grimoire:skill-developer/scripts/validate-skill.py .claude/skills/your-skill
+   python3 .claude/skills/grimoire.skill-developer/scripts/validate-skill.py .claude/skills/your-skill
    ```
 
 5. Submit a pull request

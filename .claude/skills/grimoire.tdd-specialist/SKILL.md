@@ -1,5 +1,5 @@
 ---
-name: grimoire:tdd-specialist
+name: grimoire.tdd-specialist
 description: "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, doing test-driven development, or setting up test infrastructure in ANY language. Auto-detects project language and test framework. Supports pytest, jest, vitest, mocha, junit, go test, cargo test, xunit, and more. Triggers: tdd, test-driven, unit test, write tests, test coverage, red-green-refactor."
 ---
 
@@ -40,7 +40,7 @@ If no existing tests, infer from config:
 - **Python**: Check for `pytest` in dependencies or `[tool.pytest]` in `pyproject.toml`. Default: pytest.
 - **Go**: Built-in `testing` package. Check for `testify` in `go.mod`.
 - **Rust**: Built-in `#[test]`. Check for `mockall` in `Cargo.toml`.
-- **C#/.NET**: Check `.csproj` for xUnit/NUnit/MSTest references. **If `grimoire:dotnet-unit-testing` skill is available, defer to it.**
+- **C#/.NET**: Check `.csproj` for xUnit/NUnit/MSTest references. **If `grimoire.dotnet-unit-testing` skill is available, defer to it.**
 - **Java/Kotlin**: Check for JUnit 5 (`junit-jupiter`), Mockito in build files. Default: JUnit 5 + Mockito.
 - **Ruby**: Check for `rspec` or `minitest` in Gemfile. Default: RSpec.
 
