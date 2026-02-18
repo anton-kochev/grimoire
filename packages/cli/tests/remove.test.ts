@@ -359,5 +359,19 @@ describe('cleanManifest with namespaced names', () => {
     expect(manifest.agents['grimoire:csharp-code-reviewer']).toBeUndefined();
     expect(manifest.agents['grimoire:csharp-coder']).toBeDefined();
   });
+
+  it('should remove namespaced agent using manifestName on the item', () => {
+    const items: InstallItem[] = [
+      { type: 'agent', name: 'gr.csharp-code-reviewer', sourcePath: '', description: '', manifestName: 'grimoire:csharp-code-reviewer' },
+    ];
+
+    cleanManifest(items, projectDir);
+
+    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+      agents: Record<string, unknown>;
+    };
+    expect(manifest.agents['grimoire:csharp-code-reviewer']).toBeUndefined();
+    expect(manifest.agents['grimoire:csharp-coder']).toBeDefined();
+  });
 });
 

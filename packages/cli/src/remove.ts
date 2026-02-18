@@ -133,9 +133,9 @@ export function cleanManifest(
     items.filter((i) => i.type === 'skill').map((i) => `.claude/skills/${i.name}`),
   );
 
-  // Build agent removal set from both filesystem names and manifest names
+  // Build agent removal set: prefer manifestName (display key) over filesystem name
   const removedAgentNames = new Set(
-    items.filter((i) => i.type === 'agent').map((i) => i.name),
+    items.filter((i) => i.type === 'agent').map((i) => i.manifestName ?? i.name),
   );
   if (manifestNames?.agentNames) {
     for (const name of manifestNames.agentNames) {

@@ -31,6 +31,8 @@ export interface InstallItem {
   readonly sourcePath: string;
   readonly description: string;
   readonly pack?: string;
+  /** Display name used as key in skills-manifest.json agents (may differ from filesystem name) */
+  readonly manifestName?: string;
 }
 
 export interface PackOption {
