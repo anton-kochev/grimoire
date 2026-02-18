@@ -30,11 +30,15 @@ export async function runRemoveInteractive(
       manifestNameByFsName.set(fsName, agent.name);
     }
   }
-  const augmented = installed.map((item) => ({
-    ...item,
-    pack: packByName.get(item.name),
-    manifestName: item.type === 'agent' ? manifestNameByFsName.get(item.name) : undefined,
-  }));
+  const augmented = installed.map((item) => {
+    const pack = packByName.get(item.name);
+    const manifestName = item.type === 'agent' ? manifestNameByFsName.get(item.name) : undefined;
+    return {
+      ...item,
+      ...(pack !== undefined && { pack }),
+      ...(manifestName !== undefined && { manifestName }),
+    };
+  });
 
   const wizard = await runRemoveWizard(augmented);
 
