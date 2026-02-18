@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSyn
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { scanInstalled, removeItems, cleanManifest, resolvePackItems } from '../src/remove.js';
-import { runRemove, runRemovePack } from '../src/commands/remove.js';
 import type { InstallItem, PackManifest } from '../src/types.js';
 
 function makeTmpDir(prefix: string): string {
@@ -270,54 +269,6 @@ describe('cleanManifest', () => {
   });
 });
 
-describe('runRemove', () => {
-  let projectDir: string;
-
-  beforeEach(() => {
-    projectDir = makeTmpDir('run-remove');
-    setupProject(projectDir);
-    setupManifest(projectDir);
-  });
-
-  afterEach(() => {
-    rmSync(projectDir, { recursive: true, force: true });
-  });
-
-  it('should remove specific item by name', async () => {
-    const summary = await runRemove('csharp-coder', projectDir);
-
-    expect(summary.results).toHaveLength(1);
-    expect(summary.results[0]!.item.name).toBe('csharp-coder');
-    expect(summary.results[0]!.removed).toBe(true);
-    expect(existsSync(join(projectDir, '.claude', 'agents', 'csharp-coder.md'))).toBe(false);
-  });
-
-  it('should throw when item not found', async () => {
-    await expect(
-      runRemove('nonexistent', projectDir),
-    ).rejects.toThrow(/not found.*nonexistent/i);
-  });
-
-  it('should throw when no items installed', async () => {
-    const emptyDir = makeTmpDir('empty');
-
-    await expect(
-      runRemove('anything', emptyDir),
-    ).rejects.toThrow(/no agents or skills/i);
-
-    rmSync(emptyDir, { recursive: true, force: true });
-  });
-
-  it('should clean manifest when removing skill', async () => {
-    await runRemove('dotnet-testing', projectDir);
-
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
-      skills: Array<{ name: string }>;
-    };
-    expect(manifest.skills.map((s) => s.name)).not.toContain('dotnet-testing');
-  });
-});
-
 describe('resolvePackItems', () => {
   it('should derive filesystem names from pack manifest', () => {
     const items = resolvePackItems(FAKE_PACK_MANIFEST);
@@ -410,60 +361,3 @@ describe('cleanManifest with namespaced names', () => {
   });
 });
 
-describe('runRemovePack', () => {
-  let projectDir: string;
-
-  beforeEach(() => {
-    projectDir = makeTmpDir('remove-pack');
-    setupNamespacedProject(projectDir);
-    setupNamespacedManifest(projectDir);
-  });
-
-  afterEach(() => {
-    rmSync(projectDir, { recursive: true, force: true });
-  });
-
-  it('should remove all pack items and clean manifest', async () => {
-    const summary = await runRemovePack('dotnet-pack', projectDir);
-
-    // All 3 items removed (2 agents + 1 skill)
-    const removed = summary.results.filter((r) => r.removed);
-    expect(removed).toHaveLength(3);
-
-    // Files gone
-    expect(existsSync(join(projectDir, '.claude', 'agents', 'gr.csharp-code-reviewer.md'))).toBe(false);
-    expect(existsSync(join(projectDir, '.claude', 'agents', 'gr.csharp-coder.md'))).toBe(false);
-    expect(existsSync(join(projectDir, '.claude', 'skills', 'gr.dotnet-feature-workflow'))).toBe(false);
-
-    // Manifest cleaned
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
-      skills: Array<{ name: string }>;
-      agents: Record<string, unknown>;
-    };
-    expect(manifest.skills).toHaveLength(0);
-    expect(Object.keys(manifest.agents)).toHaveLength(0);
-  });
-
-  it('should skip items not installed (partial install)', async () => {
-    // Remove one agent file to simulate partial install
-    rmSync(join(projectDir, '.claude', 'agents', 'gr.csharp-coder.md'));
-
-    const summary = await runRemovePack('dotnet-pack', projectDir);
-
-    // Only 2 items attempted (the installed ones), both removed
-    expect(summary.results).toHaveLength(2);
-    expect(summary.results.every((r) => r.removed)).toBe(true);
-
-    // The uninstalled item was not attempted
-    const names = summary.results.map((r) => r.item.name);
-    expect(names).not.toContain('gr.csharp-coder');
-    expect(names).toContain('gr.csharp-code-reviewer');
-    expect(names).toContain('gr.dotnet-feature-workflow');
-  });
-
-  it('should throw for unknown pack name', async () => {
-    await expect(
-      runRemovePack('nonexistent-pack', projectDir),
-    ).rejects.toThrow(/not found/i);
-  });
-});

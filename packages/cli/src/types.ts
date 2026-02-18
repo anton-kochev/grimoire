@@ -30,6 +30,7 @@ export interface InstallItem {
   readonly name: string;
   readonly sourcePath: string;
   readonly description: string;
+  readonly pack?: string;
 }
 
 export interface PackOption {
@@ -68,9 +69,5 @@ export interface RemoveSummary {
 }
 
 export interface RemoveWizardResult {
-  readonly selections: ReadonlyArray<{
-    readonly packDir: string;
-    readonly manifest: PackManifest;
-    readonly items: readonly InstallItem[];
-  }>;
+  readonly items: readonly InstallItem[];
 }

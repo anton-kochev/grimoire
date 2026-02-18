@@ -10,7 +10,7 @@ vi.mock('@clack/prompts', () => ({
   isCancel: vi.fn(),
 }));
 
-import { runWizard } from '../src/prompt.js';
+import { runWizard, runRemoveWizard } from '../src/prompt.js';
 import * as clack from '@clack/prompts';
 
 const mockMultiselect = vi.mocked(clack.multiselect);
@@ -170,5 +170,97 @@ describe('runWizard', () => {
 
     expect(result).toEqual({ selections: [], enableAutoActivation: false });
     expect(mockConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('runRemoveWizard', () => {
+  const installedItems: InstallItem[] = [
+    { type: 'agent', name: 'csharp-coder', sourcePath: 'agents/csharp-coder.md', description: 'C# coder', pack: 'dotnet-pack' },
+    { type: 'skill', name: 'dotnet-testing', sourcePath: 'skills/dotnet-testing', description: 'Dotnet testing', pack: 'dotnet-pack' },
+    { type: 'agent', name: 'dotnet-architect', sourcePath: 'agents/dotnet-architect.md', description: 'Architect' },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIsCancel.mockReturnValue(false);
+  });
+
+  it('should show pack-prefixed labels for known pack items and plain labels for others', async () => {
+    // Arrange
+    mockMultiselect.mockResolvedValueOnce([]);
+
+    // Act
+    await runRemoveWizard(installedItems);
+
+    // Assert
+    const call = mockMultiselect.mock.calls[0]?.[0] as { options: Array<{ label: string; value: InstallItem }> };
+    const labels = call.options.map((o) => o.label);
+    expect(labels).toContain('[dotnet-pack | agent] csharp-coder');
+    expect(labels).toContain('[dotnet-pack | skill] dotnet-testing');
+    expect(labels).toContain('[agent] dotnet-architect');
+    expect(labels).toHaveLength(3);
+  });
+
+  it('should return selected items when confirmed', async () => {
+    // Arrange
+    const toRemove = [installedItems[0]!, installedItems[1]!];
+    mockMultiselect.mockResolvedValueOnce(toRemove);
+    mockConfirm.mockResolvedValueOnce(true);
+
+    // Act
+    const result = await runRemoveWizard(installedItems);
+
+    // Assert
+    expect(result.items).toEqual(toRemove);
+  });
+
+  it('should return empty items when multiselect is cancelled', async () => {
+    // Arrange
+    mockMultiselect.mockResolvedValueOnce(Symbol('cancel'));
+    mockIsCancel.mockReturnValueOnce(true);
+
+    // Act
+    const result = await runRemoveWizard(installedItems);
+
+    // Assert
+    expect(result).toEqual({ items: [] });
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('should return empty items when nothing is selected', async () => {
+    // Arrange
+    mockMultiselect.mockResolvedValueOnce([]);
+
+    // Act
+    const result = await runRemoveWizard(installedItems);
+
+    // Assert
+    expect(result).toEqual({ items: [] });
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('should return empty items when confirm is declined', async () => {
+    // Arrange
+    mockMultiselect.mockResolvedValueOnce([installedItems[0]!]);
+    mockConfirm.mockResolvedValueOnce(false);
+
+    // Act
+    const result = await runRemoveWizard(installedItems);
+
+    // Assert
+    expect(result).toEqual({ items: [] });
+  });
+
+  it('should return empty items when confirm is cancelled', async () => {
+    // Arrange
+    mockMultiselect.mockResolvedValueOnce([installedItems[0]!]);
+    mockConfirm.mockResolvedValueOnce(Symbol('cancel') as never);
+    mockIsCancel.mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    // Act
+    const result = await runRemoveWizard(installedItems);
+
+    // Assert
+    expect(result).toEqual({ items: [] });
   });
 });

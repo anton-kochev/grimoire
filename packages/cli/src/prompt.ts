@@ -130,68 +130,23 @@ export async function runWizard(packs: readonly PackOption[]): Promise<WizardRes
 
 /**
  * Runs an interactive removal wizard:
- * 1. Shows all installed pack items in a multiselect (unchecked by default)
+ * 1. Shows all installed items in a multiselect (unchecked by default)
  * 2. Confirms removal
  *
- * @returns The wizard result with selected items grouped by pack, or empty on cancel
+ * @returns The wizard result with selected items, or empty on cancel
  */
 export async function runRemoveWizard(
-  packs: readonly PackOption[],
-  installedNames: ReadonlySet<string>,
+  installedItems: readonly InstallItem[],
 ): Promise<RemoveWizardResult> {
-  const empty: RemoveWizardResult = { selections: [] };
+  const empty: RemoveWizardResult = { items: [] };
 
   clack.intro('Grimoire Remover');
 
-  // Build options from pack items that are actually installed
-  const itemOptions: Array<{
-    label: string;
-    value: { pack: PackOption; item: InstallItem };
-    hint?: string;
-  }> = [];
-
-  for (const pack of packs) {
-    for (const agent of pack.manifest.agents) {
-      const fsName = agent.path.replace(/^agents\//, '').replace(/\.md$/, '');
-      if (!installedNames.has(fsName)) continue;
-      itemOptions.push({
-        label: `[${pack.name} | agent] ${agent.name}`,
-        value: {
-          pack,
-          item: {
-            type: 'agent' as const,
-            name: fsName,
-            sourcePath: agent.path,
-            description: agent.description,
-          },
-        },
-        hint: agent.description,
-      });
-    }
-
-    for (const skill of pack.manifest.skills) {
-      const fsName = skill.path.replace(/^skills\//, '');
-      if (!installedNames.has(fsName)) continue;
-      itemOptions.push({
-        label: `[${pack.name} | skill] ${skill.name}`,
-        value: {
-          pack,
-          item: {
-            type: 'skill' as const,
-            name: fsName,
-            sourcePath: skill.path,
-            description: skill.description,
-          },
-        },
-        hint: skill.description,
-      });
-    }
-  }
-
-  if (itemOptions.length === 0) {
-    clack.outro('No installed pack items found.');
-    return empty;
-  }
+  const itemOptions = installedItems.map((item) => ({
+    label: item.pack ? `[${item.pack} | ${item.type}] ${item.name}` : `[${item.type}] ${item.name}`,
+    value: item,
+    hint: item.description,
+  }));
 
   const selectedItems = await clack.multiselect({
     message: 'Select items to remove (Space to toggle, Enter to confirm):',
@@ -205,7 +160,7 @@ export async function runRemoveWizard(
     return empty;
   }
 
-  const chosenItems = selectedItems as Array<{ pack: PackOption; item: InstallItem }>;
+  const chosenItems = selectedItems as InstallItem[];
 
   if (chosenItems.length === 0) {
     clack.outro('Nothing selected.');
@@ -224,21 +179,5 @@ export async function runRemoveWizard(
 
   clack.outro('Selection complete.');
 
-  // Group items by pack
-  const groupMap = new Map<string, {
-    packDir: string;
-    manifest: PackOption['manifest'];
-    items: InstallItem[];
-  }>();
-
-  for (const { pack, item } of chosenItems) {
-    let group = groupMap.get(pack.name);
-    if (!group) {
-      group = { packDir: pack.dir, manifest: pack.manifest, items: [] };
-      groupMap.set(pack.name, group);
-    }
-    group.items.push(item);
-  }
-
-  return { selections: [...groupMap.values()] };
+  return { items: chosenItems };
 }

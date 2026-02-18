@@ -2,7 +2,7 @@
 import { createRequire } from 'node:module';
 import { defineCommand, runMain } from 'citty';
 import { runAdd } from './commands/add.js';
-import { runRemove, runRemoveInteractive, runRemovePack } from './commands/remove.js';
+import { runRemoveInteractive } from './commands/remove.js';
 import { runLogs } from './commands/logs.js';
 
 const require = createRequire(import.meta.url);
@@ -21,31 +21,10 @@ const addCommand = defineCommand({
 const removeCommand = defineCommand({
   meta: {
     name: 'remove',
-    description: 'Remove agents and skills from your project',
+    description: 'Interactively remove installed agents and skills',
   },
-  args: {
-    name: {
-      type: 'positional',
-      description: 'Item name to remove',
-      required: false,
-    },
-    pack: {
-      type: 'string',
-      description: 'Remove all items from a pack',
-    },
-  },
-  async run({ args }) {
-    if (args.pack && args.name) {
-      throw new Error('Cannot use --pack with a positional item name');
-    }
-
-    if (args.pack) {
-      await runRemovePack(args.pack, process.cwd());
-    } else if (args.name) {
-      await runRemove(args.name, process.cwd());
-    } else {
-      await runRemoveInteractive(process.cwd());
-    }
+  async run() {
+    await runRemoveInteractive(process.cwd());
   },
 });
 
