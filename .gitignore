@@ -5,3 +5,4 @@
 /packages/skill-router/node_modules
 /.claude/logs
 /.playwright-mcp
+/packages/cli/packs/.claude
