@@ -1,6 +1,6 @@
 {
   "name": "@grimoire-cc/cli",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "CLI tool for installing Grimoire agent and skill packs",
   "type": "module",
   "license": "MIT",
@@ -12,7 +12,13 @@
   },
   "homepage": "https://github.com/anton-kochev/grimoire/tree/main/packages/cli",
   "bugs": "https://github.com/anton-kochev/grimoire/issues",
-  "keywords": ["claude", "claude-code", "agents", "skills", "cli"],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "agents",
+    "skills",
+    "cli"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
@@ -24,7 +30,10 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist/", "packs/"],
+  "files": [
+    "dist/",
+    "packs/"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
