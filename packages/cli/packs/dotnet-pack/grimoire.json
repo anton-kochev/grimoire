@@ -4,29 +4,29 @@
   "agents": [
     {
       "name": "grimoire.csharp-code-reviewer",
-      "path": "agents/gr.csharp-code-reviewer.md",
+      "path": "agents/grimoire.csharp-code-reviewer.md",
       "description": "Expert C#/.NET code review specialist. Use immediately after writing or modifying C# code, or when explicitly requested to review C#/.NET code quality, security, performance, and best practices. ONLY reviews C# and .NET code - declines reviews of other languages."
     },
     {
       "name": "grimoire.csharp-coder",
-      "path": "agents/gr.csharp-coder.md",
+      "path": "agents/grimoire.csharp-coder.md",
       "description": "Implements C# code based on architectural decisions, predefined plans, or technical specifications. Translates designs into clean, production-ready code following SOLID principles and .NET conventions."
     },
     {
       "name": "grimoire.dotnet-architect",
-      "path": "agents/gr.dotnet-architect.md",
+      "path": "agents/grimoire.dotnet-architect.md",
       "description": "Write, review, or refactor C# code on the .NET platform following modern best practices. Implements new features using Clean Architecture, Domain-Driven Design (DDD), and Test-Driven Development (TDD). Designs domain entities, application services, API endpoints, and infrastructure components."
     },
     {
       "name": "grimoire.dotnet-unit-test-writer",
-      "path": "agents/gr.dotnet-unit-test-writer.md",
+      "path": "agents/grimoire.dotnet-unit-test-writer.md",
       "description": "Expert .NET unit testing specialist for C#/.NET projects. Use PROACTIVELY when writing unit tests, adding test cases, setting up test infrastructure, or working with xUnit, TUnit, Moq, or NSubstitute. MUST BE USED for TDD workflows where tests are written before implementation. Defaults to xUnit (most universal), recommends TUnit for new .NET 8+ projects."
     }
   ],
   "skills": [
     {
       "name": "grimoire.dotnet-feature-workflow",
-      "path": "skills/gr.dotnet-feature-workflow",
+      "path": "skills/grimoire.dotnet-feature-workflow",
       "description": "Orchestrates end-to-end .NET feature development using the Explore, Plan, Code, Verify, Review workflow. Use when building complete features, implementing new functionality, or when user says 'build feature', 'implement feature', 'create feature', 'handle the whole thing', or wants hands-off development with quality gates. Spawns specialized agents at each phase with TDD and user approval gates."
     }
   ]

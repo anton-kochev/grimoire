@@ -4,7 +4,7 @@
   "agents": [
     {
       "name": "grimoire.fact-checker",
-      "path": "agents/gr.fact-checker.md",
+      "path": "agents/grimoire.fact-checker.md",
       "description": "Use this agent when you need to verify the accuracy of written content before publishing or sharing. Invoke when: (1) Drafting is complete and content contains factual claims like statistics, dates, technical specifications, or historical references; (2) Content is ready for final review before publishing; (3) Accuracy is critical for public-facing or decision-making materials."
     }
   ],

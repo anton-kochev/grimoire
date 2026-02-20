@@ -5,7 +5,7 @@
   "skills": [
     {
       "name": "grimoire.context-file-guide",
-      "path": "skills/gr.context-file-guide",
+      "path": "skills/grimoire.context-file-guide",
       "description": "Best practices for writing CLAUDE.md project context files. Use when creating, reviewing, or improving CLAUDE.md files for Claude Code projects.",
       "triggers": {
         "keywords": [],
@@ -24,7 +24,7 @@
     },
     {
       "name": "grimoire.readme-guide",
-      "path": "skills/gr.readme-guide",
+      "path": "skills/grimoire.readme-guide",
       "description": "Create and review README files following industry best practices. Use for writing new READMEs, improving existing ones, checking README quality, or adding badges.",
       "triggers": {
         "keywords": [
@@ -47,7 +47,7 @@
     },
     {
       "name": "grimoire.skill-developer",
-      "path": "skills/gr.skill-developer",
+      "path": "skills/grimoire.skill-developer",
       "description": "Create and maintain custom skills for Claude Code following official Anthropic patterns. Use when creating new skills, updating existing skills, or organizing skill documentation.",
       "triggers": {
         "keywords": [

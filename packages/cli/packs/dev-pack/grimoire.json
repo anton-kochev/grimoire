@@ -4,19 +4,19 @@
   "agents": [
     {
       "name": "grimoire.code-reviewer",
-      "path": "agents/gr.code-reviewer.md",
+      "path": "agents/grimoire.code-reviewer.md",
       "description": "Language-agnostic code review specialist. Use immediately after writing or modifying code, or when explicitly requested to review code quality, security, performance, and best practices. Works with any programming language — detects language automatically and applies idiomatic conventions."
     },
     {
       "name": "grimoire.tdd-specialist",
-      "path": "agents/gr.tdd-specialist.md",
+      "path": "agents/grimoire.tdd-specialist.md",
       "description": "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, or doing test-driven development in ANY language. Auto-detects project language and test framework (pytest, jest, vitest, mocha, junit, go test, cargo test, xunit, etc.). Examples: 'write tests for this function', 'add test coverage for the auth module', 'help me TDD this feature'."
     }
   ],
   "skills": [
     {
       "name": "grimoire.tdd-specialist",
-      "path": "skills/gr.tdd-specialist",
+      "path": "skills/grimoire.tdd-specialist",
       "description": "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, doing test-driven development, or setting up test infrastructure in ANY language. Auto-detects project language and test framework.",
       "triggers": {
         "keywords": [
@@ -53,7 +53,7 @@
     },
     {
       "name": "grimoire.conventional-commit",
-      "path": "skills/gr.conventional-commit",
+      "path": "skills/grimoire.conventional-commit",
       "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes.",
       "triggers": {
         "keywords": [
