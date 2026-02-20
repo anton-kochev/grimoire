@@ -1,6 +1,7 @@
 ---
 name: grimoire.business-logic-docs
 description: "Create, update, and audit structured business logic documentation for AI assistants and developers. Use when documenting business rules, domain knowledge, invariants, workflows, state machines, entity relationships, decision logs, building a business logic knowledge base, or reviewing docs for staleness."
+version: 1.0.0
 ---
 
 # Business Logic Documentation

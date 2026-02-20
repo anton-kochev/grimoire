@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { defineCommand, runMain } from 'citty';
 import { runAdd } from './commands/add.js';
 import { runRemoveInteractive } from './commands/remove.js';
+import { runUpdate } from './commands/update.js';
 import { runLogs } from './commands/logs.js';
 
 const require = createRequire(import.meta.url);
@@ -25,6 +26,16 @@ const removeCommand = defineCommand({
   },
   async run() {
     await runRemoveInteractive(process.cwd());
+  },
+});
+
+const updateCommand = defineCommand({
+  meta: {
+    name: 'update',
+    description: 'Check for updates to installed agents and skills',
+  },
+  async run() {
+    await runUpdate(process.cwd());
   },
 });
 
@@ -71,6 +82,7 @@ const main = defineCommand({
   subCommands: {
     add: addCommand,
     remove: removeCommand,
+    update: updateCommand,
     logs: logsCommand,
   },
 });

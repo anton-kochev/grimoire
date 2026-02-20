@@ -1,6 +1,7 @@
 ---
 name: grimoire.tdd-specialist
 description: "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, doing test-driven development, or setting up test infrastructure in ANY language. Auto-detects project language and test framework. Supports pytest, jest, vitest, mocha, junit, go test, cargo test, xunit, and more. Triggers: tdd, test-driven, unit test, write tests, test coverage, red-green-refactor."
+version: 1.0.0
 ---
 
 # TDD Specialist

@@ -85,10 +85,12 @@ function validateAgentEntry(entry: unknown, index: number): PackAgentEntry {
     throw new Error(`Agent entry [${index}] must have a "description" string field`);
   }
 
+  const agentVersion = typeof raw['version'] === 'string' ? raw['version'] : undefined;
   return {
     name: raw['name'] as string,
     path: raw['path'] as string,
     description: raw['description'] as string,
+    ...(agentVersion !== undefined && { version: agentVersion }),
   };
 }
 
@@ -115,11 +117,13 @@ function validateSkillEntry(entry: unknown, index: number): PackSkillEntry {
     ? validateTriggers(raw['triggers'], index)
     : undefined;
 
+  const skillVersion = typeof raw['version'] === 'string' ? raw['version'] : undefined;
   return {
     name: raw['name'] as string,
     path: raw['path'] as string,
     description: raw['description'] as string,
-    triggers,
+    ...(triggers !== undefined && { triggers }),
+    ...(skillVersion !== undefined && { version: skillVersion }),
   };
 }
 

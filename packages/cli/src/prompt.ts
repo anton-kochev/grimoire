@@ -1,4 +1,6 @@
+import { join } from 'path';
 import * as clack from '@clack/prompts';
+import { readFrontmatterVersion, isNewer } from './version.js';
 import type { PackOption, InstallItem, WizardResult, RemoveWizardResult } from './types.js';
 
 /**
@@ -9,7 +11,7 @@ import type { PackOption, InstallItem, WizardResult, RemoveWizardResult } from '
  *
  * @returns The wizard result with selected items grouped by pack, or empty on cancel
  */
-export async function runWizard(packs: readonly PackOption[]): Promise<WizardResult> {
+export async function runWizard(packs: readonly PackOption[], projectDir: string): Promise<WizardResult> {
   const empty: WizardResult = { selections: [], enableAutoActivation: false };
 
   clack.intro('Grimoire Installer');
@@ -46,8 +48,25 @@ export async function runWizard(packs: readonly PackOption[]): Promise<WizardRes
 
   for (const pack of chosenPacks) {
     for (const agent of pack.manifest.agents) {
+      const packVersion = agent.version;
+      const label = packVersion
+        ? `[${pack.name} · agent · v${packVersion}] ${agent.name}`
+        : `[${pack.name} · agent] ${agent.name}`;
+
+      const installedPath = join(projectDir, '.claude', 'agents', `${agent.name}.md`);
+      const installedVersion = readFrontmatterVersion(installedPath);
+      let hint: string;
+      if (installedVersion !== undefined) {
+        const upToDate = !isNewer(packVersion, installedVersion);
+        hint = upToDate
+          ? `installed: v${installedVersion} (up to date) · ${agent.description}`
+          : `installed: v${installedVersion} · ${agent.description}`;
+      } else {
+        hint = agent.description;
+      }
+
       itemOptions.push({
-        label: `[${pack.name} | agent] ${agent.name}`,
+        label,
         value: {
           pack,
           item: {
@@ -55,15 +74,33 @@ export async function runWizard(packs: readonly PackOption[]): Promise<WizardRes
             name: agent.name,
             sourcePath: agent.path,
             description: agent.description,
+            ...(packVersion !== undefined && { version: packVersion }),
           },
         },
-        hint: agent.description,
+        hint,
       });
     }
 
     for (const skill of pack.manifest.skills) {
+      const packVersion = skill.version;
+      const label = packVersion
+        ? `[${pack.name} · skill · v${packVersion}] ${skill.name}`
+        : `[${pack.name} · skill] ${skill.name}`;
+
+      const installedPath = join(projectDir, '.claude', 'skills', skill.name, 'SKILL.md');
+      const installedVersion = readFrontmatterVersion(installedPath);
+      let hint: string;
+      if (installedVersion !== undefined) {
+        const upToDate = !isNewer(packVersion, installedVersion);
+        hint = upToDate
+          ? `installed: v${installedVersion} (up to date) · ${skill.description}`
+          : `installed: v${installedVersion} · ${skill.description}`;
+      } else {
+        hint = skill.description;
+      }
+
       itemOptions.push({
-        label: `[${pack.name} | skill] ${skill.name}`,
+        label,
         value: {
           pack,
           item: {
@@ -71,9 +108,10 @@ export async function runWizard(packs: readonly PackOption[]): Promise<WizardRes
             name: skill.name,
             sourcePath: skill.path,
             description: skill.description,
+            ...(packVersion !== undefined && { version: packVersion }),
           },
         },
-        hint: skill.description,
+        hint,
       });
     }
   }

@@ -21,7 +21,7 @@ export async function runAdd(cwd?: string | undefined): Promise<InstallSummary> 
     return { packs: [], results: [] };
   }
 
-  const wizard = await runWizard(packs);
+  const wizard = await runWizard(packs, projectDir);
 
   if (wizard.selections.length === 0) {
     return { packs: [], results: [] };

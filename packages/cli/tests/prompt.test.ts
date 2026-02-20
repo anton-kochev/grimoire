@@ -67,7 +67,7 @@ describe('runWizard', () => {
     // Step 3: enable auto-activation
     mockConfirm.mockResolvedValue(true);
 
-    const result = await runWizard(packs);
+    const result = await runWizard(packs, '/test/project');
 
     expect(result.enableAutoActivation).toBe(true);
     expect(result.selections).toHaveLength(2);
@@ -84,7 +84,7 @@ describe('runWizard', () => {
     ]);
     mockConfirm.mockResolvedValue(false);
 
-    const result = await runWizard(packs);
+    const result = await runWizard(packs, '/test/project');
 
     expect(result.enableAutoActivation).toBe(false);
     expect(result.selections).toHaveLength(1);
@@ -94,7 +94,7 @@ describe('runWizard', () => {
     mockMultiselect.mockResolvedValueOnce([]);
     mockIsCancel.mockReturnValueOnce(true);
 
-    await runWizard(packs);
+    await runWizard(packs, '/test/project');
 
     const call = mockMultiselect.mock.calls[0]?.[0] as { options: Array<{ label: string; hint: string }> };
     expect(call.options[0]?.label).toBe('dotnet-pack');
@@ -108,20 +108,20 @@ describe('runWizard', () => {
     mockMultiselect.mockResolvedValueOnce([]);
     // Empty selection → returns empty without reaching confirm
 
-    await runWizard(packs);
+    await runWizard(packs, '/test/project');
 
     const call = mockMultiselect.mock.calls[1]?.[0] as { options: Array<{ label: string }> };
     const labels = call.options.map((o) => o.label);
-    expect(labels).toContain('[dotnet-pack | agent] csharp-coder');
-    expect(labels).toContain('[dotnet-pack | skill] dotnet-workflow');
-    expect(labels).toContain('[ts-pack | skill] modern-ts');
+    expect(labels).toContain('[dotnet-pack · agent] csharp-coder');
+    expect(labels).toContain('[dotnet-pack · skill] dotnet-workflow');
+    expect(labels).toContain('[ts-pack · skill] modern-ts');
   });
 
   it('should pre-select all items via initialValues', async () => {
     mockMultiselect.mockResolvedValueOnce(packs);
     mockMultiselect.mockResolvedValueOnce([]);
 
-    await runWizard(packs);
+    await runWizard(packs, '/test/project');
 
     const call = mockMultiselect.mock.calls[1]?.[0] as { initialValues: unknown[] };
     expect(call.initialValues).toHaveLength(3);
@@ -131,7 +131,7 @@ describe('runWizard', () => {
     mockMultiselect.mockResolvedValueOnce(Symbol('cancel'));
     mockIsCancel.mockReturnValueOnce(true);
 
-    const result = await runWizard(packs);
+    const result = await runWizard(packs, '/test/project');
 
     expect(result).toEqual({ selections: [], enableAutoActivation: false });
     expect(mockMultiselect).toHaveBeenCalledTimes(1);
@@ -143,7 +143,7 @@ describe('runWizard', () => {
     mockMultiselect.mockResolvedValueOnce(Symbol('cancel'));
     mockIsCancel.mockReturnValueOnce(false).mockReturnValueOnce(true);
 
-    const result = await runWizard(packs);
+    const result = await runWizard(packs, '/test/project');
 
     expect(result).toEqual({ selections: [], enableAutoActivation: false });
     expect(mockConfirm).not.toHaveBeenCalled();
@@ -157,7 +157,7 @@ describe('runWizard', () => {
     mockConfirm.mockResolvedValue(Symbol('cancel') as never);
     mockIsCancel.mockReturnValueOnce(false).mockReturnValueOnce(false).mockReturnValueOnce(true);
 
-    const result = await runWizard(packs);
+    const result = await runWizard(packs, '/test/project');
 
     expect(result).toEqual({ selections: [], enableAutoActivation: false });
   });
@@ -166,7 +166,7 @@ describe('runWizard', () => {
     mockMultiselect.mockResolvedValueOnce(packs);
     mockMultiselect.mockResolvedValueOnce([]);
 
-    const result = await runWizard(packs);
+    const result = await runWizard(packs, '/test/project');
 
     expect(result).toEqual({ selections: [], enableAutoActivation: false });
     expect(mockConfirm).not.toHaveBeenCalled();

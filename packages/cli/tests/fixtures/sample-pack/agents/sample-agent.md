@@ -5,6 +5,7 @@ model: sonnet
 tools:
   - Read
   - Write
+version: 1.0.0
 ---
 
 # Sample Agent

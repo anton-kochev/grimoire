@@ -9,6 +9,7 @@ export interface PackAgentEntry {
   readonly name: string;
   readonly path: string;
   readonly description: string;
+  readonly version?: string | undefined;
 }
 
 export interface PackSkillEntry {
@@ -16,6 +17,7 @@ export interface PackSkillEntry {
   readonly path: string;
   readonly description: string;
   readonly triggers?: PackSkillTriggers | undefined;
+  readonly version?: string | undefined;
 }
 
 export interface PackManifest {
@@ -33,6 +35,7 @@ export interface InstallItem {
   readonly pack?: string;
   /** Display name used as key in skills-manifest.json agents (may differ from filesystem name) */
   readonly manifestName?: string;
+  readonly version?: string | undefined;
 }
 
 export interface PackOption {

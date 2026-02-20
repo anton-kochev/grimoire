@@ -3,6 +3,7 @@ name: grimoire.skill-developer
 description: Create and maintain custom skills for Claude Code following official Anthropic patterns. Use when creating new skills, updating existing skills, or organizing skill documentation.
 user-invokable: true
 disable-model-invocation: false
+version: 1.0.0
 ---
 
 # Skill Developer

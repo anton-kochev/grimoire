@@ -5,7 +5,8 @@
     {
       "name": "sample-agent",
       "path": "agents/sample-agent.md",
-      "description": "A sample agent for testing"
+      "description": "A sample agent for testing",
+      "version": "1.0.0"
     }
   ],
   "skills": [
@@ -13,6 +14,7 @@
       "name": "sample-skill",
       "path": "skills/sample-skill",
       "description": "A sample skill for testing",
+      "version": "1.0.0",
       "triggers": {
         "keywords": ["sample", "test"],
         "file_extensions": [".ts"],

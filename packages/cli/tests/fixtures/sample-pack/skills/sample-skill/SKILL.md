@@ -1,6 +1,7 @@
 ---
 name: sample-skill
 description: A sample skill for testing
+version: 1.0.0
 ---
 
 # Sample Skill
