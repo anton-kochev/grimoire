@@ -12,19 +12,19 @@
       "name": "grimoire.csharp-coder",
       "path": "agents/grimoire.csharp-coder.md",
       "description": "Implements C# code based on architectural decisions, predefined plans, or technical specifications. Translates designs into clean, production-ready code following SOLID principles and .NET conventions.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "grimoire.dotnet-architect",
       "path": "agents/grimoire.dotnet-architect.md",
       "description": "Write, review, or refactor C# code on the .NET platform following modern best practices. Implements new features using Clean Architecture, Domain-Driven Design (DDD), and Test-Driven Development (TDD). Designs domain entities, application services, API endpoints, and infrastructure components.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "grimoire.dotnet-unit-test-writer",
       "path": "agents/grimoire.dotnet-unit-test-writer.md",
       "description": "Expert .NET unit testing specialist for C#/.NET projects. Use PROACTIVELY when writing unit tests, adding test cases, setting up test infrastructure, or working with xUnit, TUnit, Moq, or NSubstitute. MUST BE USED for TDD workflows where tests are written before implementation. Defaults to xUnit (most universal), recommends TUnit for new .NET 8+ projects.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     }
   ],
   "skills": [
