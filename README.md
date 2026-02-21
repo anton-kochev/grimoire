@@ -20,6 +20,8 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [code-reviewer](#code-reviewer)
   - [tdd-specialist](#tdd-specialist)
   - [fact-checker](#fact-checker)
+  - [typescript-coder](#typescript-coder)
+  - [vue3-coder](#vue3-coder)
 - [Skills](#skills)
   - [dotnet-unit-testing](#dotnet-unit-testing)
   - [dotnet-feature-workflow](#dotnet-feature-workflow)
@@ -96,7 +98,7 @@ grimoire add
 
 The wizard walks you through three steps:
 
-1. **Select packs** — choose from all available packs (e.g. `dotnet-pack`, `ts-pack`, `meta-pack`)
+1. **Select packs** — choose from all available packs (e.g. `dotnet-pack`, `ts-pack`, `frontend-pack`, `meta-pack`)
 2. **Select items** — pick individual agents and skills (all pre-selected by default)
 3. **Auto-activation** — optionally configure skill-router hooks for automatic skill matching
 
@@ -400,6 +402,36 @@ Verifies accuracy of written content before publishing.
 
 **When to use:** Reviewing blog posts, documentation, or content with verifiable claims.
 
+### typescript-coder
+
+Expert TypeScript developer for writing, refactoring, debugging, and reviewing TypeScript code across any environment.
+
+**Capabilities:**
+
+- Type-safe code under `strict: true` with no `any`
+- Result types and discriminated unions for error modeling
+- Utility types, generics, and advanced type transformations
+- Framework-specific TypeScript (Angular, React, Vue, Node.js, Svelte)
+
+**When to use:** Writing or reviewing TypeScript code, designing type-safe data models, refactoring JavaScript to TypeScript.
+
+**Install via:** `grimoire add` and select `ts-pack`
+
+### vue3-coder
+
+Senior Vue 3 developer for scaffolding, reviewing, and debugging Vue 3 applications.
+
+**Capabilities:**
+
+- Composition API with `<script setup>` and full TypeScript integration
+- Pinia stores (Setup Store syntax), Vue Router 4, VueUse composables
+- Typed props, emits, and `defineModel()` with no Options API
+- Performance optimization, reactivity debugging, lazy-loaded routes
+
+**When to use:** Building Vue 3 components, composables, Pinia stores, or diagnosing reactivity issues.
+
+**Install via:** `grimoire add` and select `frontend-pack`
+
 ## Skills
 
 All skills are located in `.claude/skills/`.
@@ -640,7 +672,9 @@ grimoire/
     │   ├── grimoire.csharp-code-reviewer.md
     │   ├── grimoire.code-reviewer.md
     │   ├── grimoire.tdd-specialist.md
-    │   └── grimoire.fact-checker.md
+    │   ├── grimoire.fact-checker.md
+    │   ├── grimoire.typescript-coder.md
+    │   └── grimoire.vue3-coder.md
     └── skills/
         ├── grimoire.dotnet-unit-testing/
         │   ├── SKILL.md
