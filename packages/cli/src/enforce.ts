@@ -217,6 +217,10 @@ export function removeEnforceHooks(projectDir: string): void {
     if (hooks['SubagentStop'].length === 0) delete hooks['SubagentStop'];
   }
 
-  settings.hooks = Object.keys(hooks).length > 0 ? hooks : undefined;
+  if (Object.keys(hooks).length > 0) {
+    settings.hooks = hooks;
+  } else {
+    delete settings.hooks;
+  }
   writeSettings(projectDir, settings);
 }
