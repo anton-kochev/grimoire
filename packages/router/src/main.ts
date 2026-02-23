@@ -1,5 +1,5 @@
 /**
- * Main execution flow for the Skill Router
+ * Main execution flow for the Router
  */
 
 import type { ExtractedSignals, HookInput, HookOutput, PreToolUseInput, PreToolUseOutput } from './types.js';
@@ -7,9 +7,9 @@ import { normalizePrompt } from './normalize.js';
 import { extractSignals } from './signals.js';
 import { scoreSkill } from './scoring.js';
 import { filterByThreshold, sortDescendingByScore } from './filtering.js';
-import { formatContext, formatAgentContext } from './formatting.js';
+import { formatContext } from './formatting.js';
 import { formatToolUseContext } from './tool-formatting.js';
-import { loadManifest, getAgentConfig } from './manifest.js';
+import { loadManifest } from './manifest.js';
 import { readSkillBody } from './skill-content.js';
 import { parseStdinInput, readStdin } from './input.js';
 import { buildLogEntry, writeLog } from './logging.js';
@@ -17,6 +17,7 @@ import { buildHookOutput } from './output.js';
 import { buildPreToolUseOutput } from './tool-output.js';
 import { extractToolSignals } from './tool-input.js';
 import { parseArgs } from './args.js';
+import { runEnforce, runSubagentStart, runSubagentStop } from './enforce.js';
 
 const DEFAULT_PRETOOLUSE_THRESHOLD = 1.5;
 
@@ -34,7 +35,7 @@ export function processPrompt(
   projectDir?: string
 ): HookOutput | null {
   const startTime = Date.now();
-  let logPath = '.claude/logs/skill-router.log';
+  let logPath = '.claude/logs/grimoire-router.log';
 
   try {
     // Skip empty/whitespace prompts
@@ -105,113 +106,9 @@ export function processPrompt(
     // Log error but don't throw - never block user
     const errorMessage =
       error instanceof Error ? error.message : String(error);
-    console.error(`[Skill Router Error] ${errorMessage}`);
+    console.error(`[Router Error] ${errorMessage}`);
 
     // Try to write error log
-    try {
-      writeLog(
-        {
-          timestamp: new Date().toISOString(),
-          level: 'error',
-          message: errorMessage,
-          error_type: error instanceof Error ? error.name : 'Unknown',
-          stack_trace: error instanceof Error ? error.stack : null,
-        },
-        logPath
-      );
-    } catch {
-      // Ignore logging errors
-    }
-
-    return null;
-  }
-}
-
-/**
- * Processes a prompt for an agent (SubagentStart hook).
- * Filters skills based on agent's always_skills and compatible_skills.
- *
- * @param input - Parsed hook input
- * @param manifestPath - Path to the skill manifest
- * @param agentName - Name of the agent to configure
- * @returns HookOutput if agent has skills, null otherwise
- */
-export function processAgentPrompt(
-  input: HookInput,
-  manifestPath: string,
-  agentName: string
-): HookOutput | null {
-  const startTime = Date.now();
-  let logPath = '.claude/logs/skill-router.log';
-
-  try {
-    // Load manifest
-    const manifest = loadManifest(manifestPath);
-    logPath = manifest.config.log_path ?? logPath;
-
-    // Get agent config
-    const agentConfig = getAgentConfig(manifest, agentName);
-    if (!agentConfig) {
-      // Unknown agent, don't block
-      return null;
-    }
-
-    // Get always_skills (mandatory)
-    const alwaysSkills = agentConfig.always_skills;
-
-    // Score compatible skills against task prompt
-    const normalized = normalizePrompt(input.prompt);
-    let matchedSkills: ReturnType<typeof scoreSkill>[] = [];
-
-    if (normalized && agentConfig.compatible_skills.length > 0) {
-      const signals = extractSignals(normalized);
-
-      // Filter to only compatible skills
-      const compatibleSkillDefs = manifest.skills.filter((s) =>
-        agentConfig.compatible_skills.includes(s.name)
-      );
-
-      // Score compatible skills
-      const scored = compatibleSkillDefs.map((s) =>
-        scoreSkill(s, signals, normalized, manifest.config.weights)
-      );
-
-      matchedSkills = sortDescendingByScore(
-        filterByThreshold(scored, manifest.config.activation_threshold)
-      );
-    }
-
-    // Build output if we have any skills to inject
-    if (alwaysSkills.length > 0 || matchedSkills.length > 0) {
-      const context = formatAgentContext(alwaysSkills, matchedSkills);
-
-      // Log the agent mode processing
-      const logEntry = buildLogEntry({
-        sessionId: input.session_id,
-        promptRaw: input.prompt,
-        promptNormalized: normalized || '',
-        signals: normalized ? extractSignals(normalized) : { words: new Set(), extensions: new Set(), paths: [] },
-        skillsEvaluated: manifest.skills.length,
-        matchedSkills,
-        threshold: manifest.config.activation_threshold,
-        startTime,
-        outcome: 'activated',
-      });
-      writeLog(
-        { ...logEntry, agent_mode: true, agent_name: agentName } as typeof logEntry & { agent_mode: boolean; agent_name: string },
-        logPath
-      );
-
-      return buildHookOutput(context, 'SubagentStart');
-    }
-
-    return null;
-  } catch (error) {
-    // Log error but don't throw - never block agent
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
-    console.error(`[Skill Router Error] ${errorMessage}`);
-
     try {
       writeLog(
         {
@@ -245,7 +142,7 @@ export function processToolUse(
   projectDir: string
 ): PreToolUseOutput | null {
   const startTime = Date.now();
-  let logPath = '.claude/logs/skill-router.log';
+  let logPath = '.claude/logs/grimoire-router.log';
 
   try {
     // Load manifest
@@ -317,7 +214,7 @@ export function processToolUse(
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : String(error);
-    console.error(`[Skill Router Error] ${errorMessage}`);
+    console.error(`[Router Error] ${errorMessage}`);
 
     try {
       writeLog(
@@ -343,7 +240,6 @@ export function processToolUse(
  */
 export async function main(): Promise<void> {
   try {
-    // Parse CLI arguments
     const args = parseArgs(process.argv);
 
     // Read stdin
@@ -351,6 +247,40 @@ export async function main(): Promise<void> {
 
     // Skip if empty
     if (!stdinContent.trim()) {
+      process.exit(0);
+    }
+
+    // Dispatch enforce / subagent registry modes
+    if (args.enforce || args.subagentStart || args.subagentStop) {
+      let data: unknown;
+      try {
+        data = JSON.parse(stdinContent);
+      } catch {
+        process.exit(0);
+      }
+
+      const obj = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
+      const sessionId = typeof obj['session_id'] === 'string' ? obj['session_id'] : 'unknown';
+
+      if (args.enforce) {
+        // Parse as PreToolUseInput for enforcement check
+        const stdinInput = parseStdinInput(stdinContent);
+        if (stdinInput.kind === 'tooluse') {
+          runEnforce(stdinInput.input);
+        }
+        process.exit(0);
+      }
+
+      if (args.subagentStart) {
+        runSubagentStart({ session_id: sessionId });
+        // runSubagentStart calls process.exit internally
+      }
+
+      if (args.subagentStop) {
+        runSubagentStop({ session_id: sessionId });
+        // runSubagentStop calls process.exit internally
+      }
+
       process.exit(0);
     }
 
@@ -366,11 +296,8 @@ export async function main(): Promise<void> {
     if (stdinInput.kind === 'tooluse') {
       // PreToolUse hook
       output = processToolUse(stdinInput.input, manifestPath, projectDir);
-    } else if (args.agent) {
-      // Agent mode: SubagentStart hook
-      output = processAgentPrompt(stdinInput.input, manifestPath, args.agent);
     } else {
-      // Original UserPromptSubmit mode
+      // UserPromptSubmit mode
       output = processPrompt(stdinInput.input, manifestPath, projectDir);
     }
 
@@ -383,7 +310,7 @@ export async function main(): Promise<void> {
   } catch (error) {
     // Log error but always exit 0
     console.error(
-      `[Skill Router Error] ${error instanceof Error ? error.message : String(error)}`
+      `[Router Error] ${error instanceof Error ? error.message : String(error)}`
     );
     process.exit(0);
   }

@@ -3,14 +3,9 @@
  */
 
 import { readFileSync } from 'fs';
-import type {
-  SkillManifest,
-  SkillDefinition,
-  AgentsMap,
-  AgentConfig,
-} from './types.js';
+import type { SkillManifest, SkillDefinition, AgentEntry } from './types.js';
 
-const DEFAULT_LOG_PATH = '.claude/logs/skill-router.log';
+const DEFAULT_LOG_PATH = '.claude/logs/grimoire-router.log';
 
 /**
  * Loads and validates a skill manifest from the filesystem.
@@ -97,11 +92,11 @@ export function loadManifest(manifestPath: string): SkillManifest {
 }
 
 /**
- * Parses and validates the optional agents section of the manifest.
+ * Parses the optional agents section of the manifest.
  */
 function parseAgentsSection(
   agents: unknown
-): AgentsMap | undefined {
+): Record<string, AgentEntry> | undefined {
   if (agents === undefined || agents === null) {
     return undefined;
   }
@@ -111,52 +106,34 @@ function parseAgentsSection(
   }
 
   const agentsMap = agents as Record<string, unknown>;
-  const result: AgentsMap = {};
+  const result: Record<string, AgentEntry> = {};
 
   for (const [agentName, agentConfig] of Object.entries(agentsMap)) {
     if (!agentConfig || typeof agentConfig !== 'object') {
       throw new Error(`Agent "${agentName}" config must be an object`);
     }
 
-    const config = agentConfig as Record<string, unknown>;
+    const cfg = agentConfig as Record<string, unknown>;
+    const entry: AgentEntry = {};
 
-    // Validate always_skills
-    if (config['always_skills'] !== undefined) {
-      if (!Array.isArray(config['always_skills'])) {
-        throw new Error(`Agent "${agentName}" always_skills must be an array`);
+    if (cfg['file_patterns'] !== undefined) {
+      if (!Array.isArray(cfg['file_patterns'])) {
+        throw new Error(`Agent "${agentName}" file_patterns must be an array`);
       }
+      entry.file_patterns = cfg['file_patterns'] as string[];
     }
 
-    // Validate compatible_skills
-    if (config['compatible_skills'] !== undefined) {
-      if (!Array.isArray(config['compatible_skills'])) {
-        throw new Error(
-          `Agent "${agentName}" compatible_skills must be an array`
-        );
+    if (cfg['enforce'] !== undefined) {
+      if (typeof cfg['enforce'] !== 'boolean') {
+        throw new Error(`Agent "${agentName}" enforce must be a boolean`);
       }
+      entry.enforce = cfg['enforce'] as boolean;
     }
 
-    result[agentName] = {
-      always_skills: (config['always_skills'] as string[]) || [],
-      compatible_skills: (config['compatible_skills'] as string[]) || [],
-    };
+    result[agentName] = entry;
   }
 
   return result;
-}
-
-/**
- * Retrieves configuration for a specific agent from the manifest.
- *
- * @param manifest - The loaded skill manifest
- * @param agentName - Name of the agent to look up
- * @returns AgentConfig if found, undefined otherwise
- */
-export function getAgentConfig(
-  manifest: SkillManifest,
-  agentName: string
-): AgentConfig | undefined {
-  return manifest.agents?.[agentName];
 }
 
 /**

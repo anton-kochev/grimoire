@@ -11,8 +11,8 @@ Collection of specialized agents and skills for Claude Code.
 ## Commands
 - pnpm --filter @grimoire-cc/cli test: Run CLI tests
 - pnpm --filter @grimoire-cc/cli test:watch: CLI watch mode
-- pnpm --filter @grimoire-cc/skill-router test: Run skill-router tests
-- pnpm --filter @grimoire-cc/skill-router test:watch: Watch mode
+- pnpm --filter @grimoire-cc/router test: Run router tests
+- pnpm --filter @grimoire-cc/router test:watch: Watch mode
 - python3 .claude/skills/grimoire.skill-developer/scripts/validate-skill.py <path>: Validate skill
 - .claude/skills/grimoire.skill-developer/scripts/create-skill.sh <name>: Scaffold new skill
 
@@ -21,11 +21,11 @@ Collection of specialized agents and skills for Claude Code.
 - Skills: Directories in `.claude/skills/<name>/` with SKILL.md + supporting files
 - CLI: `packages/cli/` - installs agents/skills from npm packs into projects
   - `grimoire add` launches interactive wizard (pack selection → item selection → auto-activation)
-  - `grimoire logs` opens real-time skill-router log viewer in browser (`--file`, `--port`)
-- Skill Router: `packages/skill-router/` - auto-activates skills via hooks
+  - `grimoire enforce-agent` toggles per-agent enforcement (delegates file edits to agents)
+  - `grimoire logs` opens real-time log viewer in browser (`--file`, `--port`)
+- Router: `packages/router/` - hook runtime for skill auto-activation and agent enforcement
   - UserPromptSubmit: Matches skills to user prompts (keywords: exact, stem, fuzzy)
-  - SubagentStart: Injects skill instructions into agents (use `--agent=<name>` flag)
-  - PreToolUse: Injects skill context before Edit/Write tools based on file path signals
+  - PreToolUse: Injects skill context before Edit/Write tools; blocks if enforce active
 - Config: `.claude/skills-manifest.json` defines skill triggers, weights, and agent mappings
 
 ## Code Conventions
@@ -41,10 +41,10 @@ Collection of specialized agents and skills for Claude Code.
 
 ## Publishing
 - CLI: git tag `cli/vX.Y.Z` (e.g. `cli/v0.3.0`)
-- Skill Router: git tag `skill-router/vX.Y.Z` (e.g. `skill-router/v1.0.0`)
+- Router: git tag `router/vX.Y.Z` (e.g. `router/v1.0.0`)
 - Any other tag format will not trigger the npm publish workflow
 
 ## Workflow
 - Run tests before committing: `pnpm test`
 - Follow conventional commits
-- Check logs: `grimoire logs` or `tail -20 .claude/logs/skill-router.log | jq .`
+- Check logs: `grimoire logs` or `tail -20 .claude/logs/grimoire-router.log | jq .`

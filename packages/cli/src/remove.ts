@@ -68,16 +68,11 @@ interface ManifestSkill {
   [key: string]: unknown;
 }
 
-interface AgentConfig {
-  always_skills: string[];
-  compatible_skills: string[];
-}
-
 interface SkillsManifest {
   version: string;
   config: Record<string, unknown>;
   skills: ManifestSkill[];
-  agents: Record<string, AgentConfig>;
+  agents: Record<string, Record<string, unknown>>;
 }
 
 /**
@@ -166,18 +161,6 @@ export function cleanManifest(
   // Remove agent entries
   for (const name of removedAgentNames) {
     delete manifest.agents[name];
-  }
-
-  // Remove skill references from remaining agents
-  if (removedSkillManifestNames.size > 0) {
-    for (const agentConfig of Object.values(manifest.agents)) {
-      agentConfig.always_skills = agentConfig.always_skills.filter(
-        (s) => !removedSkillManifestNames.has(s),
-      );
-      agentConfig.compatible_skills = agentConfig.compatible_skills.filter(
-        (s) => !removedSkillManifestNames.has(s),
-      );
-    }
   }
 
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');

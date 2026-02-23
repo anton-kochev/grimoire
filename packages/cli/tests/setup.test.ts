@@ -78,15 +78,15 @@ describe('mergeSettings', () => {
     const userPromptHooks = hooks['UserPromptSubmit'] as Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }>;
     expect(userPromptHooks).toHaveLength(1);
     expect(userPromptHooks[0]!.matcher).toBe('');
-    expect(userPromptHooks[0]!.hooks[0]!.command).toContain('skill-router');
+    expect(userPromptHooks[0]!.hooks[0]!.command).toContain('@grimoire-cc/router');
 
     const preToolHooks = hooks['PreToolUse'] as Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }>;
     expect(preToolHooks).toHaveLength(1);
     expect(preToolHooks[0]!.matcher).toBe('Edit|Write');
-    expect(preToolHooks[0]!.hooks[0]!.command).toContain('skill-router');
+    expect(preToolHooks[0]!.hooks[0]!.command).toContain('@grimoire-cc/router');
   });
 
-  it('should preserve existing hooks and append skill-router entries', () => {
+  it('should preserve existing hooks and append @grimoire-cc/router entries', () => {
     const settingsDir = join(projectDir, '.claude');
     mkdirSync(settingsDir, { recursive: true });
     writeFileSync(
@@ -105,17 +105,17 @@ describe('mergeSettings', () => {
     const settings = readJson(join(settingsDir, 'settings.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
 
-    // Existing hook preserved + skill-router appended
+    // Existing hook preserved + @grimoire-cc/router appended
     const userPromptHooks = hooks['UserPromptSubmit'] as Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }>;
     expect(userPromptHooks).toHaveLength(2);
     expect(userPromptHooks[0]!.hooks[0]!.command).toBe('echo existing');
-    expect(userPromptHooks[1]!.hooks[0]!.command).toContain('skill-router');
+    expect(userPromptHooks[1]!.hooks[0]!.command).toContain('@grimoire-cc/router');
 
     // PreToolUse created fresh
     expect(hooks['PreToolUse']).toHaveLength(1);
   });
 
-  it('should not duplicate if skill-router hooks already present', () => {
+  it('should not duplicate if @grimoire-cc/router hooks already present', () => {
     const settingsDir = join(projectDir, '.claude');
     mkdirSync(settingsDir, { recursive: true });
     writeFileSync(
@@ -123,10 +123,10 @@ describe('mergeSettings', () => {
       JSON.stringify({
         hooks: {
           UserPromptSubmit: [
-            { matcher: '', hooks: [{ type: 'command', command: 'npx @grimoire-cc/skill-router' }] },
+            { matcher: '', hooks: [{ type: 'command', command: 'npx @grimoire-cc/@grimoire-cc/router' }] },
           ],
           PreToolUse: [
-            { matcher: 'Edit|Write', hooks: [{ type: 'command', command: 'npx @grimoire-cc/skill-router' }] },
+            { matcher: 'Edit|Write', hooks: [{ type: 'command', command: 'npx @grimoire-cc/@grimoire-cc/router' }] },
           ],
         },
       }),
@@ -251,34 +251,77 @@ describe('mergeManifest', () => {
     expect(dotnetSkills[0]!.triggers.keywords).toEqual(['unittest', 'xunit']);
   });
 
-  it('should merge agent config from pack', () => {
+  it('should create empty agent entry when pack agent has no file_patterns', () => {
     mergeManifest(projectDir, {
       ...sampleManifest,
       agents: [
         { name: 'csharp-coder', path: 'agents/csharp-coder.md', description: 'C# coder' },
       ],
-      skills: [
-        {
-          name: 'dotnet-testing',
-          path: 'skills/dotnet-testing',
-          description: 'Testing',
-          triggers: {
-            keywords: ['test'],
-            file_extensions: [],
-            patterns: [],
-            file_paths: [],
-          },
-        },
-      ],
+      skills: [],
     });
 
     const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
     const agents = manifest['agents'] as Record<string, unknown>;
 
     expect(agents['csharp-coder']).toBeDefined();
-    const agentConfig = agents['csharp-coder'] as Record<string, unknown>;
-    expect(agentConfig['always_skills']).toEqual([]);
-    expect(agentConfig['compatible_skills']).toEqual([]);
+    expect(agents['csharp-coder']).toEqual({});
+  });
+
+  it('should write file_patterns from pack agent entry', () => {
+    mergeManifest(projectDir, {
+      ...sampleManifest,
+      agents: [
+        {
+          name: 'grimoire.typescript-coder',
+          path: 'agents/grimoire.typescript-coder.md',
+          description: 'TS coder',
+          file_patterns: ['*.ts', '*.tsx'],
+        },
+      ],
+      skills: [],
+    });
+
+    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
+    const agents = manifest['agents'] as Record<string, unknown>;
+    const entry = agents['grimoire.typescript-coder'] as Record<string, unknown>;
+
+    expect(entry['file_patterns']).toEqual(['*.ts', '*.tsx']);
+  });
+
+  it('should preserve enforce flag when reinstalling agent', () => {
+    const claudeDir = join(projectDir, '.claude');
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, 'skills-manifest.json'),
+      JSON.stringify({
+        version: '2.0.0',
+        config: {},
+        skills: [],
+        agents: {
+          'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
+        },
+      }),
+    );
+
+    mergeManifest(projectDir, {
+      ...sampleManifest,
+      agents: [
+        {
+          name: 'grimoire.typescript-coder',
+          path: 'agents/grimoire.typescript-coder.md',
+          description: 'TS coder',
+          file_patterns: ['*.ts', '*.tsx'],
+        },
+      ],
+      skills: [],
+    });
+
+    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
+    const agents = manifest['agents'] as Record<string, unknown>;
+    const entry = agents['grimoire.typescript-coder'] as Record<string, unknown>;
+
+    expect(entry['file_patterns']).toEqual(['*.ts', '*.tsx']);
+    expect(entry['enforce']).toBe(true);
   });
 
   it('should use directory name from path (not name) for skill path in manifest', () => {

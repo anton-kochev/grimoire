@@ -9,7 +9,7 @@
     },
     "activation_threshold": 3.0,
     "pretooluse_threshold": 2.0,
-    "log_path": ".claude/logs/skill-router.log"
+    "log_path": ".claude/logs/grimoire-router.log"
   },
   "skills": [
     {
@@ -227,32 +227,9 @@
     }
   ],
   "agents": {
-    "grimoire.csharp-coder": {
-      "always_skills": [],
-      "compatible_skills": [
-        "DotNet Unit Testing",
-        "Conventional Commit"
-      ]
-    },
-    "grimoire.dotnet-architect": {
-      "always_skills": [],
-      "compatible_skills": [
-        "DotNet Unit Testing",
-        "DotNet Feature Workflow",
-        "Conventional Commit"
-      ]
-    },
-    "grimoire.dotnet-unit-test-writer": {
-      "always_skills": [
-        "DotNet Unit Testing"
-      ],
-      "compatible_skills": []
-    },
-    "grimoire.tdd-specialist": {
-      "always_skills": [
-        "TDD Specialist"
-      ],
-      "compatible_skills": []
-    }
+    "grimoire.csharp-coder": {},
+    "grimoire.dotnet-architect": {},
+    "grimoire.dotnet-unit-test-writer": {},
+    "grimoire.tdd-specialist": {}
   }
 }

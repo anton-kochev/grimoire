@@ -169,7 +169,7 @@ describe('runAdd', () => {
     expect(mockRunWizard).not.toHaveBeenCalled();
   });
 
-  it('should configure skill-router when auto-activation enabled', async () => {
+  it('should configure router when auto-activation enabled', async () => {
     writeFileSync(
       join(packDir, 'grimoire.json'),
       JSON.stringify({

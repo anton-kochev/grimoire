@@ -12,7 +12,8 @@
       "name": "grimoire.tdd-specialist",
       "path": "agents/grimoire.tdd-specialist.md",
       "description": "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, or doing test-driven development in ANY language. Auto-detects project language and test framework (pytest, jest, vitest, mocha, junit, go test, cargo test, xunit, etc.). Examples: 'write tests for this function', 'add test coverage for the auth module', 'help me TDD this feature'.",
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "file_patterns": ["*.spec.ts", "*.test.ts", "*.spec.js", "*.test.js", "*Tests.cs", "*_test.go", "*_test.py", "**/tests/**", "**/spec/**"]
     }
   ],
   "skills": [

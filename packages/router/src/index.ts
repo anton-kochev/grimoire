@@ -1,7 +1,7 @@
 /**
- * @grimoire-cc/skill-router
+ * @grimoire-cc/router
  *
- * Skill auto-activation system for Claude Code.
+ * Hook runtime for Grimoire — skill auto-activation and agent enforcement.
  * Matches user prompts against configured skill triggers
  * and injects relevant skill references into LLM context.
  */

@@ -36,7 +36,7 @@ describe('runLogs', () => {
   function setupLogFile(content: string, customPath?: string): string {
     const logPath = customPath
       ? join(projectDir, customPath)
-      : join(projectDir, '.claude', 'logs', 'skill-router.log');
+      : join(projectDir, '.claude', 'logs', 'grimoire-router.log');
     mkdirSync(join(logPath, '..'), { recursive: true });
     writeFileSync(logPath, content);
     return logPath;
@@ -52,7 +52,7 @@ describe('runLogs', () => {
 
     expect(mockExit).toHaveBeenCalledWith(1);
     const output = mockError.mock.calls.map((c) => c[0]).join('\n');
-    expect(output).toMatch(/skill-router has not produced any logs/i);
+    expect(output).toMatch(/router has not produced any logs/i);
 
     mockExit.mockRestore();
     mockError.mockRestore();

@@ -50,14 +50,8 @@ function setupManifest(projectDir: string): void {
         },
       ],
       agents: {
-        'csharp-coder': {
-          always_skills: [],
-          compatible_skills: ['dotnet-testing'],
-        },
-        'dotnet-architect': {
-          always_skills: ['dotnet-testing'],
-          compatible_skills: ['readme-guide'],
-        },
+        'csharp-coder': {},
+        'dotnet-architect': {},
       },
     }),
   );
@@ -92,14 +86,8 @@ function setupNamespacedManifest(projectDir: string): void {
         },
       ],
       agents: {
-        'grimoire.csharp-code-reviewer': {
-          always_skills: [],
-          compatible_skills: ['grimoire.dotnet-feature-workflow'],
-        },
-        'grimoire.csharp-coder': {
-          always_skills: ['grimoire.dotnet-feature-workflow'],
-          compatible_skills: [],
-        },
+        'grimoire.csharp-code-reviewer': {},
+        'grimoire.csharp-coder': {},
       },
     }),
   );
@@ -242,21 +230,6 @@ describe('cleanManifest', () => {
     expect(manifest.agents['dotnet-architect']).toBeDefined();
   });
 
-  it('should remove agent references from other agents', () => {
-    const items: InstallItem[] = [
-      { type: 'skill', name: 'dotnet-testing', sourcePath: '', description: '' },
-    ];
-
-    cleanManifest(items, projectDir);
-
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
-      agents: Record<string, { always_skills: string[]; compatible_skills: string[] }>;
-    };
-    // dotnet-testing removed from both agents' skill lists
-    expect(manifest.agents['csharp-coder']!.compatible_skills).not.toContain('dotnet-testing');
-    expect(manifest.agents['dotnet-architect']!.always_skills).not.toContain('dotnet-testing');
-  });
-
   it('should be a no-op when manifest file does not exist', () => {
     rmSync(join(projectDir, '.claude', 'skills-manifest.json'));
 
@@ -324,24 +297,6 @@ describe('cleanManifest with namespaced names', () => {
       skills: Array<{ name: string }>;
     };
     expect(manifest.skills).toHaveLength(0);
-  });
-
-  it('should remove skill references from agents when using path-based matching', () => {
-    const items: InstallItem[] = [
-      { type: 'skill', name: 'gr.dotnet-feature-workflow', sourcePath: '', description: '' },
-    ];
-
-    cleanManifest(items, projectDir);
-
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
-      agents: Record<string, { always_skills: string[]; compatible_skills: string[] }>;
-    };
-    expect(manifest.agents['grimoire.csharp-code-reviewer']!.compatible_skills).not.toContain(
-      'grimoire.dotnet-feature-workflow',
-    );
-    expect(manifest.agents['grimoire.csharp-coder']!.always_skills).not.toContain(
-      'grimoire.dotnet-feature-workflow',
-    );
   });
 
   it('should remove agent by manifest name when provided via manifestNames', () => {

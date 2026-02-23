@@ -137,7 +137,7 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
 
   // Step 3 — Auto-activation
   const autoActivate = await clack.confirm({
-    message: 'Enable auto-activation? (skill-router hooks for automatic skill matching)',
+    message: 'Enable auto-activation? (router hooks for automatic skill matching)',
     initialValue: true,
   });
 

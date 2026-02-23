@@ -1,7 +1,7 @@
 {
-  "name": "@grimoire-cc/skill-router",
+  "name": "@grimoire-cc/router",
   "version": "1.0.4",
-  "description": "Skill auto-activation system for Claude Code",
+  "description": "Hook runtime for Grimoire — skill auto-activation and agent enforcement",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "skill-router": "./dist/bin.js"
+    "grimoire-router": "./dist/bin.js"
   },
   "scripts": {
     "test": "vitest run",
@@ -33,7 +33,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/anton-kochev/grimoire",
-    "directory": "packages/skill-router"
+    "directory": "packages/router"
   },
   "engines": {
     "node": ">=20.0.0"

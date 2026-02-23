@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { loadManifest, getAgentConfig } from '../src/manifest.js';
+import { loadManifest } from '../src/manifest.js';
 import { writeFileSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -110,7 +110,7 @@ describe('loadManifest', () => {
 
     const manifest = loadManifest(manifestPath);
 
-    expect(manifest.config.log_path).toBe('.claude/logs/skill-router.log');
+    expect(manifest.config.log_path).toBe('.claude/logs/grimoire-router.log');
   });
 
   it('should preserve custom log_path when provided', () => {
@@ -187,14 +187,14 @@ describe('loadManifest', () => {
     expect(skill?.triggers.file_paths).toEqual([]);
   });
 
-  it('should parse agents section when present', () => {
+  it('should parse agents section with file_patterns and enforce', () => {
     const manifestPath = join(testDir, 'manifest.json');
     const withAgents = {
       ...validManifest,
       agents: {
-        'csharp-coder': {
-          always_skills: ['clean-architecture'],
-          compatible_skills: ['api-design', 'ef-core'],
+        'grimoire.typescript-coder': {
+          file_patterns: ['*.ts', '*.tsx'],
+          enforce: true,
         },
       },
     };
@@ -203,10 +203,36 @@ describe('loadManifest', () => {
     const manifest = loadManifest(manifestPath);
 
     expect(manifest.agents).toBeDefined();
-    expect(manifest.agents?.['csharp-coder']).toEqual({
-      always_skills: ['clean-architecture'],
-      compatible_skills: ['api-design', 'ef-core'],
+    expect(manifest.agents?.['grimoire.typescript-coder']).toEqual({
+      file_patterns: ['*.ts', '*.tsx'],
+      enforce: true,
     });
+  });
+
+  it('should parse agent entry with only file_patterns (no enforce)', () => {
+    const manifestPath = join(testDir, 'manifest.json');
+    const withAgents = {
+      ...validManifest,
+      agents: { 'grimoire.vue3-coder': { file_patterns: ['*.vue'] } },
+    };
+    writeFileSync(manifestPath, JSON.stringify(withAgents));
+
+    const manifest = loadManifest(manifestPath);
+
+    expect(manifest.agents?.['grimoire.vue3-coder']).toEqual({ file_patterns: ['*.vue'] });
+  });
+
+  it('should parse empty agent entry (no file_patterns, no enforce)', () => {
+    const manifestPath = join(testDir, 'manifest.json');
+    const withAgents = {
+      ...validManifest,
+      agents: { 'grimoire.fact-checker': {} },
+    };
+    writeFileSync(manifestPath, JSON.stringify(withAgents));
+
+    const manifest = loadManifest(manifestPath);
+
+    expect(manifest.agents?.['grimoire.fact-checker']).toEqual({});
   });
 
   it('should return undefined agents when section is missing', () => {
@@ -218,133 +244,33 @@ describe('loadManifest', () => {
     expect(manifest.agents).toBeUndefined();
   });
 
-  it('should apply empty arrays for missing agent skill lists', () => {
-    const manifestPath = join(testDir, 'manifest.json');
-    const withAgents = {
-      ...validManifest,
-      agents: {
-        'minimal-agent': {},
-      },
-    };
-    writeFileSync(manifestPath, JSON.stringify(withAgents));
-
-    const manifest = loadManifest(manifestPath);
-
-    expect(manifest.agents?.['minimal-agent']).toEqual({
-      always_skills: [],
-      compatible_skills: [],
-    });
-  });
-
   it('should throw for non-object agents section', () => {
     const manifestPath = join(testDir, 'manifest.json');
-    const invalid = {
-      ...validManifest,
-      agents: ['not', 'an', 'object'],
-    };
+    const invalid = { ...validManifest, agents: ['not', 'an', 'object'] };
     writeFileSync(manifestPath, JSON.stringify(invalid));
 
     expect(() => loadManifest(manifestPath)).toThrow(/agents.*object/i);
   });
 
-  it('should throw for non-array always_skills', () => {
+  it('should throw for non-array file_patterns', () => {
     const manifestPath = join(testDir, 'manifest.json');
     const invalid = {
       ...validManifest,
-      agents: {
-        'bad-agent': {
-          always_skills: 'not-an-array',
-        },
-      },
+      agents: { 'bad-agent': { file_patterns: 'not-an-array' } },
     };
     writeFileSync(manifestPath, JSON.stringify(invalid));
 
-    expect(() => loadManifest(manifestPath)).toThrow(/always_skills.*array/i);
+    expect(() => loadManifest(manifestPath)).toThrow(/file_patterns.*array/i);
   });
 
-  it('should throw for non-array compatible_skills', () => {
+  it('should throw for non-boolean enforce', () => {
     const manifestPath = join(testDir, 'manifest.json');
     const invalid = {
       ...validManifest,
-      agents: {
-        'bad-agent': {
-          compatible_skills: 'not-an-array',
-        },
-      },
+      agents: { 'bad-agent': { enforce: 'yes' } },
     };
     writeFileSync(manifestPath, JSON.stringify(invalid));
 
-    expect(() => loadManifest(manifestPath)).toThrow(/compatible_skills.*array/i);
-  });
-});
-
-describe('getAgentConfig', () => {
-  let testDir: string;
-
-  beforeEach(() => {
-    testDir = join(tmpdir(), `skill-router-test-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
-  });
-
-  const manifestWithAgents = {
-    version: '1.0.0',
-    config: {
-      weights: {
-        keywords: 1.0,
-        file_extensions: 1.5,
-        patterns: 2.0,
-        file_paths: 2.5,
-      },
-      activation_threshold: 3.0,
-    },
-    skills: [],
-    agents: {
-      'csharp-coder': {
-        always_skills: ['clean-architecture'],
-        compatible_skills: ['api-design'],
-      },
-      'dotnet-architect': {
-        always_skills: ['ddd-patterns'],
-        compatible_skills: ['cqrs-patterns'],
-      },
-    },
-  };
-
-  it('should return config for existing agent', () => {
-    const manifestPath = join(testDir, 'manifest.json');
-    writeFileSync(manifestPath, JSON.stringify(manifestWithAgents));
-
-    const manifest = loadManifest(manifestPath);
-    const config = getAgentConfig(manifest, 'csharp-coder');
-
-    expect(config).toEqual({
-      always_skills: ['clean-architecture'],
-      compatible_skills: ['api-design'],
-    });
-  });
-
-  it('should return undefined for non-existent agent', () => {
-    const manifestPath = join(testDir, 'manifest.json');
-    writeFileSync(manifestPath, JSON.stringify(manifestWithAgents));
-
-    const manifest = loadManifest(manifestPath);
-    const config = getAgentConfig(manifest, 'unknown-agent');
-
-    expect(config).toBeUndefined();
-  });
-
-  it('should return undefined when agents section is missing', () => {
-    const manifestPath = join(testDir, 'manifest.json');
-    const noAgents = { ...manifestWithAgents, agents: undefined };
-    writeFileSync(manifestPath, JSON.stringify(noAgents));
-
-    const manifest = loadManifest(manifestPath);
-    const config = getAgentConfig(manifest, 'csharp-coder');
-
-    expect(config).toBeUndefined();
+    expect(() => loadManifest(manifestPath)).toThrow(/enforce.*boolean/i);
   });
 });

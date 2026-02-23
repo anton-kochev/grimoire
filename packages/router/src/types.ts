@@ -47,19 +47,12 @@ export interface SkillDefinition {
 }
 
 /**
- * Configuration for a specific agent type
+ * Per-agent entry in the manifest (file_patterns and enforce flag)
  */
-export interface AgentConfig {
-  /** Skills the agent MUST activate (mandatory) */
-  always_skills: string[];
-  /** Skills available to the agent based on task content (optional) */
-  compatible_skills: string[];
+export interface AgentEntry {
+  file_patterns?: string[];
+  enforce?: boolean;
 }
-
-/**
- * Map of agent names to their configurations
- */
-export type AgentsMap = Record<string, AgentConfig>;
 
 /**
  * Complete skill manifest structure
@@ -68,8 +61,8 @@ export interface SkillManifest {
   version: string;
   config: SkillConfig;
   skills: SkillDefinition[];
-  /** Optional agent configurations for SubagentStart hook */
-  agents?: AgentsMap;
+  /** Optional agent configurations */
+  agents?: Record<string, AgentEntry>;
 }
 
 // =============================================================================
@@ -88,7 +81,7 @@ export interface HookInput {
 /**
  * Supported tool names for PreToolUse hook
  */
-export type ToolName = 'Edit' | 'Write';
+export type ToolName = 'Edit' | 'Write' | 'MultiEdit';
 
 /**
  * Input received from PreToolUse hook via stdin
@@ -187,6 +180,26 @@ export interface SkillScoreResult {
 export interface ParsedArgs {
   /** Agent name if --agent flag is provided */
   agent?: string;
+  /** Run enforcement check (PreToolUse) */
+  enforce?: boolean;
+  /** Register session as a subagent (SubagentStart) */
+  subagentStart?: boolean;
+  /** Remove session from subagent registry (SubagentStop) */
+  subagentStop?: boolean;
+}
+
+/**
+ * Result of evaluateEnforce — either allow or block with matching agent names
+ */
+export type EnforceResult =
+  | { action: 'allow' }
+  | { action: 'block'; agents: string[]; filePath: string };
+
+/**
+ * Minimal input for SubagentStart/Stop hooks (only session_id needed)
+ */
+export interface SubagentHookInput {
+  session_id: string;
 }
 
 // =============================================================================

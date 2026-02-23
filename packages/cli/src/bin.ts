@@ -5,6 +5,7 @@ import { runAdd } from './commands/add.js';
 import { runRemoveInteractive } from './commands/remove.js';
 import { runUpdate } from './commands/update.js';
 import { runLogs } from './commands/logs.js';
+import { runEnforceAgent } from './commands/enforce-agent.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
@@ -42,12 +43,12 @@ const updateCommand = defineCommand({
 const logsCommand = defineCommand({
   meta: {
     name: 'logs',
-    description: 'Open skill-router log viewer in the browser',
+    description: 'Open Grimoire log viewer in the browser',
   },
   args: {
     file: {
       type: 'string',
-      description: 'Custom log file path (default: .claude/logs/skill-router.log)',
+      description: 'Custom log file path (default: .claude/logs/grimoire-router.log)',
     },
     port: {
       type: 'string',
@@ -84,6 +85,15 @@ const main = defineCommand({
     remove: removeCommand,
     update: updateCommand,
     logs: logsCommand,
+    'enforce-agent': defineCommand({
+      meta: {
+        name: 'enforce-agent',
+        description: 'Toggle agent enforcement — delegate file edits to specialist agents',
+      },
+      async run() {
+        await runEnforceAgent(process.cwd());
+      },
+    }),
   },
 });
 

@@ -6,7 +6,8 @@
       "name": "grimoire.typescript-coder",
       "path": "agents/grimoire.typescript-coder.md",
       "description": "Use this agent when the user needs to write, refactor, debug, review, or understand TypeScript code in any environment — Node.js backends, React, Angular, Vue, Svelte, or any other TypeScript-compatible platform. This includes tasks like designing type-safe data models, implementing utility types, handling errors with discriminated unions, refactoring JavaScript to TypeScript, or reviewing TypeScript code for type safety and correctness.",
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "file_patterns": ["*.ts", "*.tsx", "*.mts", "*.cts", "*.js", "*.mjs", "*.cjs"]
     }
   ],
   "skills": [

@@ -6,7 +6,8 @@
       "name": "grimoire.vue3-coder",
       "path": "agents/grimoire.vue3-coder.md",
       "description": "Use this agent when working on any Vue 3 related task — scaffolding new components or pages, writing composables, building Pinia stores, setting up Vue Router, debugging template or reactivity issues, reviewing Vue code for best practices, migrating from Options API to Composition API, or optimizing Vue application performance.",
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "file_patterns": ["*.vue"]
     }
   ],
   "skills": []

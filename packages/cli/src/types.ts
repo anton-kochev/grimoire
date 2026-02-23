@@ -10,6 +10,7 @@ export interface PackAgentEntry {
   readonly path: string;
   readonly description: string;
   readonly version?: string | undefined;
+  readonly file_patterns?: readonly string[] | undefined;
 }
 
 export interface PackSkillEntry {

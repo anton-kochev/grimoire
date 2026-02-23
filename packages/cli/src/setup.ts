@@ -2,16 +2,16 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
 import type { PackManifest } from './types.js';
 
-const SKILL_ROUTER_COMMAND = 'npx @grimoire-cc/skill-router';
+const SKILL_ROUTER_COMMAND = 'npx @grimoire-cc/router';
 
 interface HookEntry {
   readonly matcher: string;
   readonly hooks: ReadonlyArray<{ readonly type: string; readonly command: string }>;
 }
 
-function hasSkillRouterHook(entries: readonly HookEntry[]): boolean {
+function hasRouterHook(entries: readonly HookEntry[]): boolean {
   return entries.some((entry) =>
-    entry.hooks.some((h) => h.command.includes('skill-router')),
+    entry.hooks.some((h) => h.command.includes('@grimoire-cc/router')),
   );
 }
 
@@ -23,7 +23,7 @@ function makeHookEntry(matcher: string): HookEntry {
 }
 
 /**
- * Merges skill-router hook entries into `.claude/settings.json`.
+ * Merges router hook entries into `.claude/settings.json`.
  * Creates the file if it doesn't exist. Preserves existing entries.
  */
 export function mergeSettings(projectDir: string): void {
@@ -42,14 +42,14 @@ export function mergeSettings(projectDir: string): void {
   if (!hooks['UserPromptSubmit']) {
     hooks['UserPromptSubmit'] = [];
   }
-  if (!hasSkillRouterHook(hooks['UserPromptSubmit'])) {
+  if (!hasRouterHook(hooks['UserPromptSubmit'])) {
     hooks['UserPromptSubmit'].push(makeHookEntry(''));
   }
 
   if (!hooks['PreToolUse']) {
     hooks['PreToolUse'] = [];
   }
-  if (!hasSkillRouterHook(hooks['PreToolUse'])) {
+  if (!hasRouterHook(hooks['PreToolUse'])) {
     hooks['PreToolUse'].push(makeHookEntry('Edit|Write'));
   }
 
@@ -64,11 +64,16 @@ interface ManifestSkill {
   triggers: Record<string, unknown>;
 }
 
+interface ManifestAgentEntry {
+  file_patterns?: string[];
+  enforce?: boolean;
+}
+
 interface SkillsManifest {
   version: string;
   config: Record<string, unknown>;
   skills: ManifestSkill[];
-  agents: Record<string, unknown>;
+  agents: Record<string, ManifestAgentEntry>;
 }
 
 const DEFAULT_CONFIG = {
@@ -126,13 +131,14 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
     }
   }
 
-  // Merge agents
+  // Merge agents — preserve existing entry (enforce flag, file_patterns) when present
   for (const agent of packManifest.agents) {
     if (!manifest.agents[agent.name]) {
-      manifest.agents[agent.name] = {
-        always_skills: [],
-        compatible_skills: [],
-      };
+      manifest.agents[agent.name] = {};
+    }
+    // Write file_patterns from pack definition when provided
+    if (agent.file_patterns && agent.file_patterns.length > 0) {
+      manifest.agents[agent.name]!.file_patterns = [...agent.file_patterns];
     }
   }
 
@@ -140,7 +146,7 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
 }
 
 /**
- * Sets up the skill-router by merging hook config and skill manifest.
+ * Sets up the router by merging hook config and skill manifest.
  */
 export function setupRouter(projectDir: string, packManifest: PackManifest): void {
   mergeSettings(projectDir);
@@ -150,15 +156,13 @@ export function setupRouter(projectDir: string, packManifest: PackManifest): voi
   console.log('  hooks: .claude/settings.json');
   console.log('  manifest: .claude/skills-manifest.json');
 
-  if (!isSkillRouterInstalled(projectDir)) {
-    console.log('\n⚠ @grimoire-cc/skill-router is not installed.');
+  if (!isRouterInstalled(projectDir)) {
+    console.log('\n⚠ @grimoire-cc/router is not installed.');
     console.log('  Auto-activation requires it. Install with:');
-    console.log('  npm install -D @grimoire-cc/skill-router');
+    console.log('  npm install -D @grimoire-cc/router');
   }
 }
 
-function isSkillRouterInstalled(projectDir: string): boolean {
-  // Check node_modules for the skill-router package
-  const routerPath = join(projectDir, 'node_modules', '@grimoire-cc', 'skill-router');
-  return existsSync(routerPath);
+function isRouterInstalled(projectDir: string): boolean {
+  return existsSync(join(projectDir, 'node_modules', '@grimoire-cc', 'router'));
 }

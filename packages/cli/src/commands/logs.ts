@@ -9,7 +9,7 @@ export interface LogsOptions {
   readonly open?: boolean;
 }
 
-const DEFAULT_LOG_PATH = '.claude/logs/skill-router.log';
+const DEFAULT_LOG_PATH = '.claude/logs/grimoire-router.log';
 const DEFAULT_MANIFEST_PATH = '.claude/skills-manifest.json';
 
 export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<Server> {
@@ -20,8 +20,8 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
   // Validate log file exists up front
   if (!existsSync(logFilePath)) {
     console.error(`Log file not found: ${logFilePath}\n`);
-    console.error('The skill-router has not produced any logs yet.');
-    console.error('Logs are created after the skill-router hook runs for the first time.\n');
+    console.error('The Grimoire router has not produced any logs yet.');
+    console.error('Logs are created after the router hook runs for the first time.\n');
     console.error('To get started:');
     console.error('  1. Install a pack with auto-activation: grimoire add <pack> --enable-auto-activation');
     console.error('  2. Open Claude Code in the project and send a prompt');

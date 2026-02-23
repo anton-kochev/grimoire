@@ -15,7 +15,7 @@ export const sampleManifest = {
       file_paths: 2.5,
     },
     activation_threshold: 3.0,
-    log_path: '.claude/logs/skill-router.log',
+    log_path: '.claude/logs/grimoire-router.log',
   },
   skills: [
     {

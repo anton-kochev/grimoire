@@ -5,10 +5,13 @@
 import type { ParsedArgs } from './types.js';
 
 /**
- * Parses command line arguments to extract skill-router options.
+ * Parses command line arguments to extract router options.
  *
  * Supported flags:
  * - --agent=<name>: Run in agent mode for SubagentStart hook
+ * - --enforce: Run PreToolUse enforcement check
+ * - --subagent-start: Register session as a subagent (SubagentStart hook)
+ * - --subagent-stop: Remove session from subagent registry (SubagentStop hook)
  *
  * @param argv - The process.argv array (or similar)
  * @returns Parsed arguments object
@@ -25,8 +28,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
     }
 
-    // Handle --agent <name> format (check if next arg is the value)
-    // Note: This is handled by checking the previous iteration
+    if (arg === '--enforce') result.enforce = true;
+    if (arg === '--subagent-start') result.subagentStart = true;
+    if (arg === '--subagent-stop') result.subagentStop = true;
   }
 
   // Handle --agent <name> format (space-separated)
