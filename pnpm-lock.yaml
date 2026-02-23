@@ -30,7 +30,7 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.7)(tsx@4.21.0)
 
-  packages/skill-router:
+  packages/router:
     dependencies:
       picomatch:
         specifier: ^4.0.3
