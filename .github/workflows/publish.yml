@@ -2,7 +2,7 @@ name: Publish
 
 on:
   push:
-    tags: ['cli/v*', 'skill-router/v*']
+    tags: ['cli/v*', 'router/v*']
 
 permissions:
   contents: read
@@ -45,7 +45,7 @@ jobs:
           VERSION=${TAG#*/v}
           case "$PREFIX" in
             cli) DIR=packages/cli ;;
-            skill-router) DIR=packages/skill-router ;;
+            router) DIR=packages/router ;;
             *) echo "Unknown tag prefix: $PREFIX" && exit 1 ;;
           esac
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
