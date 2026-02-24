@@ -34,6 +34,7 @@ function writeSkill(projectDir: string, name: string, description: string): void
 function writeManifest(
   projectDir: string,
   agents: Record<string, { enforce?: boolean }>,
+  skills: Array<{ name: string; path: string }> = [],
 ): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
@@ -43,7 +44,7 @@ function writeManifest(
       {
         version: '1',
         config: {},
-        skills: [],
+        skills,
         agents,
       },
       null,
@@ -75,8 +76,19 @@ describe('runList', () => {
     expect(logSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('prints nothing-installed message when manifest is absent', () => {
+    writeAgent(projectDir, 'some-agent', 'Some description');
+
+    runList(projectDir);
+
+    const calls = logSpy.mock.calls.map((c) => c[0] as string);
+    expect(calls.some((l) => l.includes('No agents or skills installed'))).toBe(true);
+    expect(calls.some((l) => l.includes('some-agent'))).toBe(false);
+  });
+
   it('prints agents section when only agents are present', () => {
     writeAgent(projectDir, 'my-agent', 'Does things with code');
+    writeManifest(projectDir, { 'my-agent': {} });
 
     runList(projectDir);
 
@@ -89,6 +101,7 @@ describe('runList', () => {
 
   it('prints skills section when only skills are present', () => {
     writeSkill(projectDir, 'my-skill', 'TDD specialist');
+    writeManifest(projectDir, {}, [{ name: 'My Skill', path: '.claude/skills/my-skill' }]);
 
     runList(projectDir);
 
@@ -103,6 +116,9 @@ describe('runList', () => {
     writeAgent(projectDir, 'agent-a', 'An agent');
     writeAgent(projectDir, 'agent-b', 'Another agent');
     writeSkill(projectDir, 'skill-x', 'A skill');
+    writeManifest(projectDir, { 'agent-a': {}, 'agent-b': {} }, [
+      { name: 'Skill X', path: '.claude/skills/skill-x' },
+    ]);
 
     runList(projectDir);
 
@@ -122,13 +138,31 @@ describe('runList', () => {
     expect(calls.some((l) => l.includes('csharp-coder') && l.includes('[enforced]'))).toBe(true);
   });
 
-  it('does not crash when manifest is absent and still lists items', () => {
-    writeAgent(projectDir, 'some-agent', 'Some description');
+  it('filters out agents not tracked in the manifest', () => {
+    writeAgent(projectDir, 'grimoire-agent', 'Grimoire managed');
+    writeAgent(projectDir, 'custom-agent', 'User custom agent');
+    writeManifest(projectDir, { 'grimoire-agent': {} });
 
-    expect(() => runList(projectDir)).not.toThrow();
+    runList(projectDir);
 
     const calls = logSpy.mock.calls.map((c) => c[0] as string);
-    expect(calls.some((l) => l.includes('some-agent'))).toBe(true);
-    expect(calls.some((l) => l.includes('[enforced]'))).toBe(false);
+    expect(calls.some((l) => l.includes('grimoire-agent'))).toBe(true);
+    expect(calls.some((l) => l.includes('custom-agent'))).toBe(false);
+    expect(calls.some((l) => l.startsWith('Agents (1)'))).toBe(true);
+  });
+
+  it('filters out skills not tracked in the manifest', () => {
+    writeSkill(projectDir, 'grimoire.tdd-specialist', 'TDD skill');
+    writeSkill(projectDir, 'browser-testing', 'Custom browser skill');
+    writeManifest(projectDir, {}, [
+      { name: 'TDD Specialist', path: '.claude/skills/grimoire.tdd-specialist' },
+    ]);
+
+    runList(projectDir);
+
+    const calls = logSpy.mock.calls.map((c) => c[0] as string);
+    expect(calls.some((l) => l.includes('grimoire.tdd-specialist'))).toBe(true);
+    expect(calls.some((l) => l.includes('browser-testing'))).toBe(false);
+    expect(calls.some((l) => l.startsWith('Skills (1)'))).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { readAgentMeta, readManifest } from '../enforce.js';
 
 const DESC_MAX = 60;
@@ -12,37 +12,49 @@ export function runList(projectDir: string): void {
   const agentsDir = join(projectDir, '.claude', 'agents');
   const skillsDir = join(projectDir, '.claude', 'skills');
 
-  // Collect agents
-  const agentFiles: string[] = existsSync(agentsDir)
-    ? readdirSync(agentsDir)
-        .filter((f) => f.endsWith('.md'))
-        .sort()
-    : [];
-
-  // Collect skills (directories containing SKILL.md)
-  const skillDirs: string[] = existsSync(skillsDir)
-    ? readdirSync(skillsDir)
-        .filter((f) => {
-          const full = join(skillsDir, f);
-          return statSync(full).isDirectory() && existsSync(join(full, 'SKILL.md'));
-        })
-        .sort()
-    : [];
-
-  if (agentFiles.length === 0 && skillDirs.length === 0) {
-    console.log('No agents or skills installed. Run `grimoire add` to get started.');
-    return;
-  }
-
-  // Read enforce status from manifest (best-effort)
+  // Load manifest to determine which items grimoire manages
+  let managedAgentNames: Set<string> | null = null;
+  let managedSkillDirNames: Set<string> | null = null;
   let enforcedAgents = new Set<string>();
   try {
     const manifest = readManifest(projectDir);
+    managedAgentNames = new Set(Object.keys(manifest.agents));
+    managedSkillDirNames = new Set(manifest.skills.map((s) => basename(s.path)));
     for (const [name, entry] of Object.entries(manifest.agents)) {
       if (entry.enforce) enforcedAgents.add(name);
     }
   } catch {
-    // manifest absent — no enforce info
+    // manifest absent — nothing was installed by grimoire
+  }
+
+  // Collect grimoire-managed agents
+  const agentNames = managedAgentNames;
+  const agentFiles: string[] =
+    existsSync(agentsDir) && agentNames !== null
+      ? readdirSync(agentsDir)
+          .filter((f) => f.endsWith('.md') && agentNames.has(f.replace(/\.md$/, '')))
+          .sort()
+      : [];
+
+  // Collect grimoire-managed skills (directories containing SKILL.md)
+  const skillDirNames = managedSkillDirNames;
+  const skillDirs: string[] =
+    existsSync(skillsDir) && skillDirNames !== null
+      ? readdirSync(skillsDir)
+          .filter((f) => {
+            const full = join(skillsDir, f);
+            return (
+              statSync(full).isDirectory() &&
+              existsSync(join(full, 'SKILL.md')) &&
+              skillDirNames.has(f)
+            );
+          })
+          .sort()
+      : [];
+
+  if (agentFiles.length === 0 && skillDirs.length === 0) {
+    console.log('No agents or skills installed. Run `grimoire add` to get started.');
+    return;
   }
 
   // Build agent rows

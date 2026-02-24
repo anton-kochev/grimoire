@@ -116,8 +116,9 @@ describe('scanInstalled', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should find agents and skills', () => {
+  it('should find agents and skills tracked in the manifest', () => {
     setupProject(projectDir);
+    setupManifest(projectDir);
 
     const items = scanInstalled(projectDir);
 
@@ -134,6 +135,29 @@ describe('scanInstalled', () => {
   it('should return empty array for empty project', () => {
     const items = scanInstalled(projectDir);
     expect(items).toEqual([]);
+  });
+
+  it('should return empty array when manifest is absent', () => {
+    setupProject(projectDir);
+
+    const items = scanInstalled(projectDir);
+    expect(items).toEqual([]);
+  });
+
+  it('should filter out items not tracked in the manifest', () => {
+    setupProject(projectDir);
+    setupManifest(projectDir);
+
+    // Add a custom agent and skill not in the manifest
+    writeFileSync(join(projectDir, '.claude', 'agents', 'custom-agent.md'), '# Custom');
+    mkdirSync(join(projectDir, '.claude', 'skills', 'browser-testing'), { recursive: true });
+    writeFileSync(join(projectDir, '.claude', 'skills', 'browser-testing', 'SKILL.md'), '# Browser');
+
+    const items = scanInstalled(projectDir);
+
+    expect(items.map((i) => i.name)).not.toContain('custom-agent');
+    expect(items.map((i) => i.name)).not.toContain('browser-testing');
+    expect(items).toHaveLength(4); // only the 2 agents + 2 skills from setupManifest
   });
 });
 

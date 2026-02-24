@@ -3,36 +3,44 @@ import { basename, join } from 'path';
 import type { InstallItem, PackManifest, RemoveResult } from './types.js';
 
 /**
- * Scans the project's .claude/ directory for installed agents and skills.
+ * Scans the project's .claude/ directory for grimoire-managed agents and skills.
+ * Only items tracked in skills-manifest.json are returned.
  */
 export function scanInstalled(projectDir: string): readonly InstallItem[] {
+  // Load manifest to determine which items grimoire manages
+  const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
+  let managedAgentNames: Set<string> | null = null;
+  let managedSkillDirNames: Set<string> | null = null;
+  if (existsSync(manifestPath)) {
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as SkillsManifest;
+      managedAgentNames = new Set(Object.keys(manifest.agents));
+      managedSkillDirNames = new Set(manifest.skills.map((s) => basename(s.path)));
+    } catch {
+      // corrupt manifest — treat as no managed items
+    }
+  }
+
   const items: InstallItem[] = [];
 
   const agentsDir = join(projectDir, '.claude', 'agents');
-  if (existsSync(agentsDir)) {
+  const agentNames = managedAgentNames;
+  if (existsSync(agentsDir) && agentNames !== null) {
     for (const file of readdirSync(agentsDir)) {
-      if (file.endsWith('.md')) {
-        items.push({
-          type: 'agent',
-          name: basename(file, '.md'),
-          sourcePath: '',
-          description: '',
-        });
+      const name = basename(file, '.md');
+      if (file.endsWith('.md') && agentNames.has(name)) {
+        items.push({ type: 'agent', name, sourcePath: '', description: '' });
       }
     }
   }
 
   const skillsDir = join(projectDir, '.claude', 'skills');
-  if (existsSync(skillsDir)) {
+  const skillDirNames = managedSkillDirNames;
+  if (existsSync(skillsDir) && skillDirNames !== null) {
     for (const entry of readdirSync(skillsDir)) {
       const fullPath = join(skillsDir, entry);
-      if (statSync(fullPath).isDirectory()) {
-        items.push({
-          type: 'skill',
-          name: entry,
-          sourcePath: '',
-          description: '',
-        });
+      if (statSync(fullPath).isDirectory() && skillDirNames.has(entry)) {
+        items.push({ type: 'skill', name: entry, sourcePath: '', description: '' });
       }
     }
   }

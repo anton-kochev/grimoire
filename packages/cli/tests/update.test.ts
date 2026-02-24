@@ -53,6 +53,19 @@ function setupProjectWithVersions(
       `---\nname: ${skill.name}\ndescription: Test skill\nversion: ${skill.version}\n---\n\n# Body`,
     );
   }
+
+  // Write manifest so scanInstalled recognises these as grimoire-managed
+  const claudeDir = join(projectDir, '.claude');
+  mkdirSync(claudeDir, { recursive: true });
+  writeFileSync(
+    join(claudeDir, 'skills-manifest.json'),
+    JSON.stringify({
+      version: '1',
+      config: {},
+      skills: skills.map((s) => ({ name: s.name, path: `.claude/skills/${s.name}` })),
+      agents: Object.fromEntries(agents.map((a) => [a.name, {}])),
+    }, null, 2),
+  );
 }
 
 function makePack(overrides?: Partial<PackOption>): PackOption {
