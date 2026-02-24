@@ -86,11 +86,15 @@ function validateAgentEntry(entry: unknown, index: number): PackAgentEntry {
   }
 
   const agentVersion = typeof raw['version'] === 'string' ? raw['version'] : undefined;
+  const filePatterns = Array.isArray(raw['file_patterns'])
+    ? (raw['file_patterns'] as string[]).filter((p) => typeof p === 'string')
+    : undefined;
   return {
     name: raw['name'] as string,
     path: raw['path'] as string,
     description: raw['description'] as string,
     ...(agentVersion !== undefined && { version: agentVersion }),
+    ...(filePatterns !== undefined && filePatterns.length > 0 && { file_patterns: filePatterns }),
   };
 }
 

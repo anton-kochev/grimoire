@@ -144,6 +144,35 @@ describe('loadManifest', () => {
     expect(() => loadManifest(testDir)).toThrow(/skill.*path|skill.*description/i);
   });
 
+  it('should load file_patterns from agent entry', () => {
+    const manifestPath = join(testDir, 'grimoire.json');
+    const withPatterns = {
+      ...validManifest,
+      agents: [
+        {
+          name: 'csharp-coder',
+          path: 'agents/csharp-coder.md',
+          description: 'C# coder',
+          file_patterns: ['*.cs', '*.csproj'],
+        },
+      ],
+    };
+    writeFileSync(manifestPath, JSON.stringify(withPatterns));
+
+    const manifest = loadManifest(testDir);
+
+    expect(manifest.agents[0]?.file_patterns).toEqual(['*.cs', '*.csproj']);
+  });
+
+  it('should omit file_patterns when not present in agent entry', () => {
+    const manifestPath = join(testDir, 'grimoire.json');
+    writeFileSync(manifestPath, JSON.stringify(validManifest));
+
+    const manifest = loadManifest(testDir);
+
+    expect(manifest.agents[0]?.file_patterns).toBeUndefined();
+  });
+
   it('should accept skills without triggers (optional)', () => {
     const manifestPath = join(testDir, 'grimoire.json');
     const noTriggers = {
