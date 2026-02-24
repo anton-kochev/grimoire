@@ -11,6 +11,10 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 - [Features](#features)
 - [Installation](#installation)
 - [CLI](#cli)
+  - [List](#list)
+  - [Remove](#remove)
+  - [Update](#update)
+  - [Log Viewer](#log-viewer)
 - [Skill Router](#skill-router)
 - [Agents](#agents)
   - [dotnet-architect](#dotnet-architect)
@@ -39,7 +43,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 ## Features
 
-- **CLI Tool** - Install agents and skills from npm packs with `grimoire add`, view logs with `grimoire logs`
+- **CLI Tool** - Install, list, update, and remove agents and skills with `grimoire add/list/update/remove`, view logs with `grimoire logs`
 - **Pre-built Agents** - Domain experts for .NET architecture, unit testing, TDD, code review, and fact verification
 - **Reusable Skills** - Workflows for conventional commits, README generation, and skill development
 - **Validation Tooling** - Scripts to ensure skills meet Anthropic's requirements
@@ -101,6 +105,33 @@ The wizard walks you through three steps:
 1. **Select packs** — choose from all available packs (e.g. `dotnet-pack`, `ts-pack`, `frontend-pack`, `meta-pack`)
 2. **Select items** — pick individual agents and skills (all pre-selected by default)
 3. **Auto-activation** — optionally configure skill-router hooks for automatic skill matching
+
+### List
+
+```bash
+# Show all grimoire-managed agents and skills in the current project
+grimoire list
+```
+
+Only items tracked in `skills-manifest.json` (installed by `grimoire add`) are shown. Agents and skills you created manually are not listed.
+
+### Remove
+
+```bash
+# Interactively remove grimoire-managed agents and skills
+grimoire remove
+```
+
+Presents a checklist of items installed by grimoire. Selecting an item removes its files from `.claude/` and cleans up its entry in `skills-manifest.json`. Manually created items are never shown, so they cannot be accidentally removed.
+
+### Update
+
+```bash
+# Check for and apply updates to installed agents and skills
+grimoire update
+```
+
+Compares installed item versions against the bundled pack versions and presents a selection of outdated items to update. Only grimoire-managed items are checked.
 
 ### Log Viewer
 
