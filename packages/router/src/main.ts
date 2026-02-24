@@ -106,7 +106,6 @@ export function processPrompt(
     // Log error but don't throw - never block user
     const errorMessage =
       error instanceof Error ? error.message : String(error);
-    console.error(`[Router Error] ${errorMessage}`);
 
     // Try to write error log
     try {
@@ -214,7 +213,6 @@ export function processToolUse(
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : String(error);
-    console.error(`[Router Error] ${errorMessage}`);
 
     try {
       writeLog(
@@ -307,11 +305,8 @@ export async function main(): Promise<void> {
     }
 
     process.exit(0);
-  } catch (error) {
-    // Log error but always exit 0
-    console.error(
-      `[Router Error] ${error instanceof Error ? error.message : String(error)}`
-    );
+  } catch {
+    // Always exit 0 — never block the user
     process.exit(0);
   }
 }
