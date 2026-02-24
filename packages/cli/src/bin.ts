@@ -6,6 +6,7 @@ import { runRemoveInteractive } from './commands/remove.js';
 import { runUpdate } from './commands/update.js';
 import { runLogs } from './commands/logs.js';
 import { runEnforceAgent } from './commands/enforce-agent.js';
+import { runList } from './commands/list.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
@@ -85,6 +86,15 @@ const main = defineCommand({
     remove: removeCommand,
     update: updateCommand,
     logs: logsCommand,
+    list: defineCommand({
+      meta: {
+        name: 'list',
+        description: 'List all installed agents and skills',
+      },
+      run() {
+        runList(process.cwd());
+      },
+    }),
     'enforce-agent': defineCommand({
       meta: {
         name: 'enforce-agent',
