@@ -128,7 +128,7 @@ export function runEnforce(input: PreToolUseInput): void {
       `  subagent_type: "${result.agents[0]}"`,
     ].join('\n');
 
-    process.stdout.write(message);
+    process.stderr.write(message);
     process.exit(2);
   }
 
