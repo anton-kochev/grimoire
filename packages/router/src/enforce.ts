@@ -119,17 +119,20 @@ export function runEnforce(input: PreToolUseInput): void {
 
   if (result.action === 'block') {
     const agentList = result.agents.join(', ');
-    const message = [
-      `Agent enforcement: cannot edit ${result.filePath} directly.`,
-      ``,
+    const reason = [
       `This file is owned by: ${agentList}`,
-      ``,
       `Use the Task tool to delegate this work:`,
       `  subagent_type: "${result.agents[0]}"`,
     ].join('\n');
 
-    process.stderr.write(message);
-    process.exit(2);
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: reason,
+      },
+    }));
+    process.exit(0);
   }
 
   process.exit(0);
