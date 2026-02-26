@@ -6,3 +6,6 @@
 /.claude/logs
 /.playwright-mcp
 /packages/cli/packs/.claude
+/packages/router/dist
+/packages/router/node_modules
+/packages/router/.claude
