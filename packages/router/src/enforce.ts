@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, dirname, join, matchesGlob } from 'node:path';
 import type { EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
 import { loadManifest } from './manifest.js';
+import { writeLog } from './logging.js';
 
 const DEFAULT_REGISTRY_PATH = '.claude/hooks/.grimoire-subagents.json';
 
@@ -110,7 +111,7 @@ export function evaluateEnforce(
  * Entry point for --enforce flag (PreToolUse hook).
  * Calls evaluateEnforce, writes block message to stdout, and exits.
  */
-export function runEnforce(input: PreToolUseInput): void {
+export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimoire-router.log'): void {
   const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
   const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
   const registryPath = join(projectDir, DEFAULT_REGISTRY_PATH);
@@ -118,6 +119,17 @@ export function runEnforce(input: PreToolUseInput): void {
   const result = evaluateEnforce(input, manifestPath, registryPath);
 
   if (result.action === 'block') {
+    writeLog({
+      timestamp: new Date().toISOString(),
+      session_id: input.session_id,
+      hook_event: 'PreToolUse',
+      tool_name: input.tool_name,
+      outcome: 'blocked',
+      enforce_block: true,
+      file_basename: basename(result.filePath),
+      blocking_agents: result.agents,
+    }, logPath);
+
     const agentList = result.agents.join(', ');
     const reason = [
       `This file is owned by: ${agentList}`,

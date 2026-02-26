@@ -228,7 +228,21 @@ export interface MatchedSkillLogEntry {
 /**
  * Outcome of skill router execution
  */
-export type LogOutcome = 'activated' | 'no_match' | 'error';
+export type LogOutcome = 'activated' | 'no_match' | 'error' | 'blocked';
+
+/**
+ * Log entry for an agent enforcement block (PreToolUse)
+ */
+export interface EnforceBlockLogEntry {
+  timestamp: string;
+  session_id: string;
+  hook_event: 'PreToolUse';
+  tool_name: string;
+  outcome: 'blocked';
+  enforce_block: true;
+  file_basename: string;
+  blocking_agents: string[];
+}
 
 /**
  * Complete log entry structure

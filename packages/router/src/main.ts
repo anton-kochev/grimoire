@@ -264,7 +264,14 @@ export async function main(): Promise<void> {
         // Parse as PreToolUseInput for enforcement check
         const stdinInput = parseStdinInput(stdinContent);
         if (stdinInput.kind === 'tooluse') {
-          runEnforce(stdinInput.input);
+          const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
+          const manifestPath = `${projectDir}/.claude/skills-manifest.json`;
+          let logPath = '.claude/logs/grimoire-router.log';
+          try {
+            const manifest = loadManifest(manifestPath);
+            logPath = manifest.config.log_path ?? logPath;
+          } catch { /* use default */ }
+          runEnforce(stdinInput.input, logPath);
         }
         process.exit(0);
       }

@@ -342,6 +342,11 @@
       color: var(--cyan);
     }
 
+    .badge.blocked {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--red);
+    }
+
     .prompt-text {
       max-width: 400px;
       overflow: hidden;
@@ -583,6 +588,7 @@
           <option value="">All</option>
           <option value="activated">Activated</option>
           <option value="no_match">No Match</option>
+          <option value="blocked">Blocked</option>
         </select>
       </div>
       <div class="filter-group">
@@ -801,6 +807,7 @@
       const total = entries.length;
       const activated = entries.filter(e => e.outcome === 'activated').length;
       const noMatch = entries.filter(e => e.outcome === 'no_match').length;
+      const blocked = entries.filter(e => e.outcome === 'blocked').length;
       const promptHooks = entries.filter(e => !e.hook_event).length;
       const toolHooks = entries.filter(e => e.hook_event === 'PreToolUse').length;
       const avgMs = (entries.reduce((s, e) => s + (e.execution_time_ms ?? 0), 0) / total).toFixed(1);
@@ -810,6 +817,7 @@
     <div class="stat-card"><div class="value">${total}</div><div class="label">Total Events</div></div>
     <div class="stat-card activated"><div class="value">${activated}</div><div class="label">Activated (${(activated / total * 100).toFixed(0)}%)</div></div>
     <div class="stat-card no-match"><div class="value">${noMatch}</div><div class="label">No Match</div></div>
+    <div class="stat-card" style="border-color:var(--red)"><div class="value" style="color:var(--red)">${blocked}</div><div class="label">Enforce Blocks</div></div>
     <div class="stat-card"><div class="value">${promptHooks}</div><div class="label">Prompt Hooks</div></div>
     <div class="stat-card"><div class="value">${toolHooks}</div><div class="label">Tool Hooks</div></div>
     <div class="stat-card"><div class="value">${avgMs}ms</div><div class="label">Avg Exec Time</div></div>
@@ -904,6 +912,8 @@
             ...(e.skills_matched ?? []).map(s => s.name),
             ...(e.skills_matched ?? []).flatMap(s => (s.matched_signals ?? []).map(sig => sig.value)),
             e.tool_name ?? '',
+            e.file_basename ?? '',
+            ...(e.blocking_agents ?? []),
           ].join(' ').toLowerCase();
           if (!haystack.includes(search)) return false;
         }
@@ -939,11 +949,16 @@
           ? `<span class="badge hook-tool">${e.tool_name ?? 'PreToolUse'}</span>`
           : `<span class="badge hook-prompt">Prompt</span>`;
 
-        const outcomeBadge = `<span class="badge ${e.outcome === 'activated' ? 'activated' : 'no-match'}">${e.outcome}</span>`;
+        const outcomeBadge = `<span class="badge ${
+          e.outcome === 'activated' ? 'activated' :
+          e.outcome === 'blocked'   ? 'blocked'   : 'no-match'
+        }">${e.outcome}</span>`;
 
-        const prompt = e.hook_event
-          ? (e.prompt_raw ?? '').replace(/^\[PreToolUse:\w+\]\s*/, '')
-          : (e.prompt_raw ?? '');
+        const prompt = e.enforce_block
+          ? `${e.file_basename ?? '?'} \u2192 ${(e.blocking_agents ?? []).join(', ')}`
+          : e.hook_event
+            ? (e.prompt_raw ?? '').replace(/^\[PreToolUse:\w+\]\s*/, '')
+            : (e.prompt_raw ?? '');
 
         const skillsHtml = (e.skills_matched ?? []).length
           ? (e.skills_matched ?? []).map(s => `

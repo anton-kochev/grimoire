@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { evaluateEnforce, runSubagentStart, runSubagentStop } from '../src/enforce.js';
+import { evaluateEnforce, runEnforce, runSubagentStart, runSubagentStop } from '../src/enforce.js';
 import type { PreToolUseInput } from '../src/types.js';
 
 function makeTmpDir(prefix: string): string {
@@ -271,6 +271,120 @@ describe('evaluateEnforce', () => {
 
     // Assert
     expect(result.action).toBe('block');
+  });
+});
+
+// =============================================================================
+// runEnforce logging
+// =============================================================================
+
+describe('runEnforce logging', () => {
+  let projectDir: string;
+  let logPath: string;
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('enforce-log');
+    logPath = join(projectDir, 'test-router.log');
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('should write a blocked log entry with correct fields', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
+    });
+    const input = makePreToolUseInput('Edit', 'src/utils.ts', 'session-xyz');
+    const origEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+
+    // Act
+    try {
+      runEnforce(input, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    process.env['CLAUDE_PROJECT_DIR'] = origEnv;
+
+    // Assert
+    expect(existsSync(logPath)).toBe(true);
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['outcome']).toBe('blocked');
+    expect(entry['enforce_block']).toBe(true);
+    expect(entry['hook_event']).toBe('PreToolUse');
+    expect(entry['tool_name']).toBe('Edit');
+    expect(entry['session_id']).toBe('session-xyz');
+    expect(entry['file_basename']).toBe('utils.ts');
+    expect(entry['blocking_agents']).toContain('grimoire.typescript-coder');
+    expect(typeof entry['timestamp']).toBe('string');
+  });
+
+  it('should not write a log entry when file does not match (allow path)', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
+    });
+    const input = makePreToolUseInput('Edit', 'README.md', 'session-xyz');
+    const origEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+
+    // Act
+    try {
+      runEnforce(input, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    process.env['CLAUDE_PROJECT_DIR'] = origEnv;
+
+    // Assert
+    expect(existsSync(logPath)).toBe(false);
+  });
+
+  it('should log only the basename, not the full path', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
+    });
+    const input = makePreToolUseInput('Edit', 'packages/core/src/deep/util.ts');
+    const origEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+
+    // Act
+    try {
+      runEnforce(input, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    process.env['CLAUDE_PROJECT_DIR'] = origEnv;
+
+    // Assert
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['file_basename']).toBe('util.ts');
+    expect(entry['file_basename']).not.toContain('/');
+  });
+
+  it('should include all matching agents in blocking_agents', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { file_patterns: ['*.cs'], enforce: true },
+      'grimoire.dotnet-architect': { file_patterns: ['*.cs', '*.csproj'], enforce: true },
+    });
+    const input = makePreToolUseInput('Write', 'src/MyService.cs');
+    const origEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+
+    // Act
+    try {
+      runEnforce(input, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    process.env['CLAUDE_PROJECT_DIR'] = origEnv;
+
+    // Assert
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    const agents = entry['blocking_agents'] as string[];
+    expect(agents).toHaveLength(2);
+    expect(agents).toContain('grimoire.csharp-coder');
+    expect(agents).toContain('grimoire.dotnet-architect');
   });
 });
 
