@@ -170,7 +170,10 @@ export async function runList(projectDir: string): Promise<void> {
   }
 
   // Build select options
-  const options: Array<{ value: SelectedItem; label: string; hint?: string }> = [];
+  const options: Array<
+    | { value: { kind: 'agent'; name: string }; label: string; hint?: string }
+    | { value: { kind: 'skill'; name: string }; label: string; hint?: string }
+  > = [];
 
   for (const f of agentFiles) {
     const name = f.replace(/\.md$/, '');
@@ -179,7 +182,7 @@ export async function runList(projectDir: string): Promise<void> {
     options.push({
       value: { kind: 'agent', name },
       label: `[agent] ${name}`,
-      hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc || undefined,
+      ...(desc ? { hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc } : {}),
     });
   }
 
@@ -191,7 +194,7 @@ export async function runList(projectDir: string): Promise<void> {
     options.push({
       value: { kind: 'skill', name: d },
       label: `[skill] ${d}`,
-      hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc || undefined,
+      ...(desc ? { hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc } : {}),
     });
   }
 
