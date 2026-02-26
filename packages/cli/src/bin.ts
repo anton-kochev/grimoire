@@ -91,8 +91,8 @@ const main = defineCommand({
         name: 'list',
         description: 'List all installed agents and skills',
       },
-      run() {
-        runList(process.cwd());
+      async run() {
+        await runList(process.cwd());
       },
     }),
     'enforce-agent': defineCommand({

@@ -1,33 +1,146 @@
-import { existsSync, readdirSync, statSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { basename, join } from 'path';
-import { readAgentMeta, readManifest } from '../enforce.js';
+import * as clack from '@clack/prompts';
+import { readManifest } from '../enforce.js';
 
-const DESC_MAX = 60;
+// --- Frontmatter helpers ---
 
-function truncate(s: string): string {
-  return s.length > DESC_MAX ? s.slice(0, DESC_MAX - 1) + '…' : s;
+interface AgentFullMeta {
+  readonly description: string;
+  readonly model: string;
+  readonly tools: string;
 }
 
-export function runList(projectDir: string): void {
+function readAgentFullMeta(agentPath: string): AgentFullMeta {
+  let content: string;
+  try {
+    content = readFileSync(agentPath, 'utf-8');
+  } catch {
+    return { description: '', model: '', tools: '' };
+  }
+  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm?.[1]) return { description: '', model: '', tools: '' };
+  const block = fm[1];
+  const get = (key: string): string =>
+    block.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))?.[1]?.trim().replace(/^["']|["']$/g, '') ??
+    '';
+  return {
+    description: get('description'),
+    model: get('model'),
+    tools: get('tools'),
+  };
+}
+
+function readSkillDescription(skillMdPath: string): string {
+  let content: string;
+  try {
+    content = readFileSync(skillMdPath, 'utf-8');
+  } catch {
+    return '';
+  }
+  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm?.[1]) return '';
+  const block = fm[1];
+  return (
+    block.match(/^description:\s*(.+)$/m)?.[1]?.trim().replace(/^["']|["']$/g, '') ?? ''
+  );
+}
+
+// --- Option types ---
+
+type SelectedItem =
+  | { readonly kind: 'agent'; readonly name: string }
+  | { readonly kind: 'skill'; readonly name: string };
+
+// --- Detail formatters ---
+
+interface ManifestSkillTriggers {
+  readonly keywords?: readonly string[];
+  readonly file_extensions?: readonly string[];
+  readonly patterns?: readonly string[];
+  readonly file_paths?: readonly string[];
+}
+
+function formatAgentDetail(
+  meta: AgentFullMeta,
+  enforced: boolean,
+  filePatterns: readonly string[] | undefined,
+  fallbackDesc: string,
+): string {
+  const desc = meta.description || fallbackDesc;
+  const lines: string[] = [];
+  lines.push('Description:');
+  lines.push(`  ${desc}`);
+  lines.push('');
+  lines.push(`Model:   ${meta.model || 'inherit'}`);
+  lines.push(`Tools:   ${meta.tools || '(not specified)'}`);
+  lines.push('');
+  if (enforced) {
+    const patterns = filePatterns?.length ? filePatterns.join(', ') : '(none)';
+    lines.push(`Enforce: yes  (file patterns: ${patterns})`);
+  } else {
+    lines.push('Enforce: no');
+  }
+  return lines.join('\n');
+}
+
+function formatSkillDetail(
+  description: string,
+  triggers: ManifestSkillTriggers | undefined,
+): string {
+  const lines: string[] = [];
+  lines.push('Description:');
+  lines.push(`  ${description || '(no description)'}`);
+  lines.push('');
+  lines.push('Auto-activation triggers:');
+
+  if (!triggers) {
+    lines.push('  (no triggers configured)');
+  } else {
+    const kw = triggers.keywords?.length ? triggers.keywords.join(', ') : '(none)';
+    const ext = triggers.file_extensions?.length ? triggers.file_extensions.join(', ') : '(none)';
+    const pat = triggers.patterns?.length ? triggers.patterns.join(', ') : '(none)';
+    const fp = triggers.file_paths?.length ? triggers.file_paths.join(', ') : '(none)';
+    lines.push(`  Keywords:        ${kw}`);
+    lines.push(`  File extensions: ${ext}`);
+    lines.push(`  Patterns:        ${pat}`);
+    lines.push(`  File paths:      ${fp}`);
+  }
+  return lines.join('\n');
+}
+
+// --- Main command ---
+
+export async function runList(projectDir: string): Promise<void> {
   const agentsDir = join(projectDir, '.claude', 'agents');
   const skillsDir = join(projectDir, '.claude', 'skills');
 
-  // Load manifest to determine which items grimoire manages
   let managedAgentNames: Set<string> | null = null;
   let managedSkillDirNames: Set<string> | null = null;
-  let enforcedAgents = new Set<string>();
+  const enforcedAgents = new Set<string>();
+  const agentFilePatterns = new Map<string, string[]>();
+
+  // skill triggers keyed by dir name
+  const skillTriggers = new Map<string, ManifestSkillTriggers>();
+  const skillManifestDescs = new Map<string, string>();
+
   try {
     const manifest = readManifest(projectDir);
     managedAgentNames = new Set(Object.keys(manifest.agents));
     managedSkillDirNames = new Set(manifest.skills.map((s) => basename(s.path)));
     for (const [name, entry] of Object.entries(manifest.agents)) {
       if (entry.enforce) enforcedAgents.add(name);
+      if (entry.file_patterns?.length) agentFilePatterns.set(name, entry.file_patterns);
+    }
+    for (const skill of manifest.skills) {
+      const dirName = basename(skill.path);
+      if (skill['triggers']) skillTriggers.set(dirName, skill['triggers'] as ManifestSkillTriggers);
+      if (skill['description']) skillManifestDescs.set(dirName, skill['description'] as string);
     }
   } catch {
     // manifest absent — nothing was installed by grimoire
   }
 
-  // Collect grimoire-managed agents
   const agentNames = managedAgentNames;
   const agentFiles: string[] =
     existsSync(agentsDir) && agentNames !== null
@@ -36,7 +149,6 @@ export function runList(projectDir: string): void {
           .sort()
       : [];
 
-  // Collect grimoire-managed skills (directories containing SKILL.md)
   const skillDirNames = managedSkillDirNames;
   const skillDirs: string[] =
     existsSync(skillsDir) && skillDirNames !== null
@@ -53,44 +165,62 @@ export function runList(projectDir: string): void {
       : [];
 
   if (agentFiles.length === 0 && skillDirs.length === 0) {
-    console.log('No agents or skills installed. Run `grimoire add` to get started.');
+    clack.log.warn('No grimoire-managed items found. Run `grimoire add` to get started.');
     return;
   }
 
-  // Build agent rows
-  type Row = { name: string; desc: string; enforced: boolean };
-  const agentRows: Row[] = agentFiles.map((f) => {
+  // Build select options
+  const options: Array<{ value: SelectedItem; label: string; hint?: string }> = [];
+
+  for (const f of agentFiles) {
     const name = f.replace(/\.md$/, '');
-    const meta = readAgentMeta(join(agentsDir, f));
-    return { name, desc: meta.description, enforced: enforcedAgents.has(name) };
-  });
+    const meta = readAgentFullMeta(join(agentsDir, f));
+    const desc = meta.description;
+    options.push({
+      value: { kind: 'agent', name },
+      label: `[agent] ${name}`,
+      hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc || undefined,
+    });
+  }
 
-  // Build skill rows
-  const skillRows: Row[] = skillDirs.map((d) => {
-    const meta = readAgentMeta(join(skillsDir, d, 'SKILL.md'));
-    return { name: d, desc: meta.description, enforced: false };
-  });
+  for (const d of skillDirs) {
+    const desc =
+      readSkillDescription(join(skillsDir, d, 'SKILL.md')) ||
+      skillManifestDescs.get(d) ||
+      '';
+    options.push({
+      value: { kind: 'skill', name: d },
+      label: `[skill] ${d}`,
+      hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc || undefined,
+    });
+  }
 
-  // Determine padding
-  const allNames = [...agentRows, ...skillRows].map((r) => r.name);
-  const pad = Math.max(...allNames.map((n) => n.length));
+  clack.intro('Grimoire — Installed Items');
 
-  if (agentRows.length > 0) {
-    console.log(`Agents (${agentRows.length}):`);
-    for (const row of agentRows) {
-      const suffix = row.enforced ? '  [enforced]' : '';
-      console.log(`  ${row.name.padEnd(pad)}  ${truncate(row.desc)}${suffix}`);
+  while (true) {
+    const selected = await clack.select<SelectedItem>({
+      message: 'Select an item to view details  (Ctrl+C to exit)',
+      options,
+    });
+
+    if (clack.isCancel(selected)) break;
+
+    if (selected.kind === 'agent') {
+      const meta = readAgentFullMeta(join(agentsDir, `${selected.name}.md`));
+      const enforced = enforcedAgents.has(selected.name);
+      const patterns = agentFilePatterns.get(selected.name);
+      const detail = formatAgentDetail(meta, enforced, patterns, '');
+      clack.note(detail, selected.name);
+    } else {
+      const desc =
+        readSkillDescription(join(skillsDir, selected.name, 'SKILL.md')) ||
+        skillManifestDescs.get(selected.name) ||
+        '';
+      const triggers = skillTriggers.get(selected.name);
+      const detail = formatSkillDetail(desc, triggers);
+      clack.note(detail, selected.name);
     }
   }
 
-  if (skillRows.length > 0) {
-    if (agentRows.length > 0) console.log('');
-    console.log(`Skills (${skillRows.length}):`);
-    for (const row of skillRows) {
-      console.log(`  ${row.name.padEnd(pad)}  ${truncate(row.desc)}`);
-    }
-  }
-
-  console.log('');
-  console.log(`${agentRows.length} agent(s), ${skillRows.length} skill(s) installed.`);
+  clack.outro('Done.');
 }
