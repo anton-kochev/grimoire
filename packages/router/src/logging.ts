@@ -79,10 +79,8 @@ export function writeLog(entry: unknown, logPath: string): void {
     // Append JSON line
     const line = JSON.stringify(entry) + '\n';
     appendFileSync(logPath, line, 'utf-8');
-  } catch (error) {
-    // Log to stderr but don't throw - never block user
-    console.error(
-      `[Skill Router Error] Failed to write log: ${error instanceof Error ? error.message : String(error)}`
-    );
+  } catch {
+    // Silently ignore — never block user or produce stderr output
+    // (Claude Code treats any stderr from hooks as a hook error)
   }
 }
