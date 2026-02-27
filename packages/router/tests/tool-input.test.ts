@@ -62,6 +62,20 @@ describe('parsePreToolUseInput', () => {
     expect(result.tool_name).toBe('Write');
   });
 
+  it('should parse valid MultiEdit input', () => {
+    const json = JSON.stringify({
+      session_id: 'sess-3',
+      tool_name: 'MultiEdit',
+      tool_use_id: 'tu-3',
+      tool_input: { file_path: '/src/index.ts' },
+    });
+
+    const result = parsePreToolUseInput(json);
+
+    expect(result.tool_name).toBe('MultiEdit');
+    expect(result.session_id).toBe('sess-3');
+  });
+
   it('should throw for unsupported tool_name', () => {
     const json = JSON.stringify({
       tool_name: 'Bash',

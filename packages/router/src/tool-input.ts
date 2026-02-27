@@ -4,7 +4,7 @@
 
 import type { PreToolUseInput, ToolName, ExtractedSignals } from './types.js';
 
-const SUPPORTED_TOOLS: ReadonlySet<string> = new Set(['Edit', 'Write']);
+const SUPPORTED_TOOLS: ReadonlySet<string> = new Set(['Edit', 'Write', 'MultiEdit']);
 
 /**
  * Detects whether parsed JSON data is from a PreToolUse hook
@@ -51,7 +51,7 @@ export function parsePreToolUseInput(jsonString: string): PreToolUseInput {
   const toolName = input['tool_name'];
   if (!SUPPORTED_TOOLS.has(toolName)) {
     throw new Error(
-      `Unsupported tool: ${toolName}. Only Edit and Write are supported.`
+      `Unsupported tool: ${toolName}. Only Edit, Write, and MultiEdit are supported.`
     );
   }
 

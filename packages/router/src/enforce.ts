@@ -45,6 +45,7 @@ export function evaluateEnforce(
   input: PreToolUseInput,
   manifestPath: string,
   registryPath: string,
+  projectDir?: string,
 ): EnforceResult {
   // Only block file-editing tools
   if (!['Edit', 'Write', 'MultiEdit'].includes(input.tool_name)) {
@@ -87,7 +88,13 @@ export function evaluateEnforce(
   const base = basename(filePath);
   const absPath = filePath.startsWith('/') ? filePath : join(process.cwd(), filePath);
 
-  // Check each enforced agent's patterns against both full path and basename
+  // Compute project-relative path for matching against relative patterns
+  const resolvedProjectDir = projectDir ?? process.cwd();
+  const relativePath = absPath.startsWith(resolvedProjectDir + '/')
+    ? absPath.slice(resolvedProjectDir.length + 1)
+    : absPath;
+
+  // Check each enforced agent's patterns against full path, basename, raw input, and relative path
   const matchingAgents: string[] = [];
   for (const [agentName, entry] of enforced) {
     const patterns = entry.file_patterns ?? [];
@@ -95,7 +102,8 @@ export function evaluateEnforce(
       (pattern) =>
         matchesGlob(absPath, pattern) ||
         matchesGlob(base, pattern) ||
-        matchesGlob(filePath, pattern),
+        matchesGlob(filePath, pattern) ||
+        matchesGlob(relativePath, pattern),
     );
     if (matches) {
       matchingAgents.push(agentName);
@@ -116,7 +124,7 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
   const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
   const registryPath = join(projectDir, DEFAULT_REGISTRY_PATH);
 
-  const result = evaluateEnforce(input, manifestPath, registryPath);
+  const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
 
   if (result.action === 'block') {
     writeLog({

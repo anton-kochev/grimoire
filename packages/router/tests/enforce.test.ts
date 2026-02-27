@@ -258,6 +258,58 @@ describe('evaluateEnforce', () => {
     expect(result.action).toBe('block');
   });
 
+  it('should block when absolute path matches relative pattern via projectDir', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['src/**/*.ts'], enforce: true },
+    });
+    const absFilePath = join(projectDir, 'src', 'utils.ts');
+    const input = makePreToolUseInput('Edit', absFilePath);
+
+    // Act
+    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+
+    // Assert
+    expect(result.action).toBe('block');
+    if (result.action === 'block') {
+      expect(result.agents).toContain('grimoire.typescript-coder');
+    }
+  });
+
+  it('should block when absolute path with spaces matches relative pattern', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { file_patterns: ['VendorPortal BE/**/*.cs'], enforce: true },
+    });
+    // Create a file path that simulates Claude providing an absolute path
+    const absFilePath = join(projectDir, 'VendorPortal BE', 'App', 'Foo.cs');
+    const input = makePreToolUseInput('Edit', absFilePath);
+
+    // Act
+    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+
+    // Assert
+    expect(result.action).toBe('block');
+    if (result.action === 'block') {
+      expect(result.agents).toContain('grimoire.csharp-coder');
+    }
+  });
+
+  it('should allow when absolute path does not match relative pattern', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['src/**/*.ts'], enforce: true },
+    });
+    const absFilePath = join(projectDir, 'other', 'utils.ts');
+    const input = makePreToolUseInput('Edit', absFilePath);
+
+    // Act
+    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+
+    // Assert
+    expect(result.action).toBe('allow');
+  });
+
   it('should block when registry contains a different session', () => {
     // Arrange
     makeManifest(projectDir, {
