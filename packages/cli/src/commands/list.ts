@@ -61,52 +61,35 @@ interface ManifestSkillTriggers {
   readonly file_paths?: readonly string[];
 }
 
-function formatAgentDetail(
-  meta: AgentFullMeta,
-  enforced: boolean,
-  filePatterns: readonly string[] | undefined,
-  fallbackDesc: string,
-): string {
-  const desc = meta.description || fallbackDesc;
+function wrapText(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return text;
+  const words = text.split(' ');
   const lines: string[] = [];
-  lines.push('Description:');
-  lines.push(`  ${desc}`);
-  lines.push('');
-  lines.push(`Model:   ${meta.model || 'inherit'}`);
-  lines.push(`Tools:   ${meta.tools || '(not specified)'}`);
-  lines.push('');
-  if (enforced) {
-    const patterns = filePatterns?.length ? filePatterns.join(', ') : '(none)';
-    lines.push(`Enforce: yes  (file patterns: ${patterns})`);
-  } else {
-    lines.push('Enforce: no');
+  let current = '';
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else if (current.length + 1 + word.length <= maxWidth) {
+      current += ' ' + word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
   }
+  if (current) lines.push(current);
   return lines.join('\n');
 }
 
-function formatSkillDetail(
-  description: string,
-  triggers: ManifestSkillTriggers | undefined,
-): string {
-  const lines: string[] = [];
-  lines.push('Description:');
-  lines.push(`  ${description || '(no description)'}`);
-  lines.push('');
-  lines.push('Auto-activation triggers:');
-
-  if (!triggers) {
-    lines.push('  (no triggers configured)');
-  } else {
-    const kw = triggers.keywords?.length ? triggers.keywords.join(', ') : '(none)';
-    const ext = triggers.file_extensions?.length ? triggers.file_extensions.join(', ') : '(none)';
-    const pat = triggers.patterns?.length ? triggers.patterns.join(', ') : '(none)';
-    const fp = triggers.file_paths?.length ? triggers.file_paths.join(', ') : '(none)';
-    lines.push(`  Keywords:        ${kw}`);
-    lines.push(`  File extensions: ${ext}`);
-    lines.push(`  Patterns:        ${pat}`);
-    lines.push(`  File paths:      ${fp}`);
-  }
-  return lines.join('\n');
+function formatDescription(raw: string): string {
+  const maxWidth = Math.max(40, (process.stdout.columns ?? 80) - 4);
+  const unescaped = raw.replace(/\\n/g, '\n');
+  const stripped = unescaped.replace(/<example>[\s\S]*?<\/example>/g, '').trim();
+  return stripped
+    .split('\n')
+    .map((line) => (line.trim() === '' ? '' : wrapText(line, maxWidth)))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // --- Main command ---
@@ -212,16 +195,29 @@ export async function runList(projectDir: string): Promise<void> {
       const meta = readAgentFullMeta(join(agentsDir, `${selected.name}.md`));
       const enforced = enforcedAgents.has(selected.name);
       const patterns = agentFilePatterns.get(selected.name);
-      const detail = formatAgentDetail(meta, enforced, patterns, '');
-      clack.note(detail, selected.name);
+      const desc = formatDescription(meta.description || '');
+      clack.log.message(`  Description:\n${desc.split('\n').map((l) => `    ${l}`).join('\n')}`);
+      clack.log.message(`  Model:   ${meta.model || 'inherit'}`);
+      clack.log.message(`  Tools:   ${meta.tools || '(not specified)'}`);
+      clack.log.message(
+        `  Enforce: ${enforced ? `yes  (file patterns: ${patterns?.join(', ') ?? 'none'})` : 'no'}`,
+      );
     } else {
-      const desc =
+      const rawDesc =
         readSkillDescription(join(skillsDir, selected.name, 'SKILL.md')) ||
         skillManifestDescs.get(selected.name) ||
         '';
       const triggers = skillTriggers.get(selected.name);
-      const detail = formatSkillDetail(desc, triggers);
-      clack.note(detail, selected.name);
+      const desc = formatDescription(rawDesc);
+      const kw = triggers?.keywords?.length ? triggers.keywords.join(', ') : '(none)';
+      const ext = triggers?.file_extensions?.length ? triggers.file_extensions.join(', ') : '(none)';
+      const pat = triggers?.patterns?.length ? triggers.patterns.join(', ') : '(none)';
+      const fp = triggers?.file_paths?.length ? triggers.file_paths.join(', ') : '(none)';
+      clack.log.message(`  Description:\n${desc.split('\n').map((l) => `    ${l}`).join('\n')}`);
+      clack.log.message(`  Keywords:        ${kw}`);
+      clack.log.message(`  File extensions: ${ext}`);
+      clack.log.message(`  Patterns:        ${pat}`);
+      clack.log.message(`  File paths:      ${fp}`);
     }
   }
 

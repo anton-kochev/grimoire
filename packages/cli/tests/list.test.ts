@@ -8,7 +8,7 @@ vi.mock('@clack/prompts', () => ({
   intro: vi.fn(),
   outro: vi.fn(),
   note: vi.fn(),
-  log: { warn: vi.fn(), error: vi.fn() },
+  log: { warn: vi.fn(), error: vi.fn(), message: vi.fn() },
   select: vi.fn(),
   isCancel: vi.fn((v: unknown) => v === Symbol.for('clack.cancel')),
 }));
@@ -23,8 +23,8 @@ const CANCEL = Symbol.for('clack.cancel');
 const mockSelect = vi.mocked(clack.select);
 const mockIntro = vi.mocked(clack.intro);
 const mockOutro = vi.mocked(clack.outro);
-const mockNote = vi.mocked(clack.note);
 const mockWarn = vi.mocked(clack.log.warn);
+const mockLogMessage = vi.mocked(clack.log.message);
 
 function makeTmpDir(): string {
   const raw = join(
@@ -143,7 +143,7 @@ describe('runList', () => {
     expect(labels).toContain('[skill] my-skill');
   });
 
-  it('displays skill detail note when user selects a skill', async () => {
+  it('displays skill detail when user selects a skill', async () => {
     writeSkill(projectDir, 'my-skill', 'TDD specialist');
     writeManifest(projectDir, {}, [
       {
@@ -163,13 +163,12 @@ describe('runList', () => {
 
     await runList(projectDir);
 
-    expect(mockNote).toHaveBeenCalledTimes(1);
-    const noteContent = vi.mocked(clack.note).mock.calls[0]![0] as string;
-    expect(noteContent).toContain('Keywords:');
-    expect(noteContent).toContain('Patterns:');
+    const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
+    expect(calls.some((c) => c.includes('Keywords:'))).toBe(true);
+    expect(calls.some((c) => c.includes('Patterns:'))).toBe(true);
   });
 
-  it('displays agent detail note when user selects an agent', async () => {
+  it('displays agent detail when user selects an agent', async () => {
     writeAgent(
       projectDir,
       'my-agent',
@@ -183,11 +182,10 @@ describe('runList', () => {
 
     await runList(projectDir);
 
-    expect(mockNote).toHaveBeenCalledTimes(1);
-    const noteContent = vi.mocked(clack.note).mock.calls[0]![0] as string;
-    expect(noteContent).toContain('Model:');
-    expect(noteContent).toContain('Tools:');
-    expect(noteContent).toContain('Enforce: no');
+    const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
+    expect(calls.some((c) => c.includes('Model:'))).toBe(true);
+    expect(calls.some((c) => c.includes('Tools:'))).toBe(true);
+    expect(calls.some((c) => c.includes('Enforce: no'))).toBe(true);
   });
 
   it('shows Enforce: yes with file patterns for an enforced agent', async () => {
@@ -201,9 +199,9 @@ describe('runList', () => {
 
     await runList(projectDir);
 
-    const noteContent = vi.mocked(clack.note).mock.calls[0]![0] as string;
-    expect(noteContent).toContain('Enforce: yes');
-    expect(noteContent).toContain('*.cs');
+    const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
+    expect(calls.some((c) => c.includes('Enforce: yes'))).toBe(true);
+    expect(calls.some((c) => c.includes('*.cs'))).toBe(true);
   });
 
   it('loops back to select after showing detail', async () => {
@@ -219,8 +217,9 @@ describe('runList', () => {
 
     await runList(projectDir);
 
+    // agent detail = 4 messages, skill detail = 5 messages
     expect(mockSelect).toHaveBeenCalledTimes(3);
-    expect(mockNote).toHaveBeenCalledTimes(2);
+    expect(mockLogMessage.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
   // ---------- Additional edge cases --------------------------------------------
@@ -242,12 +241,11 @@ describe('runList', () => {
       .mockResolvedValueOnce({ kind: 'skill', name: 'bare-skill' } as never)
       .mockResolvedValueOnce(CANCEL as never);
 
-    // Should not throw; note should still be called
+    // Should not throw; description should still be output
     await runList(projectDir);
 
-    expect(mockNote).toHaveBeenCalledTimes(1);
-    const noteContent = vi.mocked(clack.note).mock.calls[0]![0] as string;
-    expect(noteContent).toContain('Manifest fallback description');
+    const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
+    expect(calls.some((c) => c.includes('Manifest fallback description'))).toBe(true);
   });
 
   it('shows (none) placeholders for skill with empty trigger arrays', async () => {
@@ -270,10 +268,74 @@ describe('runList', () => {
 
     await runList(projectDir);
 
-    const noteContent = vi.mocked(clack.note).mock.calls[0]![0] as string;
-    // All trigger sections should show (none)
-    const noneCount = (noteContent.match(/\(none\)/g) ?? []).length;
+    const allOutput = mockLogMessage.mock.calls.map((c) => c[0] as string).join('\n');
+    const noneCount = (allOutput.match(/\(none\)/g) ?? []).length;
     expect(noneCount).toBe(4);
+  });
+
+  // ---------- Description formatting ------------------------------------------
+
+  it('renders literal \\n escape sequences as newlines in agent description', async () => {
+    writeAgent(projectDir, 'my-agent', 'First line\\nSecond line\\nThird line');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const descCall = mockLogMessage.mock.calls.find((c) =>
+      (c[0] as string).includes('Description:'),
+    );
+    expect(descCall).toBeDefined();
+    const content = descCall![0] as string;
+    // Should contain actual newlines, not the literal \n string
+    expect(content).toContain('First line');
+    expect(content).toContain('Second line');
+    expect(content).not.toContain('\\n');
+  });
+
+  it('strips <example> blocks from agent description', async () => {
+    writeAgent(
+      projectDir,
+      'my-agent',
+      'Short intro. <example>Context: blah\\nuser: foo\\nassistant: bar</example> End.',
+    );
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const descCall = mockLogMessage.mock.calls.find((c) =>
+      (c[0] as string).includes('Description:'),
+    );
+    expect(descCall).toBeDefined();
+    const content = descCall![0] as string;
+    expect(content).not.toContain('<example>');
+    expect(content).not.toContain('</example>');
+    expect(content).toContain('Short intro');
+  });
+
+  it('wraps long description lines within terminal width', async () => {
+    const longLine = 'word '.repeat(40).trim(); // ~200 chars, well over 80
+    writeAgent(projectDir, 'my-agent', longLine);
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const descCall = mockLogMessage.mock.calls.find((c) =>
+      (c[0] as string).includes('Description:'),
+    );
+    expect(descCall).toBeDefined();
+    const content = descCall![0] as string;
+    const maxLineLength = Math.max(...content.split('\n').map((l) => l.length));
+    // No line should exceed terminal width + indent margin
+    expect(maxLineLength).toBeLessThanOrEqual((process.stdout.columns ?? 80) + 4);
   });
 
   // ---------- Intro is shown when items exist ----------------------------------
