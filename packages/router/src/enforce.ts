@@ -5,6 +5,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, dirname, join, matchesGlob } from 'node:path';
 import type { EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
+
+/** Normalize Windows backslashes to forward slashes for consistent glob matching. */
+function normalizeSeparators(p: string): string {
+  return p.replaceAll('\\', '/');
+}
 import { loadManifest } from './manifest.js';
 import { writeLog } from './logging.js';
 
@@ -80,18 +85,21 @@ export function evaluateEnforce(
   if (enforced.length === 0) return { action: 'allow' };
 
   // Resolve file path from tool input
-  const filePath =
+  const rawFilePath =
     typeof input.tool_input['file_path'] === 'string' ? input.tool_input['file_path'] : '';
 
-  if (!filePath) return { action: 'allow' };
+  if (!rawFilePath) return { action: 'allow' };
 
+  // Normalize separators for cross-platform glob matching
+  const filePath = normalizeSeparators(rawFilePath);
   const base = basename(filePath);
-  const absPath = filePath.startsWith('/') ? filePath : join(process.cwd(), filePath);
+  const isAbsolute = filePath.startsWith('/') || /^[a-zA-Z]:\//.test(filePath);
+  const absPath = isAbsolute ? filePath : normalizeSeparators(join(process.cwd(), filePath));
 
   // Compute project-relative path for matching against relative patterns
-  const resolvedProjectDir = projectDir ?? process.cwd();
-  const relativePath = absPath.startsWith(resolvedProjectDir + '/')
-    ? absPath.slice(resolvedProjectDir.length + 1)
+  const normalizedProjectDir = normalizeSeparators(projectDir ?? process.cwd());
+  const relativePath = absPath.startsWith(normalizedProjectDir + '/')
+    ? absPath.slice(normalizedProjectDir.length + 1)
     : absPath;
 
   // Check each enforced agent's patterns against full path, basename, raw input, and relative path

@@ -194,6 +194,21 @@ describe('extractToolSignals', () => {
     expect(signals.paths).toContain('src/main.ts');
   });
 
+  it('should normalize Windows backslash paths', () => {
+    // Arrange
+    const winPath = 'C:\\Users\\AKochev\\project\\src\\services\\UserService.cs';
+    const winProjectDir = 'C:\\Users\\AKochev\\project';
+
+    // Act
+    const signals = extractToolSignals({ file_path: winPath }, winProjectDir);
+
+    // Assert
+    expect(signals.paths).toContain('src/services/userservice.cs');
+    expect(signals.extensions.has('.cs')).toBe(true);
+    expect(signals.words.has('services')).toBe(true);
+    expect(signals.words.has('userservice')).toBe(true);
+  });
+
   it('should handle file with no extension', () => {
     const signals = extractToolSignals(
       { file_path: '/project/Makefile' },

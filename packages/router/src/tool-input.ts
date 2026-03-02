@@ -6,6 +6,11 @@ import type { PreToolUseInput, ToolName, ExtractedSignals } from './types.js';
 
 const SUPPORTED_TOOLS: ReadonlySet<string> = new Set(['Edit', 'Write', 'MultiEdit']);
 
+/** Normalize Windows backslashes to forward slashes for consistent path handling. */
+function normalizeSeparators(p: string): string {
+  return p.replaceAll('\\', '/');
+}
+
 /**
  * Detects whether parsed JSON data is from a PreToolUse hook
  * by checking for the presence of a string `tool_name` field.
@@ -73,14 +78,17 @@ export function parsePreToolUseInput(jsonString: string): PreToolUseInput {
  * Strips the project directory prefix from a file path.
  */
 function stripProjectDir(filePath: string, projectDir: string): string {
-  const normalizedDir = projectDir.endsWith('/')
-    ? projectDir.slice(0, -1)
-    : projectDir;
+  const normalizedPath = normalizeSeparators(filePath);
+  const normalizedDir = normalizeSeparators(
+    projectDir.endsWith('/') || projectDir.endsWith('\\')
+      ? projectDir.slice(0, -1)
+      : projectDir
+  );
 
-  if (filePath.startsWith(normalizedDir + '/')) {
-    return filePath.slice(normalizedDir.length + 1);
+  if (normalizedPath.startsWith(normalizedDir + '/')) {
+    return normalizedPath.slice(normalizedDir.length + 1);
   }
-  return filePath;
+  return normalizedPath;
 }
 
 /**
@@ -105,7 +113,7 @@ export function extractToolSignals(
     return signals;
   }
 
-  // Get relative path
+  // Get relative path (already normalized by stripProjectDir)
   const relativePath = stripProjectDir(filePath, projectDir);
   signals.paths.push(relativePath.toLowerCase());
 
@@ -116,7 +124,7 @@ export function extractToolSignals(
     signals.extensions.add(relativePath.slice(lastDot).toLowerCase());
   }
 
-  // Extract words from path segments
+  // Extract words from path segments (separators already normalized to '/')
   const segments = relativePath.split('/');
   for (const segment of segments) {
     // Split on dots to separate filename from extension

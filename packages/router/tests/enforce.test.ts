@@ -310,6 +310,60 @@ describe('evaluateEnforce', () => {
     expect(result.action).toBe('allow');
   });
 
+  it('should block when Windows absolute path matches relative pattern', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { file_patterns: ['VendorPortal BE/**/*.cs'], enforce: true },
+    });
+    const winPath = 'C:\\Users\\AKochev\\project\\VendorPortal BE\\Services\\OnboardingService.cs';
+    const input = makePreToolUseInput('Edit', winPath);
+
+    // Act
+    const result = evaluateEnforce(input, manifestPath, registryPath, 'C:\\Users\\AKochev\\project');
+
+    // Assert
+    expect(result.action).toBe('block');
+    if (result.action === 'block') {
+      expect(result.agents).toContain('grimoire.csharp-coder');
+    }
+  });
+
+  it('should block when Windows path with spaces matches pattern', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { file_patterns: ['My App/**/*.cs'], enforce: true },
+    });
+    const winPath = 'C:\\Projects\\My App\\Controllers\\HomeController.cs';
+    const input = makePreToolUseInput('Write', winPath);
+
+    // Act
+    const result = evaluateEnforce(input, manifestPath, registryPath, 'C:\\Projects');
+
+    // Assert
+    expect(result.action).toBe('block');
+    if (result.action === 'block') {
+      expect(result.agents).toContain('grimoire.csharp-coder');
+    }
+  });
+
+  it('should detect Windows absolute paths (drive letter)', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
+    });
+    const winPath = 'C:\\Users\\Dev\\project\\src\\index.ts';
+    const input = makePreToolUseInput('Edit', winPath);
+
+    // Act
+    const result = evaluateEnforce(input, manifestPath, registryPath, 'C:\\Users\\Dev\\project');
+
+    // Assert
+    expect(result.action).toBe('block');
+    if (result.action === 'block') {
+      expect(result.agents).toContain('grimoire.typescript-coder');
+    }
+  });
+
   it('should block when registry contains a different session', () => {
     // Arrange
     makeManifest(projectDir, {
