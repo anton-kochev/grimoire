@@ -426,7 +426,7 @@ describe('runEnforce logging', () => {
     expect(typeof entry['timestamp']).toBe('string');
   });
 
-  it('should not write a log entry when file does not match (allow path)', () => {
+  it('should write an allow log entry with debug info when file does not match', () => {
     // Arrange
     makeManifest(projectDir, {
       'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
@@ -443,6 +443,34 @@ describe('runEnforce logging', () => {
     process.env['CLAUDE_PROJECT_DIR'] = origEnv;
 
     // Assert
+    expect(existsSync(logPath)).toBe(true);
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['outcome']).toBe('allow');
+    expect(entry['enforce_block']).toBe(false);
+    expect(entry['hook_event']).toBe('PreToolUse');
+    expect(entry['tool_name']).toBe('Edit');
+    expect(entry['session_id']).toBe('session-xyz');
+    expect(entry['file_path']).toBe('README.md');
+    expect(entry['patterns_checked']).toContain('*.ts');
+  });
+
+  it('should not write a log entry when no enforced agents exist (early allow)', () => {
+    // Arrange — no agents with enforce: true
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: false },
+    });
+    const input = makePreToolUseInput('Edit', 'README.md', 'session-xyz');
+    const origEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+
+    // Act
+    try {
+      runEnforce(input, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    process.env['CLAUDE_PROJECT_DIR'] = origEnv;
+
+    // Assert — early returns don't have debugInfo, so no log
     expect(existsSync(logPath)).toBe(false);
   });
 

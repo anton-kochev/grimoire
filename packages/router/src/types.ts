@@ -191,8 +191,15 @@ export interface ParsedArgs {
 /**
  * Result of evaluateEnforce — either allow or block with matching agent names
  */
+export interface EnforceDebugInfo {
+  rawFilePath: string;
+  normalizedPath: string;
+  relativePath: string;
+  patternsChecked: string[];
+}
+
 export type EnforceResult =
-  | { action: 'allow' }
+  | { action: 'allow'; debugInfo?: EnforceDebugInfo }
   | { action: 'block'; agents: string[]; filePath: string };
 
 /**

@@ -3,8 +3,9 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { basename, dirname, join, matchesGlob } from 'node:path';
-import type { EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
+import { basename, dirname, join } from 'node:path';
+import picomatch from 'picomatch';
+import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
 
 /** Normalize Windows backslashes to forward slashes for consistent glob matching. */
 function normalizeSeparators(p: string): string {
@@ -104,21 +105,28 @@ export function evaluateEnforce(
 
   // Check each enforced agent's patterns against full path, basename, raw input, and relative path
   const matchingAgents: string[] = [];
+  const allPatternsChecked: string[] = [];
   for (const [agentName, entry] of enforced) {
     const patterns = entry.file_patterns ?? [];
-    const matches = patterns.some(
-      (pattern) =>
-        matchesGlob(absPath, pattern) ||
-        matchesGlob(base, pattern) ||
-        matchesGlob(filePath, pattern) ||
-        matchesGlob(relativePath, pattern),
-    );
+    allPatternsChecked.push(...patterns);
+    const matches = patterns.some((pattern) => {
+      const isMatch = picomatch(pattern);
+      return isMatch(absPath) || isMatch(base) || isMatch(filePath) || isMatch(relativePath);
+    });
     if (matches) {
       matchingAgents.push(agentName);
     }
   }
 
-  if (matchingAgents.length === 0) return { action: 'allow' };
+  if (matchingAgents.length === 0) {
+    const debugInfo: EnforceDebugInfo = {
+      rawFilePath,
+      normalizedPath: filePath,
+      relativePath,
+      patternsChecked: allPatternsChecked,
+    };
+    return { action: 'allow', debugInfo };
+  }
 
   return { action: 'block', agents: matchingAgents, filePath };
 }
@@ -133,6 +141,21 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
   const registryPath = join(projectDir, DEFAULT_REGISTRY_PATH);
 
   const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+
+  if (result.action === 'allow' && result.debugInfo) {
+    writeLog({
+      timestamp: new Date().toISOString(),
+      session_id: input.session_id,
+      hook_event: 'PreToolUse',
+      tool_name: input.tool_name,
+      outcome: 'allow',
+      enforce_block: false,
+      file_path: result.debugInfo.rawFilePath,
+      normalized_path: result.debugInfo.normalizedPath,
+      relative_path: result.debugInfo.relativePath,
+      patterns_checked: result.debugInfo.patternsChecked,
+    }, logPath);
+  }
 
   if (result.action === 'block') {
     writeLog({
