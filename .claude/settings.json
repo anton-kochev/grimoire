@@ -21,6 +21,28 @@
           }
         ]
       }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "grimoire.csharp-coder|grimoire.typescript-coder|grimoire.vue3-coder|grimoire.dotnet-unit-test-writer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/router.ts\" --subagent-start"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "grimoire.csharp-coder|grimoire.typescript-coder|grimoire.vue3-coder|grimoire.dotnet-unit-test-writer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/router.ts\" --subagent-stop"
+          }
+        ]
+      }
     ]
   }
 }
