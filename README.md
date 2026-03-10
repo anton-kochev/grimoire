@@ -484,6 +484,8 @@ Expert .NET unit testing patterns and best practices for C#/.NET projects.
 
 **Reference files:** `framework-guidelines.md`, `parameterized-testing.md`, `test-organization.md`, `test-performance.md`, `anti-patterns.md`
 
+**Install via:** `grimoire add` and select `dotnet-pack`
+
 ### dotnet-feature-workflow
 
 Orchestrates end-to-end .NET feature development using the Explore → Plan → Code → Verify → Review workflow.
@@ -498,6 +500,8 @@ Orchestrates end-to-end .NET feature development using the Explore → Plan → 
 - Automated code review before completion
 
 **When to use:** Building complete features with quality gates and minimal hand-holding.
+
+**Install via:** `grimoire add` and select `dotnet-pack`
 
 ### conventional-commit
 
