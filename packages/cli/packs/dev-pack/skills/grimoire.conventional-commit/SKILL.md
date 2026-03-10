@@ -1,9 +1,9 @@
 ---
 name: grimoire.conventional-commit
-description: "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes."
+description: "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes. Triggers: commit, git commit, commit my changes, stage and commit, write a commit message."
 user-invokable: true
 disable-model-invocation: false
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Git Commit Generator
@@ -35,11 +35,18 @@ Generate git commit messages following the [Conventional Commits 1.0.0](https://
 | `ci` | CI configuration files and scripts |
 | `chore` | Other changes that don't modify src or test files |
 
+## Scope
+
+- Use lowercase kebab-case: `auth`, `csv-import`, `api`
+- Scope = the module, component, or file area affected
+- Omit scope when the change is truly global
+
 ## Breaking Changes
 
-For breaking changes, either:
+For breaking changes, use either or both:
 
-- Add `BREAKING CHANGE:` footer in body
+- Append `!` after type/scope: `feat(api)!: change response format`
+- Add `BREAKING CHANGE: <description>` footer in body
 
 Breaking changes correlate with MAJOR in SemVer.
 
@@ -73,7 +80,9 @@ When user invokes /commit:
    git commit -m "$(cat <<'EOF'
    type(scope): description
 
-   - bullet points explaining what and why
+   Optional short sentence: business value this commit adds.
+
+   - bullet points for technical details / implementation notes
    - one point per logical change
    EOF
    )"
@@ -103,11 +112,12 @@ Only document changes with semantic meaning or technical impact. For pure format
 - No period at end of description
 - Keep description under 72 characters
 - Scope is optional but recommended for larger codebases
-- Body should explain "what" and "why", not "how"
+- Body structure: optional one-sentence business value paragraph, then optional bullet points for technical details
 - Use bullet points in body when listing multiple changes — not prose paragraphs
+- Omit business value sentence if there is no obvious user-facing or product impact
 - Be concise—avoid redundant or verbose language
 - **Never** use `--no-verify` unless explicitly requested
-- **Never** amend commits that have been pushed to remote
+- **Never** amend commits that have been pushed to remote — amending local unpushed commits is fine
 - **Never** include Co-Authored-By footers in commit messages
 
 ## Examples
@@ -118,10 +128,17 @@ Only document changes with semantic meaning or technical impact. For pure format
 feat: add health check endpoint
 ```
 
-**Feature with scope:**
+**Feature with scope and business value:**
 
 ```plain
 feat(api): add CSV enrichment endpoint
+
+Enables bulk data enrichment without manual entry, reducing processing
+time for large datasets.
+
+- implements POST /api/v1/enrich/csv
+- validates file size limit (10MB) and column schema
+- returns enriched rows as streamed JSON
 ```
 
 **Fix with body:**

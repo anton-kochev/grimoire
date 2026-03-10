@@ -58,19 +58,24 @@
     {
       "name": "grimoire.conventional-commit",
       "path": "skills/grimoire.conventional-commit",
-      "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes.",
-      "version": "1.0.0",
+      "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes. Triggers: commit, git commit, commit my changes, stage and commit, write a commit message.",
+      "version": "1.1.0",
       "triggers": {
         "keywords": [
           "conventional-commit",
-          "git-commit"
+          "git-commit",
+          "commit",
+          "git commit"
         ],
         "file_extensions": [],
         "patterns": [
           "commit.*change",
           "create.*commit",
           "make.*commit",
-          "conventional.*commit"
+          "conventional.*commit",
+          "commit.*my",
+          "stage.*commit",
+          "write.*commit"
         ],
         "file_paths": []
       }
