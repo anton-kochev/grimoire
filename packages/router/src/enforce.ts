@@ -13,6 +13,7 @@ function normalizeSeparators(p: string): string {
 }
 import { loadManifest } from './manifest.js';
 import { writeLog } from './logging.js';
+import { readSkillBody } from './skill-content.js';
 
 const DEFAULT_REGISTRY_PATH = '.claude/hooks/.grimoire-subagents.json';
 
@@ -37,6 +38,27 @@ function writeRegistry(registryPath: string, sessions: string[]): void {
   const dir = dirname(registryPath);
   mkdirSync(dir, { recursive: true });
   writeFileSync(registryPath, JSON.stringify({ sessions }, null, 2) + '\n');
+}
+
+// =============================================================================
+// Paired skill resolution
+// =============================================================================
+
+/**
+ * Resolves the paired skill context for a given agent.
+ * Convention: agent `grimoire.csharp-coder` → skill dir `grimoire.csharp-coder-skill`.
+ * Returns skill body if found, or a warning message to relay to the user if not.
+ */
+function resolveAgentSkillContext(agentName: string, projectDir: string): string {
+  const skillPath = `.claude/skills/${agentName}-skill`;
+  const body = readSkillBody(skillPath, projectDir);
+  if (body) return body;
+
+  return [
+    `⚠ No paired skill found for agent "${agentName}".`,
+    `Expected: ${join(projectDir, skillPath, 'SKILL.md')}`,
+    `Please inform the user that the paired skill is missing and ask whether to continue without it.`,
+  ].join('\n');
 }
 
 // =============================================================================
@@ -94,6 +116,7 @@ export function evaluateEnforce(
   // Normalize separators for cross-platform glob matching
   const filePath = normalizeSeparators(rawFilePath);
   const base = basename(filePath);
+  // normalizeSeparators() has already run above — regex safely assumes forward slashes
   const isAbsolute = filePath.startsWith('/') || /^[a-zA-Z]:\//.test(filePath);
   const absPath = isAbsolute ? filePath : normalizeSeparators(join(process.cwd(), filePath));
 
@@ -104,6 +127,8 @@ export function evaluateEnforce(
     : absPath;
 
   // Check each enforced agent's patterns against full path, basename, raw input, and relative path
+  // Match against multiple representations — Claude provides paths in varied formats:
+  // absolute OS path, project-relative path, basename only, or raw as given.
   const matchingAgents: string[] = [];
   const allPatternsChecked: string[] = [];
   for (const [agentName, entry] of enforced) {
@@ -205,6 +230,16 @@ export function runSubagentStart(input: SubagentHookInput, registryPath?: string
   if (!sessions.includes(input.session_id)) {
     sessions.push(input.session_id);
     writeRegistry(resolvedPath, sessions);
+  }
+
+  if (input.agent_name) {
+    const context = resolveAgentSkillContext(input.agent_name, projectDir);
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'SubagentStart',
+        additionalContext: context,
+      },
+    }));
   }
 
   process.exit(0);

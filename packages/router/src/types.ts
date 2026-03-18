@@ -203,10 +203,12 @@ export type EnforceResult =
   | { action: 'block'; agents: string[]; filePath: string };
 
 /**
- * Minimal input for SubagentStart/Stop hooks (only session_id needed)
+ * Minimal input for SubagentStart/Stop hooks
  */
 export interface SubagentHookInput {
   session_id: string;
+  /** Agent name passed via --agent CLI arg; undefined when not provided. */
+  agent_name?: string;
 }
 
 // =============================================================================

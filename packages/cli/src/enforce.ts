@@ -13,6 +13,7 @@ import { join } from 'path';
 export interface ManifestAgentEntry {
   file_patterns?: string[];
   enforce?: boolean;
+  paired_skill?: string;
 }
 
 interface ManifestSkill {
@@ -112,8 +113,14 @@ export function readAgentMeta(agentPath: string): AgentMeta {
 // =============================================================================
 
 const ENFORCE_COMMAND = 'npx @grimoire-cc/router --enforce';
-const SUBAGENT_START_COMMAND = 'npx @grimoire-cc/router --subagent-start';
-const SUBAGENT_STOP_COMMAND = 'npx @grimoire-cc/router --subagent-stop';
+
+function makeSubagentStartCmd(agentName: string): string {
+  return `npx @grimoire-cc/router --subagent-start --agent=${agentName}`;
+}
+
+function makeSubagentStopCmd(agentName: string): string {
+  return `npx @grimoire-cc/router --subagent-stop --agent=${agentName}`;
+}
 
 function readSettings(projectDir: string): ClaudeSettings {
   const path = join(projectDir, '.claude', 'settings.json');
@@ -135,7 +142,7 @@ export function hasEnforcePreToolUseHook(entries: readonly HookEntry[]): boolean
 }
 
 /**
- * Returns true if a SubagentStart entry for the given agent already exists.
+ * Returns true if a SubagentStart/Stop entry with the new --agent=<name> format already exists.
  */
 export function hasSubagentHook(
   entries: readonly HookEntry[],
@@ -143,7 +150,9 @@ export function hasSubagentHook(
   flag: '--subagent-start' | '--subagent-stop',
 ): boolean {
   return entries.some(
-    (e) => e.matcher === agentName && e.hooks.some((h) => h.command.includes(flag)),
+    (e) =>
+      e.matcher === agentName &&
+      e.hooks.some((h) => h.command.includes(flag) && h.command.includes(`--agent=${agentName}`)),
   );
 }
 
@@ -163,6 +172,18 @@ export function ensureEnforceHooks(projectDir: string, agentNames: readonly stri
     });
   }
 
+  // Migrate old-format hooks (without --agent=) to new format
+  if (hooks['SubagentStart']) {
+    hooks['SubagentStart'] = hooks['SubagentStart'].filter(
+      (e) => !e.hooks.some((h) => h.command.includes('--subagent-start') && !h.command.includes('--agent=')),
+    );
+  }
+  if (hooks['SubagentStop']) {
+    hooks['SubagentStop'] = hooks['SubagentStop'].filter(
+      (e) => !e.hooks.some((h) => h.command.includes('--subagent-stop') && !h.command.includes('--agent=')),
+    );
+  }
+
   // Per-agent SubagentStart/Stop hooks
   if (!hooks['SubagentStart']) hooks['SubagentStart'] = [];
   if (!hooks['SubagentStop']) hooks['SubagentStop'] = [];
@@ -171,13 +192,13 @@ export function ensureEnforceHooks(projectDir: string, agentNames: readonly stri
     if (!hasSubagentHook(hooks['SubagentStart']!, agentName, '--subagent-start')) {
       hooks['SubagentStart']!.push({
         matcher: agentName,
-        hooks: [{ type: 'command', command: SUBAGENT_START_COMMAND }],
+        hooks: [{ type: 'command', command: makeSubagentStartCmd(agentName) }],
       });
     }
     if (!hasSubagentHook(hooks['SubagentStop']!, agentName, '--subagent-stop')) {
       hooks['SubagentStop']!.push({
         matcher: agentName,
-        hooks: [{ type: 'command', command: SUBAGENT_STOP_COMMAND }],
+        hooks: [{ type: 'command', command: makeSubagentStopCmd(agentName) }],
       });
     }
   }

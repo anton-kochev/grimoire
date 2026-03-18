@@ -273,4 +273,5 @@ describe('loadManifest', () => {
 
     expect(() => loadManifest(manifestPath)).toThrow(/enforce.*boolean/i);
   });
+
 });

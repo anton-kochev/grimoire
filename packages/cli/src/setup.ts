@@ -145,12 +145,60 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 }
 
+function hasAgentHook(entries: readonly HookEntry[], agentName: string, flag: string): boolean {
+  return entries.some(
+    (e) =>
+      e.matcher === agentName &&
+      e.hooks.some((h) => h.command.includes(flag) && h.command.includes(`--agent=${agentName}`)),
+  );
+}
+
+/**
+ * Writes per-agent SubagentStart/Stop hooks into settings.json.
+ * Called at install time so skill injection works for all agents, not just enforced ones.
+ */
+function mergeAgentHooks(projectDir: string, agentNames: readonly string[]): void {
+  const claudeDir = join(projectDir, '.claude');
+  mkdirSync(claudeDir, { recursive: true });
+  const settingsPath = join(claudeDir, 'settings.json');
+
+  let settings: Record<string, unknown> = {};
+  if (existsSync(settingsPath)) {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;
+  }
+
+  const hooks = (settings['hooks'] ?? {}) as Record<string, HookEntry[]>;
+  if (!hooks['SubagentStart']) hooks['SubagentStart'] = [];
+  if (!hooks['SubagentStop']) hooks['SubagentStop'] = [];
+
+  for (const name of agentNames) {
+    if (!hasAgentHook(hooks['SubagentStart']!, name, '--subagent-start')) {
+      hooks['SubagentStart']!.push({
+        matcher: name,
+        hooks: [{ type: 'command', command: `${SKILL_ROUTER_COMMAND} --subagent-start --agent=${name}` }],
+      });
+    }
+    if (!hasAgentHook(hooks['SubagentStop']!, name, '--subagent-stop')) {
+      hooks['SubagentStop']!.push({
+        matcher: name,
+        hooks: [{ type: 'command', command: `${SKILL_ROUTER_COMMAND} --subagent-stop --agent=${name}` }],
+      });
+    }
+  }
+
+  settings['hooks'] = hooks;
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+}
+
 /**
  * Sets up the router by merging hook config and skill manifest.
  */
 export function setupRouter(projectDir: string, packManifest: PackManifest): void {
   mergeSettings(projectDir);
   mergeManifest(projectDir, packManifest);
+  if (packManifest.agents.length > 0) {
+    mergeAgentHooks(projectDir, packManifest.agents.map((a) => a.name));
+  }
 
   console.log('\nSkill router configured:');
   console.log('  hooks: .claude/settings.json');

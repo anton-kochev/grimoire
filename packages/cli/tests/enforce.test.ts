@@ -277,8 +277,21 @@ describe('hasEnforcePreToolUseHook', () => {
 });
 
 describe('hasSubagentHook', () => {
-  it('should return true when subagent-start hook exists for agent', () => {
-    // Arrange
+  it('should return true when subagent-start hook exists with --agent= format', () => {
+    // Arrange — new format includes --agent=<name>
+    const entries = [
+      {
+        matcher: 'grimoire.typescript-coder',
+        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.typescript-coder' }],
+      },
+    ];
+
+    // Act + Assert
+    expect(hasSubagentHook(entries, 'grimoire.typescript-coder', '--subagent-start')).toBe(true);
+  });
+
+  it('should return false for old-format hook without --agent=', () => {
+    // Arrange — old format without --agent= should not match (triggers migration path)
     const entries = [
       {
         matcher: 'grimoire.typescript-coder',
@@ -287,7 +300,7 @@ describe('hasSubagentHook', () => {
     ];
 
     // Act + Assert
-    expect(hasSubagentHook(entries, 'grimoire.typescript-coder', '--subagent-start')).toBe(true);
+    expect(hasSubagentHook(entries, 'grimoire.typescript-coder', '--subagent-start')).toBe(false);
   });
 
   it('should return false for different agent name', () => {
@@ -295,7 +308,7 @@ describe('hasSubagentHook', () => {
     const entries = [
       {
         matcher: 'grimoire.typescript-coder',
-        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start' }],
+        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.typescript-coder' }],
       },
     ];
 
@@ -308,7 +321,7 @@ describe('hasSubagentHook', () => {
     const entries = [
       {
         matcher: 'grimoire.typescript-coder',
-        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start' }],
+        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.typescript-coder' }],
       },
     ];
 

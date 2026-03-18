@@ -22,6 +22,25 @@ import { runEnforce, runSubagentStart, runSubagentStop } from './enforce.js';
 const DEFAULT_PRETOOLUSE_THRESHOLD = 1.5;
 
 /**
+ * Logs an unexpected error to the router log file. Swallows nested logging errors
+ * so a broken log path never blocks the user.
+ */
+function logError(error: unknown, logPath: string): void {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  try {
+    writeLog({
+      timestamp: new Date().toISOString(),
+      level: 'error',
+      message: errorMessage,
+      error_type: error instanceof Error ? error.name : 'Unknown',
+      stack_trace: error instanceof Error ? (error.stack ?? null) : null,
+    }, logPath);
+  } catch {
+    // Ignore logging errors — never block user
+  }
+}
+
+/**
  * Processes a prompt and returns hook output if skills match.
  *
  * @param input - Parsed hook input
@@ -103,26 +122,7 @@ export function processPrompt(
 
     return null;
   } catch (error) {
-    // Log error but don't throw - never block user
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
-
-    // Try to write error log
-    try {
-      writeLog(
-        {
-          timestamp: new Date().toISOString(),
-          level: 'error',
-          message: errorMessage,
-          error_type: error instanceof Error ? error.name : 'Unknown',
-          stack_trace: error instanceof Error ? error.stack : null,
-        },
-        logPath
-      );
-    } catch {
-      // Ignore logging errors
-    }
-
+    logError(error, logPath);
     return null;
   }
 }
@@ -211,24 +211,7 @@ export function processToolUse(
 
     return null;
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
-
-    try {
-      writeLog(
-        {
-          timestamp: new Date().toISOString(),
-          level: 'error',
-          message: errorMessage,
-          error_type: error instanceof Error ? error.name : 'Unknown',
-          stack_trace: error instanceof Error ? error.stack : null,
-        },
-        logPath
-      );
-    } catch {
-      // Ignore logging errors
-    }
-
+    logError(error, logPath);
     return null;
   }
 }
@@ -277,7 +260,7 @@ export async function main(): Promise<void> {
       }
 
       if (args.subagentStart) {
-        runSubagentStart({ session_id: sessionId });
+        runSubagentStart({ session_id: sessionId, agent_name: args.agent });
         // runSubagentStart calls process.exit internally
       }
 
