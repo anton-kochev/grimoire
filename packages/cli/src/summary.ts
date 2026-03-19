@@ -21,4 +21,19 @@ export function printSummary(summary: InstallSummary): void {
   }
 
   console.log(`\n${summary.results.length} item(s) installed.`);
+
+  const agentNames = new Set(
+    summary.results.filter((r) => r.item.type === 'agent').map((r) => r.item.name),
+  );
+  const skillNames = new Set(
+    summary.results.filter((r) => r.item.type === 'skill').map((r) => r.item.name),
+  );
+  const pairs = [...agentNames].filter((n) => skillNames.has(`${n}-skill`));
+
+  if (pairs.length > 0) {
+    console.log('\nPaired skills (customize SKILL.md to reflect your project\'s conventions):');
+    for (const name of pairs) {
+      console.log(`  ${name}  \u2194  .claude/skills/${name}-skill/SKILL.md`);
+    }
+  }
 }

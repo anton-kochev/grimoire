@@ -14,6 +14,7 @@ export interface ManifestAgentEntry {
   file_patterns?: string[];
   enforce?: boolean;
   paired_skill?: string;
+  has_paired_skill?: boolean;
 }
 
 interface ManifestSkill {

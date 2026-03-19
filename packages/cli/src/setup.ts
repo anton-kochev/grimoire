@@ -67,6 +67,7 @@ interface ManifestSkill {
 interface ManifestAgentEntry {
   file_patterns?: string[];
   enforce?: boolean;
+  has_paired_skill?: boolean;
 }
 
 interface SkillsManifest {
@@ -131,6 +132,9 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
     }
   }
 
+  // Build set of skill names in this pack for O(1) pairing lookup
+  const packSkillNames = new Set(packManifest.skills.map((s) => s.name));
+
   // Merge agents — preserve existing entry (enforce flag, file_patterns) when present
   for (const agent of packManifest.agents) {
     if (!manifest.agents[agent.name]) {
@@ -139,6 +143,10 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
     // Write file_patterns from pack definition when provided
     if (agent.file_patterns && agent.file_patterns.length > 0) {
       manifest.agents[agent.name]!.file_patterns = [...agent.file_patterns];
+    }
+    // Mark pairing when pack ships a matching <agent-name>-skill
+    if (packSkillNames.has(`${agent.name}-skill`)) {
+      manifest.agents[agent.name]!.has_paired_skill = true;
     }
   }
 

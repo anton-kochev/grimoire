@@ -130,6 +130,13 @@ function parseAgentsSection(
       entry.enforce = cfg['enforce'] as boolean;
     }
 
+    if (cfg['has_paired_skill'] !== undefined) {
+      if (typeof cfg['has_paired_skill'] !== 'boolean') {
+        throw new Error(`Agent "${agentName}" has_paired_skill must be a boolean`);
+      }
+      entry.has_paired_skill = cfg['has_paired_skill'] as boolean;
+    }
+
     result[agentName] = entry;
   }
 

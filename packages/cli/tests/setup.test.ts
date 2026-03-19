@@ -355,6 +355,49 @@ describe('mergeManifest', () => {
     expect(skills[0]!.name).toBe('grimoire.modern-typescript');
   });
 
+  it('should set has_paired_skill: true when pack includes matching skill', () => {
+    // Arrange — agent name is 'test-agent', skill name is 'test-agent-skill' (convention match)
+    const packWithPair: PackManifest = {
+      name: 'test-pack',
+      version: '1.0.0',
+      agents: [{ name: 'test-agent', path: 'agents/test-agent.md', description: 'Test agent' }],
+      skills: [
+        {
+          name: 'test-agent-skill',
+          path: 'skills/test-agent-skill',
+          description: 'Paired skill',
+          triggers: { keywords: ['test'], file_extensions: [], patterns: [], file_paths: [] },
+        },
+      ],
+    };
+
+    // Act
+    mergeManifest(projectDir, packWithPair);
+
+    // Assert
+    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
+    const agents = manifest['agents'] as Record<string, Record<string, unknown>>;
+    expect(agents['test-agent']?.['has_paired_skill']).toBe(true);
+  });
+
+  it('should not set has_paired_skill when pack has no matching skill', () => {
+    // Arrange — agent name is 'solo-agent', no 'solo-agent-skill' in pack
+    const packWithoutPair: PackManifest = {
+      name: 'test-pack',
+      version: '1.0.0',
+      agents: [{ name: 'solo-agent', path: 'agents/solo-agent.md', description: 'Solo agent' }],
+      skills: [],
+    };
+
+    // Act
+    mergeManifest(projectDir, packWithoutPair);
+
+    // Assert
+    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
+    const agents = manifest['agents'] as Record<string, Record<string, unknown>>;
+    expect(agents['solo-agent']?.['has_paired_skill']).toBeUndefined();
+  });
+
   it('should skip skills without triggers', () => {
     const manifestWithNoTriggers: PackManifest = {
       name: 'test-pack',

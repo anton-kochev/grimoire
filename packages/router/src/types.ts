@@ -52,6 +52,7 @@ export interface SkillDefinition {
 export interface AgentEntry {
   file_patterns?: string[];
   enforce?: boolean;
+  has_paired_skill?: boolean;
 }
 
 /**
