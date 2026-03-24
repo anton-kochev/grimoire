@@ -11,8 +11,11 @@ Quick-reference for each language's test ecosystem. Use this to apply framework-
 - [Java / Kotlin](#java--kotlin)
 - [C# / .NET](#c--net)
 - [Ruby](#ruby)
+- [Swift](#swift)
 
 ## JavaScript / TypeScript
+
+> Docs: [Vitest](https://vitest.dev) · [Jest](https://jestjs.io) · [Mocha](https://mochajs.org)
 
 ### Frameworks
 
@@ -66,6 +69,8 @@ describe('OrderService', () => {
 - `vitest.config.ts` or `jest.config.ts` for configuration
 
 ## Python
+
+> Docs: [pytest](https://docs.pytest.org)
 
 ### Frameworks
 
@@ -125,6 +130,8 @@ def test_apply_discount_calculates_correctly(discount, expected):
 - `pytest.ini` or `[tool.pytest.ini_options]` in `pyproject.toml`
 
 ## Go
+
+> Docs: [testing](https://pkg.go.dev/testing) · [testify](https://github.com/stretchr/testify)
 
 ### Frameworks
 
@@ -237,6 +244,8 @@ mod tests {
 
 ## Java / Kotlin
 
+> Docs: [JUnit 5](https://junit.org/junit5) · [Mockito](https://site.mockito.org) · [AssertJ](https://assertj.github.io/doc)
+
 ### Frameworks
 
 | Framework | When to Use | Key Feature |
@@ -294,6 +303,8 @@ class OrderServiceTest {
 
 ## C# / .NET
 
+> Docs: [xUnit](https://xunit.net) · [NUnit](https://nunit.org) · [Moq](https://github.com/moq/moq4)
+
 **If the `grimoire.dotnet-unit-testing` skill is available, defer to it for full C#/.NET guidance.** It provides comprehensive xUnit, TUnit, Moq, and NSubstitute patterns.
 
 ### Quick Reference (when dotnet skill is unavailable)
@@ -341,6 +352,8 @@ public class OrderServiceTests
 
 ## Ruby
 
+> Docs: [RSpec](https://rspec.info) · [Minitest](https://github.com/minitest/minitest)
+
 ### Frameworks
 
 | Framework | When to Use |
@@ -386,3 +399,107 @@ end
 - `spec/` directory mirroring `lib/` or `app/` structure
 - `*_spec.rb` suffix
 - `bundle exec rspec` to run
+
+## Swift
+
+> Docs: [XCTest](https://developer.apple.com/documentation/xctest) · [Swift Testing](https://developer.apple.com/documentation/testing)
+
+### Frameworks
+
+| Framework | When to Use | Key Feature |
+|-----------|-------------|-------------|
+| **XCTest** | Default, all Apple platforms | Built-in, Xcode integration |
+| **Swift Testing** | Swift 5.9+, new projects | Modern macros-based API, parameterized tests |
+| **Quick + Nimble** | BDD-style tests | Expressive DSL, Given-When-Then |
+
+### XCTest Patterns
+
+```swift
+import XCTest
+@testable import MyModule
+
+final class OrderServiceTests: XCTestCase {
+    private var mockRepo: MockOrderRepository!
+    private var sut: OrderService!
+
+    override func setUp() {
+        super.setUp()
+        mockRepo = MockOrderRepository()
+        sut = OrderService(repository: mockRepo)
+    }
+
+    override func tearDown() {
+        mockRepo = nil
+        sut = nil
+        super.tearDown()
+    }
+
+    func test_processOrder_withValidOrder_returnsID() async throws {
+        // Arrange
+        let order = Order.validStub()
+        mockRepo.saveResult = .success(Order(id: "123"))
+
+        // Act
+        let result = try await sut.processOrder(order)
+
+        // Assert
+        XCTAssertEqual(result.id, "123")
+        XCTAssertEqual(mockRepo.saveCalled, 1)
+    }
+
+    func test_processOrder_withInvalidOrder_throwsValidationError() async {
+        // Arrange
+        let order = Order.invalidStub()
+
+        // Act & Assert
+        await XCTAssertThrowsError(try await sut.processOrder(order)) { error in
+            XCTAssertTrue(error is ValidationError)
+        }
+    }
+}
+```
+
+### Swift Testing (modern, Swift 5.9+)
+
+```swift
+import Testing
+@testable import MyModule
+
+@Suite("OrderService")
+struct OrderServiceTests {
+    @Test("processes valid order and returns ID")
+    func processOrder_withValidOrder_returnsID() async throws {
+        // Arrange
+        let mockRepo = MockOrderRepository(saveResult: .success(Order(id: "123")))
+        let sut = OrderService(repository: mockRepo)
+
+        // Act
+        let result = try await sut.processOrder(.validStub())
+
+        // Assert
+        #expect(result.id == "123")
+    }
+
+    @Test("throws ValidationError for invalid order")
+    func processOrder_withInvalidOrder_throws() async {
+        let sut = OrderService(repository: MockOrderRepository())
+        await #expect(throws: ValidationError.self) {
+            try await sut.processOrder(.invalidStub())
+        }
+    }
+
+    @Test("applies discount correctly", arguments: [
+        (0, 100.0), (10, 90.0), (50, 50.0)
+    ])
+    func applyDiscount(discount: Int, expected: Double) {
+        #expect(applyDiscount(100.0, discount) == expected)
+    }
+}
+```
+
+### File Conventions
+
+- `*Tests.swift` suffix in `Tests/` or `*Tests/` target
+- `xcodebuild test` or `swift test` (SPM)
+- Keep test targets separate from the main app target
+

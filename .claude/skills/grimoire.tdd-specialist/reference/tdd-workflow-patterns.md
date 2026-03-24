@@ -4,13 +4,35 @@ Guidance on the test-driven development process, when to apply it, and advanced 
 
 ## Table of Contents
 
+- [Canon TDD — Start with a Test List](#canon-tdd--start-with-a-test-list)
 - [Red-Green-Refactor](#red-green-refactor)
 - [Transformation Priority Premise](#transformation-priority-premise)
+- [F.I.R.S.T. Principles](#first-principles)
+- [London School vs Detroit School](#london-school-vs-detroit-school)
 - [When to Use TDD](#when-to-use-tdd)
 - [When TDD Is Less Effective](#when-tdd-is-less-effective)
 - [BDD and ATDD Extensions](#bdd-and-atdd-extensions)
+- [Advanced Techniques](#advanced-techniques)
+
+## Canon TDD — Start with a Test List
+
+> Source: https://tidyfirst.substack.com/p/canon-tdd
+
+Kent Beck's recommended starting point is not a single test but a **test list** — a written enumeration of all behaviors you intend to verify. This separates the creative work (what to test) from the mechanical work (write, make pass, refactor).
+
+**Process:**
+1. Write down all behaviors the code needs — a flat list, not tests
+2. Pick the simplest item on the list
+3. Write one failing test for it
+4. Make it pass with the minimum code
+5. Refactor
+6. Cross off the item; repeat
+
+**Why test order matters:** Starting with simpler behaviors forces simpler transformations (see TPP below) and lets the design emerge naturally. Jumping to complex cases early leads to over-engineered solutions. The test list keeps you focused and prevents scope creep.
 
 ## Red-Green-Refactor
+
+> Source: https://martinfowler.com/bliki/TestDrivenDevelopment.html
 
 The core TDD cycle, repeated in small increments:
 
@@ -45,11 +67,13 @@ With all tests green, improve the code structure without changing behavior. Test
 
 ### Cycle Length
 
-Each Red-Green-Refactor cycle should take 1-10 minutes. If you're spending more than 10 minutes in the Red or Green phase, the step is too large — break it down.
+Each Red-Green-Refactor cycle should take 1–10 minutes. If you're spending more than 10 minutes in the Red or Green phase, the step is too large — break it down.
 
 ## Transformation Priority Premise
 
-Kent Beck's insight: when going from Red to Green, prefer simpler transformations over complex ones. Listed from simplest to most complex:
+> Source: http://blog.cleancoder.com/uncle-bob/2013/05/27/TheTransformationPriorityPremise.html
+
+When going from Red to Green, prefer simpler transformations over complex ones. Listed from simplest to most complex:
 
 1. **Constant** — return a hardcoded value
 2. **Scalar** — replace constant with a variable
@@ -71,6 +95,52 @@ Test 6: input 1-15 → full list Transformation: Iteration (generalize)
 ```
 
 By following this priority, you avoid over-engineering early and let the design emerge naturally from the tests.
+
+## F.I.R.S.T. Principles
+
+Every unit test must satisfy these five properties:
+
+| Principle | Definition | Violation Signal |
+|-----------|------------|-----------------|
+| **Fast** | Runs in milliseconds | Real I/O, network calls, `sleep()` |
+| **Independent** | No dependency on other tests | Shared mutable state, ordered execution |
+| **Repeatable** | Same result every run | System clock, random data without seed, race conditions |
+| **Self-Validating** | Pass or fail without manual interpretation | Tests that print output for a human to read |
+| **Timely** | Written before or alongside production code | Tests added weeks after a feature shipped |
+
+F.I.R.S.T. is a diagnostic checklist: if a test violates any property, it will erode team trust and reduce the value of the suite.
+
+## London School vs Detroit School
+
+> Source: https://martinfowler.com/articles/mocksArentStubs.html
+
+Two schools of TDD with different philosophies on test doubles. Most teams use a hybrid.
+
+### Detroit School (Classicist, Inside-Out)
+
+- **Unit definition**: A module of any size — can span multiple classes
+- **Approach**: Bottom-up; start from domain logic, build outward
+- **Test doubles**: Avoid mocks; use real objects when feasible
+- **Verification**: State verification — examine the result after execution
+- **Testing style**: Black-box; test through public API
+- **Refactoring**: Safe — tests aren't coupled to implementation details
+- **Best for**: Building confidence in real interactions; reducing brittleness
+
+### London School (Mockist, Outside-In)
+
+- **Unit definition**: A single class in isolation
+- **Approach**: Top-down; start from the API, work inward
+- **Test doubles**: Mock all collaborators
+- **Verification**: Behavior verification — confirm correct method calls occurred
+- **Testing style**: White-box; tests know about internals
+- **Refactoring**: Can be brittle — tests break when implementation changes
+- **Best for**: Designing interactions upfront; driving architecture decisions
+
+### Recommended: Hybrid Approach
+
+Apply Detroit discipline as the default — use real objects, verify state. Apply London mocking only at architectural boundaries (external APIs, databases, clocks). Never mock value objects, pure functions, or in-process helpers.
+
+The most important rule: if you're mocking to make a test easy to write, that's often a design smell (see The Hard Test in anti-patterns). If you're mocking because the dependency is genuinely external or slow, that's the right use.
 
 ## When to Use TDD
 
@@ -97,6 +167,8 @@ For these cases, write tests AFTER the implementation (test-last), but still wri
 ## BDD and ATDD Extensions
 
 ### Behavior-Driven Development (BDD)
+
+> Source: https://martinfowler.com/bliki/GivenWhenThen.html
 
 BDD extends TDD by using natural language to describe behavior. Useful when tests need to be readable by non-developers.
 
@@ -133,3 +205,55 @@ Write high-level acceptance tests before implementing a feature. These tests des
 4. Refactor
 
 ATDD is most valuable for features with clear acceptance criteria and when working with product owners or stakeholders.
+
+## Advanced Techniques
+
+### Property-Based Testing
+
+Instead of writing individual input/output pairs, define **properties** that should always hold true and let a framework generate hundreds of test cases automatically.
+
+**Best for:** Pure functions, algorithms, data transformations, serialization round-trips.
+
+**Tools:**
+- Python: [Hypothesis](https://hypothesis.readthedocs.io)
+- JavaScript/TypeScript: [fast-check](https://fast-check.dev)
+- Go: `testing/quick` (stdlib), [gopter](https://github.com/leanovate/gopter)
+- Rust: [proptest](https://github.com/proptest-rs/proptest)
+- Java: [jqwik](https://jqwik.net)
+- Elixir: [StreamData](https://hexdocs.pm/stream_data)
+
+**Example property** (Python/Hypothesis):
+```python
+from hypothesis import given, strategies as st
+
+@given(st.lists(st.integers()))
+def test_sort_is_idempotent(lst):
+    assert sorted(sorted(lst)) == sorted(lst)
+```
+
+### Mutation Testing
+
+Mutation testing introduces small code changes (mutations) and checks whether your tests catch them. A test suite that lets mutations survive has gaps in its coverage.
+
+**Metric:** Mutation score = % of mutations killed. Target 80%+.
+
+**Tools:**
+- JavaScript/TypeScript/C#: [Stryker](https://stryker-mutator.io)
+- Java: [PITest](https://pitest.org)
+- Python: [mutmut](https://mutmut.readthedocs.io)
+- Go: [go-mutesting](https://github.com/zimmski/go-mutesting)
+
+Run mutation testing periodically (not on every commit) to identify weak spots in the test suite.
+
+### Contract Testing
+
+In microservice or distributed architectures, contract tests verify that services communicate correctly without running full integration tests.
+
+**How it works:**
+1. Consumer defines a contract (expected interactions)
+2. Provider verifies it can fulfill the contract
+3. Both test independently — no need to spin up the full system
+
+**Tool:** [Pact](https://pact.io) — supports most major languages.
+
+Contract tests replace the expensive integration test layer for inter-service communication while still catching breaking API changes early.

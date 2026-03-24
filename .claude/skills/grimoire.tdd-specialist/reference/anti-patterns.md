@@ -12,6 +12,8 @@ Common testing mistakes that reduce test value and increase maintenance cost. Th
 - [The Mockery](#the-mockery)
 - [The Inspector](#the-inspector)
 - [The Flaky Test](#the-flaky-test)
+- [The Cargo Culter](#the-cargo-culter)
+- [The Hard Test](#the-hard-test)
 
 ## The Liar
 
@@ -164,3 +166,79 @@ assertThat(result).isSortedAccordingTo(naturalOrder());
 - Dependency on test execution order
 
 **Fix:** Inject time as a dependency. Use fixed seeds for randomness. Ensure test isolation. Use proper async synchronization.
+
+## The Cargo Culter
+
+**What it is:** Writing tests to hit a coverage percentage target rather than to verify behavior. The tests exist to satisfy a metric, not to provide confidence.
+
+**How to spot it:**
+- Tests that assert trivially obvious things (e.g., `assert user.name == user.name`)
+- Every private method has a corresponding test accessed via reflection
+- 100% coverage but bugs still escape to production
+- Test suite takes minutes to pass but developers don't trust it
+
+**Fix:** Coverage is a diagnostic tool, not a goal. Use it to find untested gaps, not as a number to optimize. High 80s–90% emerges naturally from disciplined TDD. A test that only exists to push coverage up is worse than no test — it adds maintenance cost without adding confidence.
+
+```python
+# Bad — written for coverage, not for confidence
+def test_user_has_name():
+    user = User(name="Alice")
+    assert user.name is not None  # This verifies nothing meaningful
+
+# Good — written to verify a business rule
+def test_user_with_empty_name_raises_validation_error():
+    with pytest.raises(ValidationError, match="name cannot be empty"):
+        User(name="")
+```
+
+> See: https://martinfowler.com/bliki/TestCoverage.html
+
+## The Hard Test
+
+**What it is:** Not an anti-pattern in the test itself, but a signal from the test about the production code. When a test is painful, complex, or requires elaborate setup, the production code has a design problem.
+
+**How to spot it:**
+- Need to mock 5+ dependencies to test one class
+- Need to access private internals to verify behavior
+- Test requires a complex sequence of operations just to get to the state under test
+- You find yourself thinking "testing this would be too hard"
+
+**What it signals:**
+- Too many responsibilities in one class (SRP violation)
+- Hidden dependencies or tight coupling
+- Poor separation of concerns
+- Untestable architecture (e.g., side effects embedded in business logic)
+
+**Fix:** Resist the urge to skip the test or work around it with clever mocking. Instead, fix the production code design. Extract classes, inject dependencies, separate concerns. A hard test is a free design review — take the feedback.
+
+```python
+# Hard to test — service does too much
+class OrderService:
+    def process(self, order):
+        db = Database()          # hidden dependency
+        email = EmailClient()    # hidden dependency
+        self._validate(order)
+        db.save(order)
+        email.send_confirmation(order)
+        self._update_inventory(order)  # another responsibility
+
+# Easy to test — dependencies explicit, concerns separated
+class OrderService:
+    def __init__(self, repo: OrderRepository, notifier: Notifier):
+        self._repo = repo
+        self._notifier = notifier
+
+    def process(self, order: Order) -> OrderResult:
+        self._validate(order)
+        saved = self._repo.save(order)
+        self._notifier.notify(saved)
+        return saved
+```
+
+---
+
+## Further Reading
+
+- xUnit Patterns (Meszaros): http://xunitpatterns.com
+- Codepipes testing anti-patterns: https://blog.codepipes.com/testing/software-testing-antipatterns.html
+- Google SWE Book — Test Doubles: https://abseil.io/resources/swe-book/html/ch13.html
