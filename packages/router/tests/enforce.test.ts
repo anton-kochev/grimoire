@@ -17,7 +17,7 @@ function readJson(filePath: string): unknown {
 
 function makeManifest(
   projectDir: string,
-  agents: Record<string, { file_patterns?: string[]; enforce?: boolean; has_paired_skill?: boolean }>,
+  agents: Record<string, { file_patterns?: string[]; enforce?: boolean }>,
 ): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
@@ -587,108 +587,6 @@ describe('runSubagentStart', () => {
     // Assert
     const data = readJson(registryPath) as { sessions: string[] };
     expect(data.sessions.filter((s) => s === 'session-abc')).toHaveLength(1);
-  });
-
-  it('should inject paired skill content when agent_name is provided and skill exists', () => {
-    // Arrange — set CLAUDE_PROJECT_DIR so skill lookup resolves to tmp dir
-    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    const skillDir = join(projectDir, '.claude', 'skills', 'grimoire.csharp-coder-skill');
-    mkdirSync(skillDir, { recursive: true });
-    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\nWrite clean C# code.');
-    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    // Act
-    try {
-      runSubagentStart({ session_id: 'session-abc', agent_name: 'grimoire.csharp-coder' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
-
-    // Assert
-    expect(writeSpy).toHaveBeenCalledOnce();
-    const output = JSON.parse(writeSpy.mock.calls[0]![0] as string) as {
-      hookSpecificOutput: { hookEventName: string; additionalContext: string };
-    };
-    expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
-    expect(output.hookSpecificOutput.additionalContext).toContain('Write clean C# code.');
-    writeSpy.mockRestore();
-    delete process.env['CLAUDE_PROJECT_DIR'];
-  });
-
-  it('should inject warning when paired skill is missing and has_paired_skill is true', () => {
-    // Arrange
-    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    // Manifest declares the pairing — warning fires when skill dir is absent
-    makeManifest(projectDir, { 'grimoire.csharp-coder': { has_paired_skill: true } });
-    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    // Act
-    try {
-      runSubagentStart({ session_id: 'session-abc', agent_name: 'grimoire.csharp-coder' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
-
-    // Assert
-    expect(writeSpy).toHaveBeenCalledOnce();
-    const output = JSON.parse(writeSpy.mock.calls[0]![0] as string) as {
-      hookSpecificOutput: { additionalContext: string };
-    };
-    expect(output.hookSpecificOutput.additionalContext).toContain('No paired skill found');
-    expect(output.hookSpecificOutput.additionalContext).toContain('grimoire.csharp-coder');
-    writeSpy.mockRestore();
-    delete process.env['CLAUDE_PROJECT_DIR'];
-  });
-
-  it('should not write to stdout when agent has no paired skill declaration and skill dir is absent', () => {
-    // Arrange
-    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    // Manifest has no has_paired_skill flag — silent skip
-    makeManifest(projectDir, { 'grimoire.csharp-coder': {} });
-    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    // Act
-    try {
-      runSubagentStart({ session_id: 'session-abc', agent_name: 'grimoire.csharp-coder' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
-
-    // Assert
-    expect(writeSpy).not.toHaveBeenCalled();
-    writeSpy.mockRestore();
-    delete process.env['CLAUDE_PROJECT_DIR'];
-  });
-
-  it('should inject skill content when skill dir exists regardless of has_paired_skill flag', () => {
-    // Arrange
-    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    // has_paired_skill: false but skill dir is manually present — still inject
-    makeManifest(projectDir, { 'grimoire.csharp-coder': { has_paired_skill: false } });
-    const skillDir = join(projectDir, '.claude', 'skills', 'grimoire.csharp-coder-skill');
-    mkdirSync(skillDir, { recursive: true });
-    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\nManual skill content.');
-    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    // Act
-    try {
-      runSubagentStart({ session_id: 'session-abc', agent_name: 'grimoire.csharp-coder' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
-
-    // Assert
-    expect(writeSpy).toHaveBeenCalledOnce();
-    const output = JSON.parse(writeSpy.mock.calls[0]![0] as string) as {
-      hookSpecificOutput: { additionalContext: string };
-    };
-    expect(output.hookSpecificOutput.additionalContext).toContain('Manual skill content.');
-    writeSpy.mockRestore();
-    delete process.env['CLAUDE_PROJECT_DIR'];
   });
 
   it('should not write to stdout when agent_name is undefined', () => {

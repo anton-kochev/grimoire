@@ -104,18 +104,6 @@ describe('writeManifest', () => {
     expect(loaded.agents['grimoire.typescript-coder']?.enforce).toBe(true);
   });
 
-  it('should preserve has_paired_skill flag on round-trip', () => {
-    // Arrange
-    const manifest = readManifest(projectDir);
-    manifest.agents['grimoire.csharp-coder'] = { has_paired_skill: true };
-
-    // Act
-    writeManifest(projectDir, manifest);
-
-    // Assert
-    const loaded = readManifest(projectDir);
-    expect(loaded.agents['grimoire.csharp-coder']?.has_paired_skill).toBe(true);
-  });
 });
 
 // =============================================================================

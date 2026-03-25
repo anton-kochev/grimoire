@@ -274,32 +274,4 @@ describe('loadManifest', () => {
     expect(() => loadManifest(manifestPath)).toThrow(/enforce.*boolean/i);
   });
 
-  it('should parse agent entry with has_paired_skill: true', () => {
-    const manifestPath = join(testDir, 'manifest.json');
-    const withPairedSkill = {
-      ...validManifest,
-      agents: {
-        'grimoire.csharp-coder': {
-          has_paired_skill: true,
-        },
-      },
-    };
-    writeFileSync(manifestPath, JSON.stringify(withPairedSkill));
-
-    const manifest = loadManifest(manifestPath);
-
-    expect(manifest.agents?.['grimoire.csharp-coder']?.has_paired_skill).toBe(true);
-  });
-
-  it('should throw for non-boolean has_paired_skill', () => {
-    const manifestPath = join(testDir, 'manifest.json');
-    const invalid = {
-      ...validManifest,
-      agents: { 'bad-agent': { has_paired_skill: 'yes' } },
-    };
-    writeFileSync(manifestPath, JSON.stringify(invalid));
-
-    expect(() => loadManifest(manifestPath)).toThrow(/has_paired_skill.*boolean/i);
-  });
-
 });

@@ -13,7 +13,6 @@ function normalizeSeparators(p: string): string {
 }
 import { loadManifest } from './manifest.js';
 import { writeLog } from './logging.js';
-import { readSkillBody } from './skill-content.js';
 
 const DEFAULT_REGISTRY_PATH = '.claude/hooks/.grimoire-subagents.json';
 
@@ -38,34 +37,6 @@ function writeRegistry(registryPath: string, sessions: string[]): void {
   const dir = dirname(registryPath);
   mkdirSync(dir, { recursive: true });
   writeFileSync(registryPath, JSON.stringify({ sessions }, null, 2) + '\n');
-}
-
-// =============================================================================
-// Paired skill resolution
-// =============================================================================
-
-/**
- * Resolves the paired skill context for a given agent.
- * Convention: agent `grimoire.csharp-coder` → skill dir `grimoire.csharp-coder-skill`.
- * Returns skill body if found, a warning if has_paired_skill is true but dir is absent,
- * or null for silent skip (no paired skill declared and dir absent).
- */
-function resolveAgentSkillContext(
-  agentName: string,
-  projectDir: string,
-  hasPairedSkill: boolean,
-): string | null {
-  const skillPath = `.claude/skills/${agentName}-skill`;
-  const body = readSkillBody(skillPath, projectDir);
-  if (body) return body;
-
-  if (!hasPairedSkill) return null;
-
-  return [
-    `⚠ No paired skill found for agent "${agentName}".`,
-    `Expected: ${join(projectDir, skillPath, 'SKILL.md')}`,
-    `Please inform the user that the paired skill is missing and ask whether to continue without it.`,
-  ].join('\n');
 }
 
 // =============================================================================
@@ -237,24 +208,6 @@ export function runSubagentStart(input: SubagentHookInput, registryPath?: string
   if (!sessions.includes(input.session_id)) {
     sessions.push(input.session_id);
     writeRegistry(resolvedPath, sessions);
-  }
-
-  if (input.agent_name) {
-    let hasPairedSkill = false;
-    try {
-      const manifest = loadManifest(join(projectDir, '.claude', 'skills-manifest.json'));
-      hasPairedSkill = manifest.agents?.[input.agent_name]?.has_paired_skill === true;
-    } catch { /* manifest unreadable — treat as no paired skill */ }
-
-    const context = resolveAgentSkillContext(input.agent_name, projectDir, hasPairedSkill);
-    if (context !== null) {
-      process.stdout.write(JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'SubagentStart',
-          additionalContext: context,
-        },
-      }));
-    }
   }
 
   process.exit(0);
