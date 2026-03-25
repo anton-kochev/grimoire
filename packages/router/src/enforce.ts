@@ -13,6 +13,7 @@ function normalizeSeparators(p: string): string {
 }
 import { loadManifest } from './manifest.js';
 import { writeLog } from './logging.js';
+import { readSkillBody } from './skill-content.js';
 
 const DEFAULT_REGISTRY_PATH = '.claude/hooks/.grimoire-subagents.json';
 
@@ -193,6 +194,58 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
 }
 
 // =============================================================================
+// Agent skill resolution (frontmatter-based)
+// =============================================================================
+
+/**
+ * Parses the `skills:` array from an agent .md file's YAML frontmatter.
+ * SYNC: identical logic in packages/cli/src/frontmatter.ts — keep in sync.
+ */
+function parseAgentSkills(content: string): string[] {
+  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm?.[1]) return [];
+
+  const lines = fm[1].split('\n');
+  const skillsIdx = lines.findIndex((l) => /^skills:\s*$/.test(l));
+  if (skillsIdx === -1) return [];
+
+  const skills: string[] = [];
+  for (let i = skillsIdx + 1; i < lines.length; i++) {
+    const match = lines[i]!.match(/^\s+-\s+(.+)$/);
+    if (!match) break;
+    const name = match[1]!.trim();
+    if (name) skills.push(name);
+  }
+  return skills;
+}
+
+/**
+ * Resolves skill content for an agent by reading skills declared in its frontmatter.
+ * Returns concatenated skill bodies with headers, or null if no skills resolve.
+ */
+export function resolveAgentSkills(agentName: string, projectDir: string): string | null {
+  let content: string;
+  try {
+    content = readFileSync(join(projectDir, '.claude', 'agents', `${agentName}.md`), 'utf-8');
+  } catch {
+    return null;
+  }
+
+  const skillNames = parseAgentSkills(content);
+  if (skillNames.length === 0) return null;
+
+  const sections: string[] = [];
+  for (const name of skillNames) {
+    const body = readSkillBody(`.claude/skills/${name}`, projectDir);
+    if (body) {
+      sections.push(`# Skill: ${name}\n\n${body}`);
+    }
+  }
+
+  return sections.length > 0 ? sections.join('\n\n---\n\n') : null;
+}
+
+// =============================================================================
 // Subagent session registry
 // =============================================================================
 
@@ -208,6 +261,18 @@ export function runSubagentStart(input: SubagentHookInput, registryPath?: string
   if (!sessions.includes(input.session_id)) {
     sessions.push(input.session_id);
     writeRegistry(resolvedPath, sessions);
+  }
+
+  if (input.agent_name) {
+    const context = resolveAgentSkills(input.agent_name, projectDir);
+    if (context !== null) {
+      process.stdout.write(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'SubagentStart',
+          additionalContext: context,
+        },
+      }));
+    }
   }
 
   process.exit(0);

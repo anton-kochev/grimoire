@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { evaluateEnforce, runEnforce, runSubagentStart, runSubagentStop } from '../src/enforce.js';
+import { evaluateEnforce, resolveAgentSkills, runEnforce, runSubagentStart, runSubagentStop } from '../src/enforce.js';
 import type { PreToolUseInput } from '../src/types.js';
 
 function makeTmpDir(prefix: string): string {
@@ -589,6 +589,30 @@ describe('runSubagentStart', () => {
     expect(data.sessions.filter((s) => s === 'session-abc')).toHaveLength(1);
   });
 
+  it('should not write to stdout when agent has no skills in frontmatter', () => {
+    // Arrange
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+    const registryPath = join(projectDir, '.grimoire-subagents.json');
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'no-skills-agent.md'), '---\nname: no-skills-agent\ntools: Read\n---\n\nBody.');
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    // Act
+    try {
+      runSubagentStart({ session_id: 'session-abc', agent_name: 'no-skills-agent' }, registryPath);
+    } catch {
+      // process.exit(0) throws in vitest
+    }
+
+    // Assert — session registered, but no stdout (no skills to inject)
+    const data = readJson(registryPath) as { sessions: string[] };
+    expect(data.sessions).toContain('session-abc');
+    expect(writeSpy).not.toHaveBeenCalled();
+    writeSpy.mockRestore();
+    delete process.env['CLAUDE_PROJECT_DIR'];
+  });
+
   it('should not write to stdout when agent_name is undefined', () => {
     // Arrange
     process.env['CLAUDE_PROJECT_DIR'] = projectDir;
@@ -608,27 +632,150 @@ describe('runSubagentStart', () => {
     delete process.env['CLAUDE_PROJECT_DIR'];
   });
 
-  it('should register session even when skill injection fires', () => {
+  it('should inject skill content from agent frontmatter and write stdout JSON', () => {
     // Arrange
     process.env['CLAUDE_PROJECT_DIR'] = projectDir;
     const registryPath = join(projectDir, '.grimoire-subagents.json');
-    const skillDir = join(projectDir, '.claude', 'skills', 'grimoire.csharp-coder-skill');
+
+    // Create agent with skills in frontmatter
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'grimoire.csharp-coder.md'), [
+      '---',
+      'name: grimoire.csharp-coder',
+      'skills:',
+      '  - skill-a',
+      '---',
+      '',
+      'Agent body.',
+    ].join('\n'));
+
+    // Create matching skill
+    const skillDir = join(projectDir, '.claude', 'skills', 'skill-a');
     mkdirSync(skillDir, { recursive: true });
-    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\nContent.');
-    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: skill-a\ndescription: test\n---\nSkill A content.');
+
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     // Act
     try {
-      runSubagentStart({ session_id: 'my-session', agent_name: 'grimoire.csharp-coder' }, registryPath);
+      runSubagentStart({ session_id: 'session-abc', agent_name: 'grimoire.csharp-coder' }, registryPath);
     } catch {
       // process.exit(0) throws in vitest
     }
 
     // Assert
-    const data = readJson(registryPath) as { sessions: string[] };
-    expect(data.sessions).toContain('my-session');
-    vi.restoreAllMocks();
+    expect(writeSpy).toHaveBeenCalledOnce();
+    const output = JSON.parse(writeSpy.mock.calls[0]![0] as string) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
+    expect(output.hookSpecificOutput.additionalContext).toContain('Skill A content.');
+    writeSpy.mockRestore();
     delete process.env['CLAUDE_PROJECT_DIR'];
+  });
+});
+
+// =============================================================================
+// resolveAgentSkills (unit tests)
+// =============================================================================
+
+describe('resolveAgentSkills', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('resolve-skills');
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  function makeAgent(name: string, frontmatter: string, body = 'Agent body.'): void {
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, `${name}.md`), `---\n${frontmatter}\n---\n\n${body}`);
+  }
+
+  function makeSkill(name: string, body: string): void {
+    const skillDir = join(projectDir, '.claude', 'skills', name);
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, 'SKILL.md'), `---\nname: ${name}\ndescription: test\n---\n${body}`);
+  }
+
+  it('should return skill body with header for single skill', () => {
+    makeAgent('test-agent', 'name: test-agent\nskills:\n  - skill-a');
+    makeSkill('skill-a', 'Skill A content.');
+
+    const result = resolveAgentSkills('test-agent', projectDir);
+
+    expect(result).toContain('# Skill: skill-a');
+    expect(result).toContain('Skill A content.');
+  });
+
+  it('should concatenate multiple skills with separators', () => {
+    makeAgent('test-agent', 'name: test-agent\nskills:\n  - skill-a\n  - skill-b');
+    makeSkill('skill-a', 'Content A.');
+    makeSkill('skill-b', 'Content B.');
+
+    const result = resolveAgentSkills('test-agent', projectDir);
+
+    expect(result).toContain('# Skill: skill-a');
+    expect(result).toContain('Content A.');
+    expect(result).toContain('# Skill: skill-b');
+    expect(result).toContain('Content B.');
+    // Verify separator exists between skills
+    const idxA = result!.indexOf('Content A.');
+    const idxB = result!.indexOf('Content B.');
+    const between = result!.slice(idxA, idxB);
+    expect(between).toContain('---');
+  });
+
+  it('should return null when agent has no skills key', () => {
+    makeAgent('test-agent', 'name: test-agent\ntools: Read, Edit');
+
+    const result = resolveAgentSkills('test-agent', projectDir);
+
+    expect(result).toBeNull();
+  });
+
+  it('should return null when agent file is missing', () => {
+    const result = resolveAgentSkills('nonexistent-agent', projectDir);
+
+    expect(result).toBeNull();
+  });
+
+  it('should skip missing skill dir and still return other skills', () => {
+    makeAgent('test-agent', 'name: test-agent\nskills:\n  - skill-a\n  - missing-skill');
+    makeSkill('skill-a', 'Content A.');
+    // missing-skill dir not created
+
+    const result = resolveAgentSkills('test-agent', projectDir);
+
+    expect(result).toContain('Content A.');
+    expect(result).not.toContain('missing-skill');
+  });
+
+  it('should return null when all declared skills are unresolvable', () => {
+    makeAgent('test-agent', 'name: test-agent\nskills:\n  - missing-a\n  - missing-b');
+
+    const result = resolveAgentSkills('test-agent', projectDir);
+
+    expect(result).toBeNull();
+  });
+
+  it('should skip skill with empty SKILL.md body', () => {
+    makeAgent('test-agent', 'name: test-agent\nskills:\n  - empty-skill\n  - good-skill');
+    // Empty body — readSkillBody returns null
+    const emptyDir = join(projectDir, '.claude', 'skills', 'empty-skill');
+    mkdirSync(emptyDir, { recursive: true });
+    writeFileSync(join(emptyDir, 'SKILL.md'), '---\nname: empty-skill\ndescription: test\n---\n');
+    makeSkill('good-skill', 'Good content.');
+
+    const result = resolveAgentSkills('test-agent', projectDir);
+
+    expect(result).toContain('Good content.');
+    expect(result).not.toContain('# Skill: empty-skill');
   });
 });
 

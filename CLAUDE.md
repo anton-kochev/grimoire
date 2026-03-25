@@ -17,7 +17,7 @@ Collection of specialized agents and skills for Claude Code.
 - .claude/skills/grimoire.skill-developer/scripts/create-skill.sh <name>: Scaffold new skill
 
 ## Architecture
-- Agents: Single .md files in `.claude/agents/` with persona, tools, model in frontmatter
+- Agents: Single .md files in `.claude/agents/` with persona, tools, skills, model in frontmatter
 - Skills: Directories in `.claude/skills/<name>/` with SKILL.md + supporting files
 - CLI: `packages/cli/` - installs agents/skills from npm packs into projects
   - `grimoire add` launches interactive wizard (pack selection → item selection → auto-activation)
@@ -25,6 +25,7 @@ Collection of specialized agents and skills for Claude Code.
   - `grimoire remove` interactively removes grimoire-managed items (custom items are never shown)
   - `grimoire update` checks for and applies updates to grimoire-managed items
   - `grimoire enforce-agent` toggles per-agent enforcement (delegates file edits to agents)
+  - `grimoire agent-skills` manages skill assignments for agents (add/remove skills in frontmatter)
   - `grimoire logs` opens real-time log viewer in browser (`--file`, `--port`)
 - Router: `packages/router/` - hook runtime for skill auto-activation and agent enforcement
   - UserPromptSubmit: Matches skills to user prompts (keywords: exact, stem, fuzzy)

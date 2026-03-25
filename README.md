@@ -264,12 +264,8 @@ Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.jso
   ],
   "agents": {
     "grimoire.csharp-coder": {
-      "always_skills": [],
-      "compatible_skills": ["DotNet Unit Testing", "Conventional Commit"]
-    },
-    "grimoire.dotnet-unit-test-writer": {
-      "always_skills": ["DotNet Unit Testing"],
-      "compatible_skills": []
+      "file_patterns": ["*.cs"],
+      "enforce": false
     }
   }
 }
@@ -279,8 +275,10 @@ Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.jso
 
 | Field | Description |
 |-------|-------------|
-| `always_skills` | Skills the agent MUST activate (mandatory) |
-| `compatible_skills` | Skills scored against task prompt (optional) |
+| `file_patterns` | Glob patterns for enforcement delegation |
+| `enforce` | Whether enforcement is active for this agent |
+
+> **Note:** Agent skill assignments are managed via frontmatter (`skills:` array in the agent `.md` file), not the manifest. Use `grimoire agent-skills` to manage them.
 
 ### Hook Registration
 

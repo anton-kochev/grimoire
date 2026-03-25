@@ -6,6 +6,7 @@ import { runRemoveInteractive } from './commands/remove.js';
 import { runUpdate } from './commands/update.js';
 import { runLogs } from './commands/logs.js';
 import { runEnforceAgent } from './commands/enforce-agent.js';
+import { runAgentSkills } from './commands/agent-skills.js';
 import { runList } from './commands/list.js';
 
 const require = createRequire(import.meta.url);
@@ -102,6 +103,15 @@ const main = defineCommand({
       },
       async run() {
         await runEnforceAgent(process.cwd());
+      },
+    }),
+    'agent-skills': defineCommand({
+      meta: {
+        name: 'agent-skills',
+        description: 'Manage skill assignments for agents',
+      },
+      async run() {
+        await runAgentSkills(process.cwd());
       },
     }),
   },
