@@ -18,44 +18,6 @@
   ],
   "skills": [
     {
-      "name": "grimoire.tdd-specialist",
-      "path": "skills/grimoire.tdd-specialist",
-      "description": "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, doing test-driven development, or setting up test infrastructure in ANY language. Auto-detects project language and test framework.",
-      "version": "1.0.0",
-      "triggers": {
-        "keywords": [
-          "tdd",
-          "test-driven",
-          "unittest",
-          "unit-test",
-          "pytest",
-          "jest",
-          "vitest",
-          "junit",
-          "gotest",
-          "cargo-test",
-          "mocha",
-          "rspec"
-        ],
-        "file_extensions": [],
-        "patterns": [
-          "write.*test",
-          "add.*test",
-          "create.*test",
-          "test.*coverage",
-          "red.green.refactor"
-        ],
-        "file_paths": [
-          "tests/**",
-          "test/**",
-          "__tests__/**",
-          "*_test.go",
-          "**/*.test.*",
-          "**/*.spec.*"
-        ]
-      }
-    },
-    {
       "name": "grimoire.conventional-commit",
       "path": "skills/grimoire.conventional-commit",
       "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes. Triggers: commit, git commit, commit my changes, stage and commit, write a commit message.",

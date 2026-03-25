@@ -1,0 +1,19 @@
+{
+  "name": "go-pack",
+  "version": "1.0.0",
+  "agents": [],
+  "skills": [
+    {
+      "name": "grimoire.unit-testing-go",
+      "path": "skills/grimoire.unit-testing-go",
+      "description": "Go unit testing specialist. Provides conventions and patterns for the testing package and testify.",
+      "version": "1.0.0",
+      "triggers": {
+        "keywords": ["gotest", "testify", "gomock", "table-driven"],
+        "file_extensions": [".go"],
+        "patterns": ["write.*test", "add.*test", "create.*test", "go.*test", "test.*coverage"],
+        "file_paths": ["**/*_test.go", "**/testdata/**"]
+      }
+    }
+  ]
+}

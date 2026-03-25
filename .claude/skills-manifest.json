@@ -13,15 +13,15 @@
   },
   "skills": [
     {
-      "path": ".claude/skills/grimoire.dotnet-unit-testing",
+      "path": ".claude/skills/grimoire.unit-testing-dotnet",
       "name": "DotNet Unit Testing",
-      "description": "Unit testing for C#/.NET projects",
+      "description": "C#/.NET unit testing specialist",
       "triggers": {
         "keywords": [
-          "unittest",
           "xunit",
           "nunit",
-          "tdd",
+          "tunit",
+          "mstest",
           "moq",
           "nsubstitute"
         ],
@@ -39,7 +39,125 @@
           "tests/**",
           "test/**",
           "Tests/**",
-          "Test/**"
+          "**/*Tests.cs",
+          "**/*Test.cs"
+        ]
+      }
+    },
+    {
+      "path": ".claude/skills/grimoire.unit-testing-typescript",
+      "name": "TypeScript Unit Testing",
+      "description": "TypeScript/JavaScript unit testing specialist",
+      "triggers": {
+        "keywords": [
+          "vitest",
+          "jest",
+          "mocha"
+        ],
+        "file_extensions": [
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx"
+        ],
+        "patterns": [
+          "write.*test",
+          "add.*test",
+          "create.*test",
+          "test.*coverage",
+          "typescript.*test"
+        ],
+        "file_paths": [
+          "__tests__/**",
+          "**/*.test.ts",
+          "**/*.spec.ts",
+          "**/*.test.js",
+          "**/*.spec.js",
+          "**/vitest.config.*",
+          "**/jest.config.*"
+        ]
+      }
+    },
+    {
+      "path": ".claude/skills/grimoire.unit-testing-python",
+      "name": "Python Unit Testing",
+      "description": "Python unit testing specialist",
+      "triggers": {
+        "keywords": [
+          "pytest",
+          "unittest",
+          "hypothesis",
+          "conftest"
+        ],
+        "file_extensions": [
+          ".py"
+        ],
+        "patterns": [
+          "write.*test",
+          "add.*test",
+          "create.*test",
+          "test.*coverage",
+          "python.*test"
+        ],
+        "file_paths": [
+          "tests/**",
+          "test/**",
+          "**/test_*.py",
+          "**/*_test.py",
+          "**/conftest.py"
+        ]
+      }
+    },
+    {
+      "path": ".claude/skills/grimoire.unit-testing-go",
+      "name": "Go Unit Testing",
+      "description": "Go unit testing specialist",
+      "triggers": {
+        "keywords": [
+          "gotest",
+          "testify",
+          "gomock"
+        ],
+        "file_extensions": [
+          ".go"
+        ],
+        "patterns": [
+          "write.*test",
+          "add.*test",
+          "create.*test",
+          "go.*test",
+          "table.*driven"
+        ],
+        "file_paths": [
+          "**/*_test.go",
+          "**/testdata/**"
+        ]
+      }
+    },
+    {
+      "path": ".claude/skills/grimoire.unit-testing-rust",
+      "name": "Rust Unit Testing",
+      "description": "Rust unit testing specialist",
+      "triggers": {
+        "keywords": [
+          "cargo-test",
+          "mockall",
+          "proptest",
+          "rstest"
+        ],
+        "file_extensions": [
+          ".rs"
+        ],
+        "patterns": [
+          "write.*test",
+          "add.*test",
+          "create.*test",
+          "rust.*test",
+          "cargo.*test"
+        ],
+        "file_paths": [
+          "**/tests/**/*.rs",
+          "**/*_test.rs"
         ]
       }
     },
@@ -127,43 +245,6 @@
       }
     },
     {
-      "path": ".claude/skills/grimoire.tdd-specialist",
-      "name": "TDD Specialist",
-      "description": "Language-agnostic TDD and unit testing specialist",
-      "triggers": {
-        "keywords": [
-          "tdd",
-          "test-driven",
-          "unittest",
-          "unit-test",
-          "pytest",
-          "jest",
-          "vitest",
-          "junit",
-          "gotest",
-          "cargo-test",
-          "mocha",
-          "rspec"
-        ],
-        "file_extensions": [],
-        "patterns": [
-          "write.*test",
-          "add.*test",
-          "create.*test",
-          "test.*coverage",
-          "red.green.refactor"
-        ],
-        "file_paths": [
-          "tests/**",
-          "test/**",
-          "__tests__/**",
-          "*_test.go",
-          "**/*.test.*",
-          "**/*.spec.*"
-        ]
-      }
-    },
-    {
       "path": ".claude/skills/grimoire.dotnet-feature-workflow",
       "name": "DotNet Feature Workflow",
       "description": "End-to-end .NET feature development",
@@ -229,7 +310,6 @@
   "agents": {
     "grimoire.csharp-coder": {},
     "grimoire.dotnet-architect": {},
-    "grimoire.dotnet-unit-test-writer": {},
-    "grimoire.tdd-specialist": {}
+    "grimoire.dotnet-unit-test-writer": {}
   }
 }

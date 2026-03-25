@@ -1,0 +1,29 @@
+{
+  "name": "rust-pack",
+  "version": "1.0.0",
+  "agents": [],
+  "skills": [
+    {
+      "name": "grimoire.unit-testing-rust",
+      "path": "skills/grimoire.unit-testing-rust",
+      "description": "Rust unit testing specialist. Patterns and best practices for the built-in test framework, mockall, and proptest. Use when writing tests for .rs files, or asking about Rust testing patterns, test modules, mocking traits, property-based testing, integration tests.",
+      "version": "1.0.0",
+      "triggers": {
+        "keywords": ["cargo-test", "mockall", "proptest", "rstest"],
+        "file_extensions": [".rs"],
+        "patterns": [
+          "write.*test",
+          "add.*test",
+          "create.*test",
+          "test.*coverage",
+          "rust.*test",
+          "cargo.*test"
+        ],
+        "file_paths": [
+          "**/tests/**/*.rs",
+          "**/*_test.rs"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "python-pack",
+  "version": "1.0.0",
+  "agents": [],
+  "skills": [
+    {
+      "name": "grimoire.unit-testing-python",
+      "path": "skills/grimoire.unit-testing-python",
+      "description": "Python unit testing specialist. Provides framework selection, conventions, and patterns for pytest and unittest.",
+      "version": "1.0.0",
+      "triggers": {
+        "keywords": ["pytest", "unittest", "conftest", "parametrize"],
+        "file_extensions": [".py"],
+        "patterns": ["write.*test", "add.*test", "create.*test", "python.*test", "test.*coverage"],
+        "file_paths": ["tests/**", "test/**", "**/test_*.py", "**/*_test.py", "**/conftest.py"]
+      }
+    }
+  ]
+}
