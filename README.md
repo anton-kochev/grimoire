@@ -115,6 +115,13 @@ grimoire list
 
 Only items tracked in `skills-manifest.json` (installed by `grimoire add`) are shown. Agents and skills you created manually are not listed.
 
+Selecting an item opens a detail view with description, model, assigned skills, and enforcement paths. From there you can:
+
+- **Remove** — delete the item and clean up its manifest entry
+- **Update** — apply a newer version from the installed pack
+- **Manage skills** (agents only) — add or remove skill assignments
+- **Manage paths** (agents only) — add or remove enforcement file patterns (e.g. `*.ts`, `*.cs`)
+
 ### Remove
 
 ```bash
@@ -264,8 +271,7 @@ Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.jso
   ],
   "agents": {
     "grimoire.csharp-coder": {
-      "file_patterns": ["*.cs"],
-      "enforce": false
+      "file_patterns": ["*.cs"]
     }
   }
 }
@@ -276,9 +282,8 @@ Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.jso
 | Field | Description |
 |-------|-------------|
 | `file_patterns` | Glob patterns for enforcement delegation |
-| `enforce` | Whether enforcement is active for this agent |
 
-> **Note:** Agent skill assignments are managed via frontmatter (`skills:` array in the agent `.md` file), not the manifest. Use `grimoire agent-skills` to manage them.
+> **Note:** Agent skill assignments are managed via frontmatter (`skills:` array in the agent `.md` file), not the manifest. Use `grimoire list → Manage skills` to manage them. Enforcement paths are managed via `grimoire list → Manage paths`.
 
 ### Hook Registration
 

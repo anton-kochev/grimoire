@@ -21,7 +21,7 @@ Collection of specialized agents and skills for Claude Code.
 - Skills: Directories in `.claude/skills/<name>/` with SKILL.md + supporting files
 - CLI: `packages/cli/` - installs agents/skills from npm packs into projects
   - `grimoire add` launches interactive wizard (pack selection → item selection → auto-activation)
-  - `grimoire list` shows only grimoire-managed agents/skills (filtered via skills-manifest.json)
+  - `grimoire list` unified management hub: detail view, remove, update, manage skills, manage enforcement paths
   - `grimoire remove` interactively removes grimoire-managed items (custom items are never shown)
   - `grimoire update` checks for and applies updates to grimoire-managed items
   - `grimoire config` toggles global settings (e.g. agent enforcement)
