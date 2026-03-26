@@ -110,7 +110,7 @@ export async function runAgentSkills(projectDir: string): Promise<void> {
       message: 'What would you like to do?',
       options: [
         { value: 'add' as const, label: 'Add skills' },
-        { value: 'remove' as const, label: 'Remove skills', hint: currentSkills.length === 0 ? 'none to remove' : undefined },
+        { value: 'remove' as const, label: 'Remove skills', ...(currentSkills.length === 0 && { hint: 'none to remove' }) },
         { value: 'done' as const, label: 'Done' },
       ],
     });
