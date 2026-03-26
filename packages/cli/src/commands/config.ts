@@ -6,8 +6,8 @@ import * as clack from '@clack/prompts';
 import { readGrimoireConfig, writeGrimoireConfig } from '../grimoire-config.js';
 import { readManifest, ensureEnforceHooks, removeEnforceHooks } from '../enforce.js';
 
-export async function runConfig(projectDir: string): Promise<void> {
-  clack.intro('Grimoire configuration');
+export async function runConfig(projectDir: string, options?: { quiet?: boolean }): Promise<void> {
+  if (!options?.quiet) clack.intro('Grimoire configuration');
 
   const config = readGrimoireConfig(projectDir);
 
@@ -40,7 +40,7 @@ export async function runConfig(projectDir: string): Promise<void> {
   });
 
   if (clack.isCancel(selected)) {
-    clack.outro('Cancelled.');
+    if (!options?.quiet) clack.outro('Cancelled.');
     return;
   }
 
@@ -48,7 +48,7 @@ export async function runConfig(projectDir: string): Promise<void> {
   const changed = enforcementEnabled !== (config.enforcement ?? false);
 
   if (!changed) {
-    clack.outro('No changes.');
+    if (!options?.quiet) clack.outro('No changes.');
     return;
   }
 
@@ -63,5 +63,5 @@ export async function runConfig(projectDir: string): Promise<void> {
     clack.log.success('Enforcement disabled.');
   }
 
-  clack.outro('Configuration saved.');
+  if (!options?.quiet) clack.outro('Configuration saved.');
 }

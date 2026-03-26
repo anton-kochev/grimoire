@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -8,19 +8,50 @@ vi.mock('@clack/prompts', () => ({
   intro: vi.fn(),
   outro: vi.fn(),
   note: vi.fn(),
-  log: { warn: vi.fn(), error: vi.fn(), message: vi.fn() },
+  confirm: vi.fn(),
+  log: { warn: vi.fn(), error: vi.fn(), message: vi.fn(), info: vi.fn(), success: vi.fn() },
   select: vi.fn(),
   isCancel: vi.fn((v: unknown) => v === Symbol.for('clack.cancel')),
 }));
 
+vi.mock('../src/commands/update.js', () => ({
+  checkUpdates: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock('../src/commands/config.js', () => ({
+  runConfig: vi.fn(),
+}));
+
+vi.mock('../src/commands/agent-skills.js', () => ({
+  runAgentSkillsFor: vi.fn(),
+}));
+
+vi.mock('../src/remove.js', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return {
+    ...actual,
+    removeSingleItem: vi.fn().mockReturnValue({ removed: true }),
+  };
+});
+
+vi.mock('../src/copy.js', () => ({
+  copyItems: vi.fn().mockReturnValue([]),
+}));
+
 import * as clack from '@clack/prompts';
 import { runList } from '../src/commands/list.js';
+import { checkUpdates } from '../src/commands/update.js';
+import { runConfig } from '../src/commands/config.js';
+import { runAgentSkillsFor } from '../src/commands/agent-skills.js';
+import { removeSingleItem } from '../src/remove.js';
 
 // ---- Helpers ----------------------------------------------------------------
 
 const CANCEL = Symbol.for('clack.cancel');
 
 const mockSelect = vi.mocked(clack.select);
+const mockConfirm = vi.mocked(clack.confirm);
+const mockNote = vi.mocked(clack.note);
 const mockIntro = vi.mocked(clack.intro);
 const mockOutro = vi.mocked(clack.outro);
 const mockWarn = vi.mocked(clack.log.warn);
@@ -84,6 +115,7 @@ describe('runList', () => {
   beforeEach(() => {
     projectDir = makeTmpDir();
     vi.clearAllMocks();
+    vi.mocked(checkUpdates).mockReturnValue([]);
   });
 
   afterEach(() => {
@@ -122,9 +154,9 @@ describe('runList', () => {
     expect(mockOutro).toHaveBeenCalledWith('Done.');
   });
 
-  // ---------- Happy paths ------------------------------------------------------
+  // ---------- Item list --------------------------------------------------------
 
-  it('shows select prompt with all installed items', async () => {
+  it('shows select prompt with all installed items and settings option', async () => {
     writeAgent(projectDir, 'my-agent', 'Agent desc');
     writeSkill(projectDir, 'my-skill', 'Skill desc');
     writeManifest(projectDir, { 'my-agent': {} }, [
@@ -141,9 +173,57 @@ describe('runList', () => {
     const labels = callArgs.options.map((o) => o.label);
     expect(labels).toContain('[agent] my-agent');
     expect(labels).toContain('[skill] my-skill');
+    expect(labels.some((l) => l.includes('Settings'))).toBe(true);
   });
 
-  it('displays skill detail when user selects a skill', async () => {
+  // ---------- Action menu — detail display ------------------------------------
+
+  it('shows item detail via note before action menu', async () => {
+    writeAgent(
+      projectDir,
+      'my-agent',
+      'Does things with code',
+      'model: claude-opus-4-5\ntools: Edit,Write\n',
+    );
+    writeManifest(projectDir, { 'my-agent': {} });
+    // select item → action menu cancel → outer cancel
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('Does things with code');
+    expect(noteContent).toContain('claude-opus-4-5');
+    expect(noteContent).not.toContain('Tools:');
+  });
+
+  it('shows current skills in agent detail note', async () => {
+    writeAgent(
+      projectDir,
+      'my-agent',
+      'Agent with skills',
+      'model: sonnet\nskills:\n  - skill-alpha\n  - skill-beta\n',
+    );
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('Skills:');
+    expect(noteContent).toContain('skill-alpha');
+    expect(noteContent).toContain('skill-beta');
+  });
+
+  it('shows skill detail via note with triggers', async () => {
     writeSkill(projectDir, 'my-skill', 'TDD specialist');
     writeManifest(projectDir, {}, [
       {
@@ -159,118 +239,184 @@ describe('runList', () => {
     ]);
     mockSelect
       .mockResolvedValueOnce({ kind: 'skill', name: 'my-skill' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
 
-    const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
-    expect(calls.some((c) => c.includes('Keywords:'))).toBe(true);
-    expect(calls.some((c) => c.includes('Patterns:'))).toBe(true);
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('TDD specialist');
+    expect(noteContent).toContain('tdd');
   });
 
-  it('displays agent detail when user selects an agent', async () => {
-    writeAgent(
-      projectDir,
-      'my-agent',
-      'Does things with code',
-      'model: claude-opus-4-5\ntools: Edit,Write\n',
-    );
+  // ---------- Action menu — remove --------------------------------------------
+
+  it('removes item when remove action confirmed and exits', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
     writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never);
+      .mockResolvedValueOnce('remove' as never);
+    mockConfirm.mockResolvedValueOnce(true as never);
 
     await runList(projectDir);
 
-    const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
-    expect(calls.some((c) => c.includes('Model:'))).toBe(true);
-    expect(calls.some((c) => c.includes('Tools:'))).toBe(true);
-    expect(calls.some((c) => c.includes('File ownership'))).toBe(false);
+    expect(vi.mocked(removeSingleItem)).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'agent', name: 'my-agent' }),
+      projectDir,
+    );
+    // Should exit after remove — no more select calls
+    expect(mockSelect).toHaveBeenCalledTimes(2);
   });
 
-  it('shows file ownership with patterns for an agent with file_patterns', async () => {
-    writeAgent(projectDir, 'csharp-coder', 'C# specialist');
-    writeManifest(projectDir, {
-      'csharp-coder': { file_patterns: ['*.cs'] },
-    });
+  it('does not remove item when remove action declined and exits', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
-      .mockResolvedValueOnce({ kind: 'agent', name: 'csharp-coder' } as never)
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('remove' as never)
+      // Safety: current impl loops back; new impl should exit after 2 calls
+      .mockResolvedValue(CANCEL as never);
+    mockConfirm.mockResolvedValueOnce(false as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(removeSingleItem)).not.toHaveBeenCalled();
+    // After implementation: should exit after decline — only 2 select calls
+    expect(mockSelect).toHaveBeenCalledTimes(2);
+  });
+
+  // ---------- Action menu — update --------------------------------------------
+
+  it('shows update action only when update available', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    vi.mocked(checkUpdates).mockReturnValue([
+      {
+        item: { type: 'agent', name: 'my-agent', sourcePath: '', description: '' },
+        installedVersion: '1.0.0',
+        availableVersion: '2.0.0',
+        hasUpdate: true,
+        packDir: '/fake/pack',
+        sourcePath: 'agents/my-agent.md',
+      },
+    ]);
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
 
-    const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
-    expect(calls.some((c) => c.includes('File ownership'))).toBe(true);
-    expect(calls.some((c) => c.includes('*.cs'))).toBe(true);
+    // Second select call is the action menu
+    const actionArgs = mockSelect.mock.calls[1]![0] as {
+      options: Array<{ value: string; label: string }>;
+    };
+    const actionLabels = actionArgs.options.map((o) => o.label);
+    expect(actionLabels.some((l) => l.includes('Update'))).toBe(true);
   });
 
-  it('loops back to select after showing detail', async () => {
+  it('does not show update action when item is up to date', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    // checkUpdates returns no updates (default mock returns [])
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const actionArgs = mockSelect.mock.calls[1]![0] as {
+      options: Array<{ value: string; label: string }>;
+    };
+    const actionLabels = actionArgs.options.map((o) => o.label);
+    expect(actionLabels.some((l) => l.includes('Update'))).toBe(false);
+  });
+
+  // ---------- Action menu — manage skills (agents only) -----------------------
+
+  it('shows manage-skills action only for agents', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeSkill(projectDir, 'my-skill', 'Skill desc');
+    writeManifest(projectDir, { 'my-agent': {} }, [
+      { name: 'My Skill', path: '.claude/skills/my-skill' },
+    ]);
+
+    // Select agent → cancel action → select skill → cancel action → cancel outer
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
+      .mockResolvedValueOnce({ kind: 'skill', name: 'my-skill' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    // Agent action menu (call index 1)
+    const agentActions = mockSelect.mock.calls[1]![0] as {
+      options: Array<{ value: string }>;
+    };
+    expect(agentActions.options.some((o) => o.value === 'manage-skills')).toBe(true);
+
+    // Skill action menu (call index 3)
+    const skillActions = mockSelect.mock.calls[3]![0] as {
+      options: Array<{ value: string }>;
+    };
+    expect(skillActions.options.some((o) => o.value === 'manage-skills')).toBe(false);
+  });
+
+  it('calls runAgentSkillsFor and exits when manage-skills selected', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('manage-skills' as never)
+      // Safety: current impl loops; new impl should exit after 2 calls
+      .mockResolvedValue(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(runAgentSkillsFor)).toHaveBeenCalledWith(projectDir, 'my-agent');
+    // After implementation: should exit after manage-skills — only 2 select calls
+    expect(mockSelect).toHaveBeenCalledTimes(2);
+  });
+
+  // ---------- Settings option --------------------------------------------------
+
+  it('calls runConfig when settings selected', async () => {
+    writeAgent(projectDir, 'my-agent', 'Desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'settings' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(runConfig)).toHaveBeenCalledWith(projectDir, { quiet: true });
+  });
+
+  // ---------- Loop behavior ---------------------------------------------------
+
+  it('loops back to item list after action menu cancel', async () => {
     writeAgent(projectDir, 'agent-a', 'First agent');
     writeSkill(projectDir, 'skill-x', 'A skill');
     writeManifest(projectDir, { 'agent-a': {} }, [
       { name: 'Skill X', path: '.claude/skills/skill-x' },
     ]);
+    // select agent → cancel action → select skill → cancel action → cancel outer
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'agent-a' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce({ kind: 'skill', name: 'skill-x' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
 
-    // agent detail = 4 messages, skill detail = 5 messages
-    expect(mockSelect).toHaveBeenCalledTimes(3);
-    expect(mockLogMessage.mock.calls.length).toBeGreaterThanOrEqual(2);
-  });
-
-  // ---------- Additional edge cases --------------------------------------------
-
-  it('falls back to manifest description when SKILL.md frontmatter is missing', async () => {
-    // Write a skill dir with a SKILL.md that has no frontmatter
-    const skillDir = join(projectDir, '.claude', 'skills', 'bare-skill');
-    mkdirSync(skillDir, { recursive: true });
-    writeFileSync(join(skillDir, 'SKILL.md'), '# No frontmatter here\n\nJust body.');
-
-    writeManifest(projectDir, {}, [
-      {
-        name: 'Bare Skill',
-        path: '.claude/skills/bare-skill',
-        description: 'Manifest fallback description',
-      },
-    ]);
-    mockSelect
-      .mockResolvedValueOnce({ kind: 'skill', name: 'bare-skill' } as never)
-      .mockResolvedValueOnce(CANCEL as never);
-
-    // Should not throw; description should still be output
-    await runList(projectDir);
-
-    const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
-    expect(calls.some((c) => c.includes('Manifest fallback description'))).toBe(true);
-  });
-
-  it('shows (none) placeholders for skill with empty trigger arrays', async () => {
-    writeSkill(projectDir, 'empty-triggers', 'A skill with empty triggers');
-    writeManifest(projectDir, {}, [
-      {
-        name: 'Empty Triggers',
-        path: '.claude/skills/empty-triggers',
-        triggers: {
-          keywords: [],
-          file_extensions: [],
-          patterns: [],
-          file_paths: [],
-        },
-      },
-    ]);
-    mockSelect
-      .mockResolvedValueOnce({ kind: 'skill', name: 'empty-triggers' } as never)
-      .mockResolvedValueOnce(CANCEL as never);
-
-    await runList(projectDir);
-
-    const allOutput = mockLogMessage.mock.calls.map((c) => c[0] as string).join('\n');
-    const noneCount = (allOutput.match(/\(none\)/g) ?? []).length;
-    expect(noneCount).toBe(4);
+    // 5 select calls: item→action→item→action→item(cancel)
+    expect(mockSelect).toHaveBeenCalledTimes(5);
   });
 
   // ---------- Description formatting ------------------------------------------
@@ -280,19 +426,16 @@ describe('runList', () => {
     writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
 
-    const descCall = mockLogMessage.mock.calls.find((c) =>
-      (c[0] as string).includes('Description:'),
-    );
-    expect(descCall).toBeDefined();
-    const content = descCall![0] as string;
-    // Should contain actual newlines, not the literal \n string
-    expect(content).toContain('First line');
-    expect(content).toContain('Second line');
-    expect(content).not.toContain('\\n');
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('First line');
+    expect(noteContent).toContain('Second line');
+    expect(noteContent).not.toContain('\\n');
   });
 
   it('strips <example> blocks from agent description', async () => {
@@ -304,38 +447,36 @@ describe('runList', () => {
     writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
 
-    const descCall = mockLogMessage.mock.calls.find((c) =>
-      (c[0] as string).includes('Description:'),
-    );
-    expect(descCall).toBeDefined();
-    const content = descCall![0] as string;
-    expect(content).not.toContain('<example>');
-    expect(content).not.toContain('</example>');
-    expect(content).toContain('Short intro');
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).not.toContain('<example>');
+    expect(noteContent).not.toContain('</example>');
+    expect(noteContent).toContain('Short intro');
   });
 
-  it('wraps long description lines within terminal width', async () => {
-    const longLine = 'word '.repeat(40).trim(); // ~200 chars, well over 80
-    writeAgent(projectDir, 'my-agent', longLine);
+  it('strips trailing "Examples of when to use this agent" after example removal', async () => {
+    writeAgent(
+      projectDir,
+      'my-agent',
+      'Great agent for code. Examples of when to use this agent: <example>stuff</example>',
+    );
     writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
 
-    const descCall = mockLogMessage.mock.calls.find((c) =>
-      (c[0] as string).includes('Description:'),
-    );
-    expect(descCall).toBeDefined();
-    const content = descCall![0] as string;
-    const maxLineLength = Math.max(...content.split('\n').map((l) => l.length));
-    // No line should exceed terminal width + indent margin
-    expect(maxLineLength).toBeLessThanOrEqual((process.stdout.columns ?? 80) + 4);
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).not.toContain('Examples of when to use this agent');
+    expect(noteContent).toContain('Great agent for code');
   });
 
   // ---------- Intro is shown when items exist ----------------------------------

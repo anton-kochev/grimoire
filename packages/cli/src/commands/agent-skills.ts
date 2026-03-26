@@ -93,83 +93,89 @@ export async function runAgentSkills(projectDir: string): Promise<void> {
   }
 
   const agentName = selectedAgent as string;
-  const agentPath = join(agentsDir, `${agentName}.md`);
 
-  // Action loop
-  while (true) {
-    const content = readFileSync(agentPath, 'utf-8');
-    const currentSkills = parseAgentSkills(content);
+  await runAgentSkillsFor(projectDir, agentName);
 
-    if (currentSkills.length > 0) {
-      clack.log.info(`Current skills: ${currentSkills.join(', ')}`);
-    } else {
-      clack.log.info('No skills assigned.');
+  clack.outro('Done.');
+}
+
+/**
+ * Runs the skill add/remove action loop for a specific agent.
+ * Used by both the standalone `agent-skills` command and the unified `list` flow.
+ */
+export async function runAgentSkillsFor(projectDir: string, agentName: string): Promise<void> {
+  const agentPath = join(projectDir, '.claude', 'agents', `${agentName}.md`);
+
+  const content = readFileSync(agentPath, 'utf-8');
+  const currentSkills = parseAgentSkills(content);
+
+  if (currentSkills.length > 0) {
+    clack.log.info(`Current skills: ${currentSkills.join(', ')}`);
+  } else {
+    clack.log.info('No skills assigned.');
+  }
+
+  const action = await clack.select<Action>({
+    message: 'What would you like to do?',
+    options: [
+      { value: 'add' as const, label: 'Add skills' },
+      { value: 'remove' as const, label: 'Remove skills', ...(currentSkills.length === 0 && { hint: 'none to remove' }) },
+      { value: 'done' as const, label: 'Done' },
+    ],
+  });
+
+  if (clack.isCancel(action) || action === 'done') return;
+
+  if (action === 'add') {
+    const available = scanAvailableSkills(projectDir);
+    const currentSet = new Set(currentSkills);
+    const addable = available.filter((s) => !currentSet.has(s.name));
+
+    if (addable.length === 0) {
+      clack.log.warn('No additional skills available to add.');
+      return;
     }
 
-    const action = await clack.select<Action>({
-      message: 'What would you like to do?',
-      options: [
-        { value: 'add' as const, label: 'Add skills' },
-        { value: 'remove' as const, label: 'Remove skills', ...(currentSkills.length === 0 && { hint: 'none to remove' }) },
-        { value: 'done' as const, label: 'Done' },
-      ],
+    const selected = await clack.multiselect<string>({
+      message: 'Select skills to add:',
+      options: addable.map((s) => ({
+        value: s.name,
+        label: s.name,
+        hint: s.description.length > 80 ? s.description.slice(0, 80) + '…' : s.description,
+      })),
+      required: false,
     });
 
-    if (clack.isCancel(action) || action === 'done') break;
+    if (clack.isCancel(selected)) return;
 
-    if (action === 'add') {
-      const available = scanAvailableSkills(projectDir);
-      const currentSet = new Set(currentSkills);
-      const addable = available.filter((s) => !currentSet.has(s.name));
-
-      if (addable.length === 0) {
-        clack.log.warn('No additional skills available to add.');
-        continue;
-      }
-
-      const selected = await clack.multiselect<string>({
-        message: 'Select skills to add:',
-        options: addable.map((s) => ({
-          value: s.name,
-          label: s.name,
-          hint: s.description.length > 80 ? s.description.slice(0, 80) + '…' : s.description,
-        })),
-        required: false,
-      });
-
-      if (clack.isCancel(selected)) continue;
-
-      const toAdd = selected as string[];
-      if (toAdd.length > 0) {
-        const updated = updateAgentSkills(content, [...currentSkills, ...toAdd]);
-        writeFileSync(agentPath, updated);
-        clack.log.success(`Added ${toAdd.length} skill(s).`);
-      }
-    }
-
-    if (action === 'remove') {
-      if (currentSkills.length === 0) {
-        clack.log.warn('No skills to remove.');
-        continue;
-      }
-
-      const selected = await clack.multiselect<string>({
-        message: 'Select skills to remove:',
-        options: currentSkills.map((s) => ({ value: s, label: s })),
-        required: false,
-      });
-
-      if (clack.isCancel(selected)) continue;
-
-      const toRemove = new Set(selected as string[]);
-      if (toRemove.size > 0) {
-        const remaining = currentSkills.filter((s) => !toRemove.has(s));
-        const updated = updateAgentSkills(content, remaining);
-        writeFileSync(agentPath, updated);
-        clack.log.success(`Removed ${toRemove.size} skill(s).`);
-      }
+    const toAdd = selected as string[];
+    if (toAdd.length > 0) {
+      const updated = updateAgentSkills(content, [...currentSkills, ...toAdd]);
+      writeFileSync(agentPath, updated);
+      clack.log.success(`Added ${toAdd.length} skill(s).`);
     }
   }
 
-  clack.outro('Done.');
+  if (action === 'remove') {
+    if (currentSkills.length === 0) {
+      clack.log.warn('No skills to remove.');
+      return;
+    }
+
+    const selected = await clack.multiselect<string>({
+      message: 'Select skills to remove:',
+      options: currentSkills.map((s) => ({ value: s, label: s })),
+      required: false,
+    });
+
+    if (clack.isCancel(selected)) return;
+
+    const toRemove = new Set(selected as string[]);
+    if (toRemove.size > 0) {
+      const remaining = currentSkills.filter((s) => !toRemove.has(s));
+      const updated = updateAgentSkills(content, remaining);
+      writeFileSync(agentPath, updated);
+      clack.log.success(`Removed ${toRemove.size} skill(s).`);
+    }
+  }
 }

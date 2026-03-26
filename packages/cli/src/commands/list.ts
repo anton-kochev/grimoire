@@ -2,6 +2,15 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { basename, join } from 'path';
 import * as clack from '@clack/prompts';
 import { readManifest } from '../enforce.js';
+import { parseAgentSkills } from '../frontmatter.js';
+import { removeSingleItem } from '../remove.js';
+import { checkUpdates, type UpdateCheckResult } from './update.js';
+import { copyItems } from '../copy.js';
+import { runConfig } from './config.js';
+import { runAgentSkillsFor } from './agent-skills.js';
+import { readGrimoireConfig } from '../grimoire-config.js';
+import { ensureEnforceHooks } from '../enforce.js';
+import type { InstallItem } from '../types.js';
 
 // --- Frontmatter helpers ---
 
@@ -50,7 +59,10 @@ function readSkillDescription(skillMdPath: string): string {
 
 type SelectedItem =
   | { readonly kind: 'agent'; readonly name: string }
-  | { readonly kind: 'skill'; readonly name: string };
+  | { readonly kind: 'skill'; readonly name: string }
+  | { readonly kind: 'settings' };
+
+type Action = 'remove' | 'update' | 'manage-skills';
 
 // --- Detail formatters ---
 
@@ -83,7 +95,10 @@ function wrapText(text: string, maxWidth: number): string {
 function formatDescription(raw: string): string {
   const maxWidth = Math.max(40, (process.stdout.columns ?? 80) - 4);
   const unescaped = raw.replace(/\\n/g, '\n');
-  const stripped = unescaped.replace(/<example>[\s\S]*?<\/example>/g, '').trim();
+  const stripped = unescaped
+    .replace(/<example>[\s\S]*?<\/example>/g, '')
+    .replace(/Examples?\s+of\s+when\s+to\s+use\s+this\s+agent\s*:?\s*/gi, '')
+    .trim();
   return stripped
     .split('\n')
     .map((line) => (line.trim() === '' ? '' : wrapText(line, maxWidth)))
@@ -92,17 +107,240 @@ function formatDescription(raw: string): string {
     .trim();
 }
 
+// --- Detail display helpers ---
+
+function buildAgentDetail(agentsDir: string, name: string): string {
+  const agentPath = join(agentsDir, `${name}.md`);
+  const meta = readAgentFullMeta(agentPath);
+  const desc = formatDescription(meta.description || '');
+  const lines: string[] = [];
+  if (desc) lines.push(desc);
+  lines.push(`Model: ${meta.model || 'inherit'}`);
+
+  try {
+    const content = readFileSync(agentPath, 'utf-8');
+    const skills = parseAgentSkills(content);
+    if (skills.length > 0) {
+      lines.push(`Skills: ${skills.join(', ')}`);
+    }
+  } catch { /* no skills */ }
+
+  return lines.join('\n');
+}
+
+function buildSkillDetail(
+  skillsDir: string,
+  name: string,
+  skillTriggers: Map<string, ManifestSkillTriggers>,
+  skillManifestDescs: Map<string, string>,
+): string {
+  const rawDesc =
+    readSkillDescription(join(skillsDir, name, 'SKILL.md')) ||
+    skillManifestDescs.get(name) ||
+    '';
+  const triggers = skillTriggers.get(name);
+  const desc = formatDescription(rawDesc);
+  const kw = triggers?.keywords?.length ? triggers.keywords.join(', ') : '(none)';
+  const ext = triggers?.file_extensions?.length ? triggers.file_extensions.join(', ') : '(none)';
+  const pat = triggers?.patterns?.length ? triggers.patterns.join(', ') : '(none)';
+  const fp = triggers?.file_paths?.length ? triggers.file_paths.join(', ') : '(none)';
+  const lines: string[] = [];
+  if (desc) lines.push(desc);
+  lines.push(`Keywords: ${kw}`);
+  lines.push(`File extensions: ${ext}`);
+  lines.push(`Patterns: ${pat}`);
+  lines.push(`File paths: ${fp}`);
+  return lines.join('\n');
+}
+
 // --- Main command ---
 
 export async function runList(projectDir: string): Promise<void> {
   const agentsDir = join(projectDir, '.claude', 'agents');
   const skillsDir = join(projectDir, '.claude', 'skills');
 
+  // Initial scan to check if anything exists
+  const scanResult = scanInstalledItems(projectDir, agentsDir, skillsDir);
+  if (!scanResult) {
+    clack.log.warn('No grimoire-managed items found. Run `grimoire add` to get started.');
+    return;
+  }
+
+  // Check for available updates once
+  let updateResults = checkUpdates(projectDir);
+  let updateMap = buildUpdateMap(updateResults);
+
+  clack.intro('Grimoire — Installed Items');
+
+  // Outer loop — item list
+  while (true) {
+    const scan = scanInstalledItems(projectDir, agentsDir, skillsDir);
+    if (!scan) {
+      clack.log.info('No items remaining.');
+      break;
+    }
+
+    const { agentFiles, skillDirs, skillTriggers, skillManifestDescs } = scan;
+
+    type SelectOption =
+      | { value: { readonly kind: 'agent'; readonly name: string }; label: string; hint?: string }
+      | { value: { readonly kind: 'skill'; readonly name: string }; label: string; hint?: string }
+      | { value: { readonly kind: 'settings' }; label: string; hint?: string };
+    const options: SelectOption[] = [];
+
+    for (const f of agentFiles) {
+      const name = f.replace(/\.md$/, '');
+      const meta = readAgentFullMeta(join(agentsDir, f));
+      const desc = meta.description;
+      options.push({
+        value: { kind: 'agent', name },
+        label: `[agent] ${name}`,
+        ...(desc ? { hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc } : {}),
+      });
+    }
+
+    for (const d of skillDirs) {
+      const desc =
+        readSkillDescription(join(skillsDir, d, 'SKILL.md')) ||
+        skillManifestDescs.get(d) ||
+        '';
+      options.push({
+        value: { kind: 'skill', name: d },
+        label: `[skill] ${d}`,
+        ...(desc ? { hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc } : {}),
+      });
+    }
+
+    // Settings option at the bottom
+    options.push({
+      value: { kind: 'settings' },
+      label: '⚙ Settings',
+      hint: 'global configuration',
+    });
+
+    const selected = await clack.select<SelectedItem>({
+      message: 'Select an item to manage (Ctrl+C to exit)',
+      options,
+    });
+
+    if (clack.isCancel(selected)) break;
+
+    // Handle settings
+    if (selected.kind === 'settings') {
+      await runConfig(projectDir, { quiet: true });
+      continue;
+    }
+
+    // Show detail and action menu for agent/skill
+    const itemName = selected.name;
+    const isAgent = selected.kind === 'agent';
+
+    // Show detail via note
+    const detail = isAgent
+      ? buildAgentDetail(agentsDir, itemName)
+      : buildSkillDetail(skillsDir, itemName, skillTriggers, skillManifestDescs);
+    clack.note(detail, itemName);
+
+    // Action menu — single action then exit
+    const actionOptions: Array<{ value: Action; label: string; hint?: string }> = [
+      { value: 'remove' as const, label: 'Remove' },
+    ];
+
+    const updateInfo = updateMap.get(itemName);
+    if (updateInfo?.hasUpdate) {
+      actionOptions.push({
+        value: 'update' as const,
+        label: `Update to v${updateInfo.availableVersion ?? '?'}`,
+        hint: `installed: v${updateInfo.installedVersion ?? '?'}`,
+      });
+    }
+
+    if (isAgent) {
+      actionOptions.push({
+        value: 'manage-skills' as const,
+        label: 'Manage skills',
+      });
+    }
+
+    const action = await clack.select<Action>({
+      message: 'Choose an action',
+      options: actionOptions,
+    });
+
+    if (clack.isCancel(action)) continue; // back to item list
+
+    if (action === 'remove') {
+      const confirmed = await clack.confirm({
+        message: `Remove ${itemName}?`,
+        initialValue: false,
+      });
+
+      if (!clack.isCancel(confirmed) && confirmed) {
+        const item: InstallItem = {
+          type: isAgent ? 'agent' : 'skill',
+          name: itemName,
+          sourcePath: '',
+          description: '',
+        };
+        removeSingleItem(item, projectDir);
+        clack.log.success(`Removed ${itemName}.`);
+      }
+    }
+
+    if (action === 'update') {
+      const info = updateMap.get(itemName)!;
+      const item: InstallItem = {
+        type: isAgent ? 'agent' : 'skill',
+        name: itemName,
+        sourcePath: info.sourcePath,
+        description: '',
+      };
+      copyItems([item], info.packDir, projectDir);
+      clack.log.success(`Updated ${itemName} to v${info.availableVersion ?? '?'}.`);
+
+      // Re-apply enforce hooks if active
+      try {
+        const config = readGrimoireConfig(projectDir);
+        if (config.enforcement) {
+          const manifest = readManifest(projectDir);
+          const agentsWithPatterns = Object.entries(manifest.agents)
+            .filter(([, entry]) => entry.file_patterns && entry.file_patterns.length > 0)
+            .map(([n]) => n);
+          if (agentsWithPatterns.length > 0) {
+            ensureEnforceHooks(projectDir, agentsWithPatterns);
+          }
+        }
+      } catch {
+        // No manifest or config
+      }
+    }
+
+    if (action === 'manage-skills') {
+      await runAgentSkillsFor(projectDir, itemName);
+    }
+
+    break; // exit after any completed action
+  }
+
+  clack.outro('Done.');
+}
+
+// --- Helpers ---
+
+function scanInstalledItems(
+  projectDir: string,
+  agentsDir: string,
+  skillsDir: string,
+): {
+  agentFiles: string[];
+  skillDirs: string[];
+  agentFilePatterns: Map<string, string[]>;
+  skillTriggers: Map<string, ManifestSkillTriggers>;
+  skillManifestDescs: Map<string, string>;
+} | null {
   let managedAgentNames: Set<string> | null = null;
   let managedSkillDirNames: Set<string> | null = null;
   const agentFilePatterns = new Map<string, string[]>();
-
-  // skill triggers keyed by dir name
   const skillTriggers = new Map<string, ManifestSkillTriggers>();
   const skillManifestDescs = new Map<string, string>();
 
@@ -119,104 +357,39 @@ export async function runList(projectDir: string): Promise<void> {
       if (skill['description']) skillManifestDescs.set(dirName, skill['description'] as string);
     }
   } catch {
-    // manifest absent — nothing was installed by grimoire
+    return null;
   }
 
-  const agentNames = managedAgentNames;
   const agentFiles: string[] =
-    existsSync(agentsDir) && agentNames !== null
+    existsSync(agentsDir) && managedAgentNames !== null
       ? readdirSync(agentsDir)
-          .filter((f) => f.endsWith('.md') && agentNames.has(f.replace(/\.md$/, '')))
+          .filter((f) => f.endsWith('.md') && managedAgentNames!.has(f.replace(/\.md$/, '')))
           .sort()
       : [];
 
-  const skillDirNames = managedSkillDirNames;
   const skillDirs: string[] =
-    existsSync(skillsDir) && skillDirNames !== null
+    existsSync(skillsDir) && managedSkillDirNames !== null
       ? readdirSync(skillsDir)
           .filter((f) => {
             const full = join(skillsDir, f);
             return (
               statSync(full).isDirectory() &&
               existsSync(join(full, 'SKILL.md')) &&
-              skillDirNames.has(f)
+              managedSkillDirNames!.has(f)
             );
           })
           .sort()
       : [];
 
-  if (agentFiles.length === 0 && skillDirs.length === 0) {
-    clack.log.warn('No grimoire-managed items found. Run `grimoire add` to get started.');
-    return;
+  if (agentFiles.length === 0 && skillDirs.length === 0) return null;
+
+  return { agentFiles, skillDirs, agentFilePatterns, skillTriggers, skillManifestDescs };
+}
+
+function buildUpdateMap(results: readonly UpdateCheckResult[]): Map<string, UpdateCheckResult> {
+  const map = new Map<string, UpdateCheckResult>();
+  for (const r of results) {
+    map.set(r.item.name, r);
   }
-
-  // Build select options
-  const options: Array<
-    | { value: { kind: 'agent'; name: string }; label: string; hint?: string }
-    | { value: { kind: 'skill'; name: string }; label: string; hint?: string }
-  > = [];
-
-  for (const f of agentFiles) {
-    const name = f.replace(/\.md$/, '');
-    const meta = readAgentFullMeta(join(agentsDir, f));
-    const desc = meta.description;
-    options.push({
-      value: { kind: 'agent', name },
-      label: `[agent] ${name}`,
-      ...(desc ? { hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc } : {}),
-    });
-  }
-
-  for (const d of skillDirs) {
-    const desc =
-      readSkillDescription(join(skillsDir, d, 'SKILL.md')) ||
-      skillManifestDescs.get(d) ||
-      '';
-    options.push({
-      value: { kind: 'skill', name: d },
-      label: `[skill] ${d}`,
-      ...(desc ? { hint: desc.length > 80 ? desc.slice(0, 79) + '…' : desc } : {}),
-    });
-  }
-
-  clack.intro('Grimoire — Installed Items');
-
-  while (true) {
-    const selected = await clack.select<SelectedItem>({
-      message: 'Select an item to view details  (Ctrl+C to exit)',
-      options,
-    });
-
-    if (clack.isCancel(selected)) break;
-
-    if (selected.kind === 'agent') {
-      const meta = readAgentFullMeta(join(agentsDir, `${selected.name}.md`));
-      const patterns = agentFilePatterns.get(selected.name);
-      const desc = formatDescription(meta.description || '');
-      clack.log.message(`  Description:\n${desc.split('\n').map((l) => `    ${l}`).join('\n')}`);
-      clack.log.message(`  Model:   ${meta.model || 'inherit'}`);
-      clack.log.message(`  Tools:   ${meta.tools || '(not specified)'}`);
-      if (patterns?.length) {
-        clack.log.message(`  File ownership: ${patterns.join(', ')}`);
-      }
-    } else {
-      const rawDesc =
-        readSkillDescription(join(skillsDir, selected.name, 'SKILL.md')) ||
-        skillManifestDescs.get(selected.name) ||
-        '';
-      const triggers = skillTriggers.get(selected.name);
-      const desc = formatDescription(rawDesc);
-      const kw = triggers?.keywords?.length ? triggers.keywords.join(', ') : '(none)';
-      const ext = triggers?.file_extensions?.length ? triggers.file_extensions.join(', ') : '(none)';
-      const pat = triggers?.patterns?.length ? triggers.patterns.join(', ') : '(none)';
-      const fp = triggers?.file_paths?.length ? triggers.file_paths.join(', ') : '(none)';
-      clack.log.message(`  Description:\n${desc.split('\n').map((l) => `    ${l}`).join('\n')}`);
-      clack.log.message(`  Keywords:        ${kw}`);
-      clack.log.message(`  File extensions: ${ext}`);
-      clack.log.message(`  Patterns:        ${pat}`);
-      clack.log.message(`  File paths:      ${fp}`);
-    }
-  }
-
-  clack.outro('Done.');
+  return map;
 }

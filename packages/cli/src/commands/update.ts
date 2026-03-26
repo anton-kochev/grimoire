@@ -9,7 +9,7 @@ import { readManifest, ensureEnforceHooks } from '../enforce.js';
 import { readGrimoireConfig } from '../grimoire-config.js';
 import type { InstallItem } from '../types.js';
 
-interface UpdateCheckResult {
+export interface UpdateCheckResult {
   readonly item: InstallItem;
   readonly installedVersion: string | undefined;
   readonly availableVersion: string | undefined;

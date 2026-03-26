@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { scanInstalled, removeItems, cleanManifest, resolvePackItems } from '../src/remove.js';
+import { scanInstalled, removeItems, removeSingleItem, cleanManifest, resolvePackItems } from '../src/remove.js';
 import type { InstallItem, PackManifest } from '../src/types.js';
 
 function makeTmpDir(prefix: string): string {
@@ -292,6 +292,55 @@ describe('resolvePackItems', () => {
     });
 
     expect(items).toEqual([]);
+  });
+});
+
+describe('removeSingleItem', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('single-remove');
+    setupProject(projectDir);
+    setupManifest(projectDir);
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('should remove agent file and clean manifest in one call', () => {
+    const item: InstallItem = { type: 'agent', name: 'csharp-coder', sourcePath: '', description: '' };
+
+    const result = removeSingleItem(item, projectDir);
+
+    expect(result.removed).toBe(true);
+    expect(existsSync(join(projectDir, '.claude', 'agents', 'csharp-coder.md'))).toBe(false);
+    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+      agents: Record<string, unknown>;
+    };
+    expect(manifest.agents['csharp-coder']).toBeUndefined();
+    expect(manifest.agents['dotnet-architect']).toBeDefined();
+  });
+
+  it('should remove skill directory and clean manifest in one call', () => {
+    const item: InstallItem = { type: 'skill', name: 'dotnet-testing', sourcePath: '', description: '' };
+
+    const result = removeSingleItem(item, projectDir);
+
+    expect(result.removed).toBe(true);
+    expect(existsSync(join(projectDir, '.claude', 'skills', 'dotnet-testing'))).toBe(false);
+    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+      skills: Array<{ name: string }>;
+    };
+    expect(manifest.skills.every((s) => s.name !== 'dotnet-testing')).toBe(true);
+  });
+
+  it('should return removed=false for nonexistent item', () => {
+    const item: InstallItem = { type: 'agent', name: 'nonexistent', sourcePath: '', description: '' };
+
+    const result = removeSingleItem(item, projectDir);
+
+    expect(result.removed).toBe(false);
   });
 });
 

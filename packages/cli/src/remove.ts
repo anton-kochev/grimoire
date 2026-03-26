@@ -70,6 +70,18 @@ export function removeItems(
   });
 }
 
+/**
+ * Removes a single item (file + manifest entry) in one call.
+ */
+export function removeSingleItem(
+  item: InstallItem,
+  projectDir: string,
+): RemoveResult {
+  const results = removeItems([item], projectDir);
+  cleanManifest([item], projectDir);
+  return results[0]!;
+}
+
 interface ManifestSkill {
   path: string;
   name: string;
