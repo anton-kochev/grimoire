@@ -36,7 +36,7 @@ export function listAvailablePacks(packsDir?: string | undefined): string[] {
   if (!existsSync(dir)) return [];
 
   return readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
     .map((entry) => entry.name);
 }
 
@@ -47,11 +47,17 @@ export function listAvailablePacks(packsDir?: string | undefined): string[] {
  */
 export function loadAllPacks(): PackOption[] {
   const names = listAvailablePacks();
-  return names.map((name) => {
+  const packs: PackOption[] = [];
+  for (const name of names) {
     const dir = resolvePackDir(name);
-    const manifest = loadManifest(dir);
-    return { name, dir, manifest };
-  });
+    try {
+      const manifest = loadManifest(dir);
+      packs.push({ name, dir, manifest });
+    } catch {
+      // Skip directories without a valid grimoire.json
+    }
+  }
+  return packs;
 }
 
 function getPacksDir(): string {

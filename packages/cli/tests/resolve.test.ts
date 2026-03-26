@@ -91,6 +91,17 @@ describe('listAvailablePacks', () => {
     expect(result).toEqual([]);
   });
 
+  it('should exclude hidden directories', () => {
+    const packsDir = join(testDir, 'packs');
+    mkdirSync(join(packsDir, 'valid-pack'), { recursive: true });
+    mkdirSync(join(packsDir, '.claude'), { recursive: true });
+    mkdirSync(join(packsDir, '.git'), { recursive: true });
+
+    const result = listAvailablePacks(packsDir);
+
+    expect(result).toEqual(['valid-pack']);
+  });
+
   it('should use default packs dir when no argument given', () => {
     mkdirSync(join(testDir, 'packs', 'my-pack'), { recursive: true });
 
@@ -157,5 +168,23 @@ describe('loadAllPacks', () => {
     const result = loadAllPacks();
 
     expect(result).toEqual([]);
+  });
+
+  it('should skip directories without valid grimoire.json', () => {
+    const packsDir = join(testDir, 'packs');
+    // Valid pack
+    const validPack = join(packsDir, 'valid-pack');
+    mkdirSync(validPack, { recursive: true });
+    writeFileSync(
+      join(validPack, 'grimoire.json'),
+      JSON.stringify({ name: 'valid-pack', version: '1.0.0', agents: [], skills: [] }),
+    );
+    // Directory without grimoire.json
+    mkdirSync(join(packsDir, 'broken-pack'), { recursive: true });
+
+    const result = loadAllPacks();
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe('valid-pack');
   });
 });
