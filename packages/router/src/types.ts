@@ -47,11 +47,17 @@ export interface SkillDefinition {
 }
 
 /**
- * Per-agent entry in the manifest (file_patterns and enforce flag)
+ * Per-agent entry in the manifest (file ownership patterns)
  */
 export interface AgentEntry {
   file_patterns?: string[];
-  enforce?: boolean;
+}
+
+/**
+ * Global Grimoire configuration (`.claude/grimoire.json`)
+ */
+export interface GrimoireConfig {
+  enforcement?: boolean;
 }
 
 /**

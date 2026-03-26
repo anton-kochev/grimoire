@@ -6,6 +6,7 @@ import { copyItems } from '../copy.js';
 import { printSummary } from '../summary.js';
 import { readFrontmatterVersion, isNewer } from '../version.js';
 import { readManifest, ensureEnforceHooks } from '../enforce.js';
+import { readGrimoireConfig } from '../grimoire-config.js';
 import type { InstallItem } from '../types.js';
 
 interface UpdateCheckResult {
@@ -138,17 +139,20 @@ export async function runUpdate(cwd?: string | undefined): Promise<void> {
 
   printSummary({ packs: [], results: allResults });
 
-  // Re-apply enforce hooks for agents with enforce: true
+  // Re-apply enforce hooks if enforcement is active
   try {
-    const manifest = readManifest(projectDir);
-    const enforcedAgents = Object.entries(manifest.agents)
-      .filter(([, entry]) => entry.enforce === true)
-      .map(([name]) => name);
-    if (enforcedAgents.length > 0) {
-      ensureEnforceHooks(projectDir, enforcedAgents);
+    const config = readGrimoireConfig(projectDir);
+    if (config.enforcement) {
+      const manifest = readManifest(projectDir);
+      const agentsWithPatterns = Object.entries(manifest.agents)
+        .filter(([, entry]) => entry.file_patterns && entry.file_patterns.length > 0)
+        .map(([name]) => name);
+      if (agentsWithPatterns.length > 0) {
+        ensureEnforceHooks(projectDir, agentsWithPatterns);
+      }
     }
   } catch {
-    // No manifest — nothing to enforce
+    // No manifest or config — nothing to enforce
   }
 
   clack.outro('Update complete.');

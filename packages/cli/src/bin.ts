@@ -5,7 +5,7 @@ import { runAdd } from './commands/add.js';
 import { runRemoveInteractive } from './commands/remove.js';
 import { runUpdate } from './commands/update.js';
 import { runLogs } from './commands/logs.js';
-import { runEnforceAgent } from './commands/enforce-agent.js';
+import { runConfig } from './commands/config.js';
 import { runAgentSkills } from './commands/agent-skills.js';
 import { runList } from './commands/list.js';
 
@@ -96,13 +96,13 @@ const main = defineCommand({
         await runList(process.cwd());
       },
     }),
-    'enforce-agent': defineCommand({
+    config: defineCommand({
       meta: {
-        name: 'enforce-agent',
-        description: 'Toggle agent enforcement — delegate file edits to specialist agents',
+        name: 'config',
+        description: 'Configure global Grimoire settings',
       },
       async run() {
-        await runEnforceAgent(process.cwd());
+        await runConfig(process.cwd());
       },
     }),
     'agent-skills': defineCommand({

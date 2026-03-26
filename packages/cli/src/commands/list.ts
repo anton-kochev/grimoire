@@ -100,7 +100,6 @@ export async function runList(projectDir: string): Promise<void> {
 
   let managedAgentNames: Set<string> | null = null;
   let managedSkillDirNames: Set<string> | null = null;
-  const enforcedAgents = new Set<string>();
   const agentFilePatterns = new Map<string, string[]>();
 
   // skill triggers keyed by dir name
@@ -112,7 +111,6 @@ export async function runList(projectDir: string): Promise<void> {
     managedAgentNames = new Set(Object.keys(manifest.agents));
     managedSkillDirNames = new Set(manifest.skills.map((s) => basename(s.path)));
     for (const [name, entry] of Object.entries(manifest.agents)) {
-      if (entry.enforce) enforcedAgents.add(name);
       if (entry.file_patterns?.length) agentFilePatterns.set(name, entry.file_patterns);
     }
     for (const skill of manifest.skills) {
@@ -193,15 +191,14 @@ export async function runList(projectDir: string): Promise<void> {
 
     if (selected.kind === 'agent') {
       const meta = readAgentFullMeta(join(agentsDir, `${selected.name}.md`));
-      const enforced = enforcedAgents.has(selected.name);
       const patterns = agentFilePatterns.get(selected.name);
       const desc = formatDescription(meta.description || '');
       clack.log.message(`  Description:\n${desc.split('\n').map((l) => `    ${l}`).join('\n')}`);
       clack.log.message(`  Model:   ${meta.model || 'inherit'}`);
       clack.log.message(`  Tools:   ${meta.tools || '(not specified)'}`);
-      clack.log.message(
-        `  Enforce: ${enforced ? `yes  (file patterns: ${patterns?.join(', ') ?? 'none'})` : 'no'}`,
-      );
+      if (patterns?.length) {
+        clack.log.message(`  File ownership: ${patterns.join(', ')}`);
+      }
     } else {
       const rawDesc =
         readSkillDescription(join(skillsDir, selected.name, 'SKILL.md')) ||

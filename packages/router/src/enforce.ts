@@ -12,6 +12,7 @@ function normalizeSeparators(p: string): string {
   return p.replaceAll('\\', '/');
 }
 import { loadManifest } from './manifest.js';
+import { loadGrimoireConfig } from './grimoire-config.js';
 import { writeLog } from './logging.js';
 import { readSkillBody } from './skill-content.js';
 
@@ -53,6 +54,8 @@ export function evaluateEnforce(
   manifestPath: string,
   registryPath: string,
   projectDir?: string,
+  /** Override for grimoire.json lookup directory (defaults to projectDir). */
+  configDir?: string,
 ): EnforceResult {
   // Only block file-editing tools
   if (!['Edit', 'Write', 'MultiEdit'].includes(input.tool_name)) {
@@ -62,6 +65,13 @@ export function evaluateEnforce(
   // Subagent bypass: specialist agents are allowed to edit their own files
   const sessions = readRegistry(registryPath);
   if (sessions.includes(input.session_id)) {
+    return { action: 'allow' };
+  }
+
+  // Check global enforcement config
+  const resolvedConfigDir = configDir ?? projectDir ?? process.cwd();
+  const grimoireConfig = loadGrimoireConfig(resolvedConfigDir);
+  if (grimoireConfig.enforcement !== true) {
     return { action: 'allow' };
   }
 
@@ -76,10 +86,9 @@ export function evaluateEnforce(
 
   if (!manifest.agents) return { action: 'allow' };
 
-  // Collect enforced agents that have file_patterns
+  // Collect agents that have file_patterns
   const enforced = Object.entries(manifest.agents).filter(
     ([, entry]) =>
-      entry.enforce === true &&
       Array.isArray(entry.file_patterns) &&
       entry.file_patterns.length > 0,
   );

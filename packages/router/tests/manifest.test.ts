@@ -187,14 +187,13 @@ describe('loadManifest', () => {
     expect(skill?.triggers.file_paths).toEqual([]);
   });
 
-  it('should parse agents section with file_patterns and enforce', () => {
+  it('should parse agents section with file_patterns', () => {
     const manifestPath = join(testDir, 'manifest.json');
     const withAgents = {
       ...validManifest,
       agents: {
         'grimoire.typescript-coder': {
           file_patterns: ['*.ts', '*.tsx'],
-          enforce: true,
         },
       },
     };
@@ -205,7 +204,6 @@ describe('loadManifest', () => {
     expect(manifest.agents).toBeDefined();
     expect(manifest.agents?.['grimoire.typescript-coder']).toEqual({
       file_patterns: ['*.ts', '*.tsx'],
-      enforce: true,
     });
   });
 
@@ -222,7 +220,7 @@ describe('loadManifest', () => {
     expect(manifest.agents?.['grimoire.vue3-coder']).toEqual({ file_patterns: ['*.vue'] });
   });
 
-  it('should parse empty agent entry (no file_patterns, no enforce)', () => {
+  it('should parse empty agent entry (no file_patterns)', () => {
     const manifestPath = join(testDir, 'manifest.json');
     const withAgents = {
       ...validManifest,
@@ -261,17 +259,6 @@ describe('loadManifest', () => {
     writeFileSync(manifestPath, JSON.stringify(invalid));
 
     expect(() => loadManifest(manifestPath)).toThrow(/file_patterns.*array/i);
-  });
-
-  it('should throw for non-boolean enforce', () => {
-    const manifestPath = join(testDir, 'manifest.json');
-    const invalid = {
-      ...validManifest,
-      agents: { 'bad-agent': { enforce: 'yes' } },
-    };
-    writeFileSync(manifestPath, JSON.stringify(invalid));
-
-    expect(() => loadManifest(manifestPath)).toThrow(/enforce.*boolean/i);
   });
 
 });

@@ -1,6 +1,6 @@
 /**
- * Utilities for the `grimoire enforce-agent` command.
- * Manages the enforce flag per agent and the corresponding hook entries in settings.json.
+ * Utilities for agent enforcement.
+ * Manages enforcement hook entries in settings.json and reads the skills manifest.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -12,7 +12,6 @@ import { join } from 'path';
 
 export interface ManifestAgentEntry {
   file_patterns?: string[];
-  enforce?: boolean;
 }
 
 interface ManifestSkill {
@@ -51,27 +50,19 @@ export function readManifest(projectDir: string): SkillsManifest {
   if (!existsSync(manifestPath)) {
     throw new Error(`Manifest not found: ${manifestPath}`);
   }
-  return JSON.parse(readFileSync(manifestPath, 'utf-8')) as SkillsManifest;
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as SkillsManifest;
+
+  // Strip leftover enforce flags from agent entries (migrated away)
+  for (const entry of Object.values(manifest.agents)) {
+    delete (entry as Record<string, unknown>)['enforce'];
+  }
+
+  return manifest;
 }
 
 export function writeManifest(projectDir: string, manifest: SkillsManifest): void {
   const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-}
-
-/**
- * Sets the enforce flag for a named agent in the manifest.
- * Throws if the agent has no file_patterns (cannot be enforced without them).
- */
-export function setEnforce(manifest: SkillsManifest, agentName: string, enabled: boolean): void {
-  const entry = manifest.agents[agentName];
-  if (!entry) {
-    throw new Error(`Agent "${agentName}" not found in manifest`);
-  }
-  if (enabled && (!entry.file_patterns || entry.file_patterns.length === 0)) {
-    throw new Error(`Agent "${agentName}" has no file_patterns — cannot enable enforcement`);
-  }
-  manifest.agents[agentName] = { ...entry, enforce: enabled };
 }
 
 // =============================================================================

@@ -60,7 +60,7 @@ function writeSkill(projectDir: string, name: string, description: string): void
 
 function writeManifest(
   projectDir: string,
-  agents: Record<string, { enforce?: boolean; file_patterns?: string[] }>,
+  agents: Record<string, { file_patterns?: string[] }>,
   skills: Array<{
     name: string;
     path: string;
@@ -185,13 +185,13 @@ describe('runList', () => {
     const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
     expect(calls.some((c) => c.includes('Model:'))).toBe(true);
     expect(calls.some((c) => c.includes('Tools:'))).toBe(true);
-    expect(calls.some((c) => c.includes('Enforce: no'))).toBe(true);
+    expect(calls.some((c) => c.includes('File ownership'))).toBe(false);
   });
 
-  it('shows Enforce: yes with file patterns for an enforced agent', async () => {
+  it('shows file ownership with patterns for an agent with file_patterns', async () => {
     writeAgent(projectDir, 'csharp-coder', 'C# specialist');
     writeManifest(projectDir, {
-      'csharp-coder': { enforce: true, file_patterns: ['*.cs'] },
+      'csharp-coder': { file_patterns: ['*.cs'] },
     });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'csharp-coder' } as never)
@@ -200,7 +200,7 @@ describe('runList', () => {
     await runList(projectDir);
 
     const calls = mockLogMessage.mock.calls.map((c) => c[0] as string);
-    expect(calls.some((c) => c.includes('Enforce: yes'))).toBe(true);
+    expect(calls.some((c) => c.includes('File ownership'))).toBe(true);
     expect(calls.some((c) => c.includes('*.cs'))).toBe(true);
   });
 

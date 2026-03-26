@@ -24,13 +24,14 @@ Collection of specialized agents and skills for Claude Code.
   - `grimoire list` shows only grimoire-managed agents/skills (filtered via skills-manifest.json)
   - `grimoire remove` interactively removes grimoire-managed items (custom items are never shown)
   - `grimoire update` checks for and applies updates to grimoire-managed items
-  - `grimoire enforce-agent` toggles per-agent enforcement (delegates file edits to agents)
+  - `grimoire config` toggles global settings (e.g. agent enforcement)
   - `grimoire agent-skills` manages skill assignments for agents (add/remove skills in frontmatter)
   - `grimoire logs` opens real-time log viewer in browser (`--file`, `--port`)
 - Router: `packages/router/` - hook runtime for skill auto-activation and agent enforcement
   - UserPromptSubmit: Matches skills to user prompts (keywords: exact, stem, fuzzy)
-  - PreToolUse: Injects skill context before Edit/Write tools; blocks if enforce active
+  - PreToolUse: Injects skill context before Edit/Write tools; blocks edits to files owned by agents (via file_patterns) when enforcement is enabled
 - Config: `.claude/skills-manifest.json` defines skill triggers, weights, and agent mappings
+- Config: `.claude/grimoire.json` stores global settings (e.g. `enforcement: true`)
 
 ## Code Conventions
 - Skills use progressive disclosure (supporting files load on-demand)

@@ -123,13 +123,6 @@ function parseAgentsSection(
       entry.file_patterns = cfg['file_patterns'] as string[];
     }
 
-    if (cfg['enforce'] !== undefined) {
-      if (typeof cfg['enforce'] !== 'boolean') {
-        throw new Error(`Agent "${agentName}" enforce must be a boolean`);
-      }
-      entry.enforce = cfg['enforce'] as boolean;
-    }
-
     result[agentName] = entry;
   }
 

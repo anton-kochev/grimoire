@@ -5,7 +5,6 @@ import { tmpdir } from 'os';
 import {
   readManifest,
   writeManifest,
-  setEnforce,
   readAgentMeta,
   hasEnforcePreToolUseHook,
   hasSubagentHook,
@@ -24,7 +23,7 @@ function readJson(filePath: string): unknown {
   return JSON.parse(readFileSync(filePath, 'utf-8'));
 }
 
-function makeManifest(projectDir: string, agents: Record<string, { file_patterns?: string[]; enforce?: boolean }>): void {
+function makeManifest(projectDir: string, agents: Record<string, { file_patterns?: string[] }>): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
   writeFileSync(
@@ -94,98 +93,16 @@ describe('writeManifest', () => {
   it('should persist manifest changes', () => {
     // Arrange
     const manifest = readManifest(projectDir);
-    manifest.agents['grimoire.typescript-coder'] = { file_patterns: ['*.ts'], enforce: true };
+    manifest.agents['grimoire.typescript-coder'] = { file_patterns: ['*.ts'] };
 
     // Act
     writeManifest(projectDir, manifest);
 
     // Assert
     const loaded = readManifest(projectDir);
-    expect(loaded.agents['grimoire.typescript-coder']?.enforce).toBe(true);
+    expect(loaded.agents['grimoire.typescript-coder']?.file_patterns).toEqual(['*.ts']);
   });
 
-});
-
-// =============================================================================
-// setEnforce
-// =============================================================================
-
-describe('setEnforce', () => {
-  it('should set enforce: true for agent with file_patterns', () => {
-    // Arrange
-    const manifest: SkillsManifest = {
-      version: '2.0.0',
-      config: {},
-      skills: [],
-      agents: {
-        'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: false },
-      },
-    };
-
-    // Act
-    setEnforce(manifest, 'grimoire.typescript-coder', true);
-
-    // Assert
-    expect(manifest.agents['grimoire.typescript-coder']?.enforce).toBe(true);
-  });
-
-  it('should set enforce: false for agent', () => {
-    // Arrange
-    const manifest: SkillsManifest = {
-      version: '2.0.0',
-      config: {},
-      skills: [],
-      agents: {
-        'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
-      },
-    };
-
-    // Act
-    setEnforce(manifest, 'grimoire.typescript-coder', false);
-
-    // Assert
-    expect(manifest.agents['grimoire.typescript-coder']?.enforce).toBe(false);
-  });
-
-  it('should throw when agent is not in manifest', () => {
-    // Arrange
-    const manifest: SkillsManifest = {
-      version: '2.0.0',
-      config: {},
-      skills: [],
-      agents: {},
-    };
-
-    // Act + Assert
-    expect(() => setEnforce(manifest, 'nonexistent', true)).toThrow(/not found/i);
-  });
-
-  it('should throw when enabling enforce on agent with no file_patterns', () => {
-    // Arrange
-    const manifest: SkillsManifest = {
-      version: '2.0.0',
-      config: {},
-      skills: [],
-      agents: { 'grimoire.fact-checker': {} },
-    };
-
-    // Act + Assert
-    expect(() => setEnforce(manifest, 'grimoire.fact-checker', true)).toThrow(/file_patterns/i);
-  });
-
-  it('should allow disabling enforce even with no file_patterns', () => {
-    // Arrange
-    const manifest: SkillsManifest = {
-      version: '2.0.0',
-      config: {},
-      skills: [],
-      agents: { 'grimoire.fact-checker': { enforce: true } },
-    };
-
-    // Act + Assert
-    expect(() => setEnforce(manifest, 'grimoire.fact-checker', false)).not.toThrow();
-    expect(manifest.agents['grimoire.fact-checker']?.enforce).toBe(false);
-  });
 });
 
 // =============================================================================
@@ -369,6 +286,24 @@ describe('ensureEnforceHooks', () => {
     const stopEntry = (hooks['SubagentStop'] as Array<{ matcher: string; hooks: Array<{ command: string }> }>)[0];
     expect(stopEntry!.matcher).toBe('grimoire.typescript-coder');
     expect(stopEntry!.hooks[0]!.command).toContain('--subagent-stop');
+  });
+
+  it('should create PreToolUse enforce hook even with empty agent list', () => {
+    // Arrange — no agents with file_patterns
+
+    // Act
+    ensureEnforceHooks(projectDir, []);
+
+    // Assert
+    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, unknown[]>;
+
+    expect(hooks['PreToolUse']).toHaveLength(1);
+    const preToolEntry = (hooks['PreToolUse'] as Array<{ matcher: string; hooks: Array<{ command: string }> }>)[0];
+    expect(preToolEntry!.hooks[0]!.command).toContain('--enforce');
+
+    expect(hooks['SubagentStart']).toHaveLength(0);
+    expect(hooks['SubagentStop']).toHaveLength(0);
   });
 
   it('should add SubagentStart/Stop entries for multiple agents', () => {
