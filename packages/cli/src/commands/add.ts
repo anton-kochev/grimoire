@@ -1,6 +1,7 @@
 import { loadAllPacks } from '../resolve.js';
 import { copyItems } from '../copy.js';
 import { printSummary } from '../summary.js';
+import { recordInstalledVersions } from '../grimoire-config.js';
 import { runWizard } from '../prompt.js';
 import { setupRouter } from '../setup.js';
 import type { InstallResult, InstallSummary } from '../types.js';
@@ -33,6 +34,7 @@ export async function runAdd(cwd?: string | undefined): Promise<InstallSummary> 
   for (const selection of wizard.selections) {
     const results = copyItems(selection.items, selection.packDir, projectDir);
     allResults.push(...results);
+    recordInstalledVersions(projectDir, selection.items);
     packInfo.push({
       name: selection.manifest.name,
       version: selection.manifest.version,

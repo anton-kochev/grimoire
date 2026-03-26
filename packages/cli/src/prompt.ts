@@ -1,6 +1,5 @@
-import { join } from 'path';
 import * as clack from '@clack/prompts';
-import { readFrontmatterVersion, isNewer } from './version.js';
+import { readGrimoireConfig, isNewer } from './grimoire-config.js';
 import type { PackOption, InstallItem, WizardResult, RemoveWizardResult } from './types.js';
 
 /**
@@ -45,6 +44,7 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
 
   // Step 2 — Item selection (all pre-selected)
   const itemOptions: Array<{ label: string; value: { pack: PackOption; item: InstallItem }; hint?: string }> = [];
+  const config = readGrimoireConfig(projectDir);
 
   for (const pack of chosenPacks) {
     for (const agent of pack.manifest.agents) {
@@ -53,8 +53,7 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
         ? `[${pack.name} · agent · v${packVersion}] ${agent.name}`
         : `[${pack.name} · agent] ${agent.name}`;
 
-      const installedPath = join(projectDir, '.claude', 'agents', `${agent.name}.md`);
-      const installedVersion = readFrontmatterVersion(installedPath);
+      const installedVersion = config.installed?.[agent.name]?.version;
       let hint: string;
       if (installedVersion !== undefined) {
         const upToDate = !isNewer(packVersion, installedVersion);
@@ -74,6 +73,7 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
             name: agent.name,
             sourcePath: agent.path,
             description: agent.description,
+            pack: pack.name,
             ...(packVersion !== undefined && { version: packVersion }),
           },
         },
@@ -87,8 +87,7 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
         ? `[${pack.name} · skill · v${packVersion}] ${skill.name}`
         : `[${pack.name} · skill] ${skill.name}`;
 
-      const installedPath = join(projectDir, '.claude', 'skills', skill.name, 'SKILL.md');
-      const installedVersion = readFrontmatterVersion(installedPath);
+      const installedVersion = config.installed?.[skill.name]?.version;
       let hint: string;
       if (installedVersion !== undefined) {
         const upToDate = !isNewer(packVersion, installedVersion);
@@ -108,6 +107,7 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
             name: skill.name,
             sourcePath: skill.path,
             description: skill.description,
+            pack: pack.name,
             ...(packVersion !== undefined && { version: packVersion }),
           },
         },

@@ -18,6 +18,7 @@ vi.mock('@clack/prompts', () => ({
 
 import { checkUpdates, runUpdate } from '../src/commands/update.js';
 import { loadAllPacks } from '../src/resolve.js';
+import { writeGrimoireConfig } from '../src/grimoire-config.js';
 import * as clack from '@clack/prompts';
 import type { PackOption } from '../src/types.js';
 
@@ -42,7 +43,7 @@ function setupProjectWithVersions(
   for (const agent of agents) {
     writeFileSync(
       join(agentsDir, `${agent.name}.md`),
-      `---\nname: ${agent.name}\ndescription: Test agent\nversion: ${agent.version}\n---\n\n# Body`,
+      `---\nname: ${agent.name}\ndescription: Test agent\n---\n\n# Body`,
     );
   }
 
@@ -50,11 +51,11 @@ function setupProjectWithVersions(
     mkdirSync(join(skillsDir, skill.name), { recursive: true });
     writeFileSync(
       join(skillsDir, skill.name, 'SKILL.md'),
-      `---\nname: ${skill.name}\ndescription: Test skill\nversion: ${skill.version}\n---\n\n# Body`,
+      `---\nname: ${skill.name}\ndescription: Test skill\n---\n\n# Body`,
     );
   }
 
-  // Write manifest so scanInstalled recognises these as grimoire-managed
+  // Write skills-manifest so scanInstalled recognises these as grimoire-managed
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
   writeFileSync(
@@ -66,6 +67,16 @@ function setupProjectWithVersions(
       agents: Object.fromEntries(agents.map((a) => [a.name, {}])),
     }, null, 2),
   );
+
+  // Write installed versions to grimoire.json
+  const installed: Record<string, { version: string; pack: string }> = {};
+  for (const agent of agents) {
+    installed[agent.name] = { version: agent.version, pack: 'test-pack' };
+  }
+  for (const skill of skills) {
+    installed[skill.name] = { version: skill.version, pack: 'test-pack' };
+  }
+  writeGrimoireConfig(projectDir, { installed });
 }
 
 function makePack(overrides?: Partial<PackOption>): PackOption {

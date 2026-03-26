@@ -1,6 +1,7 @@
 import { scanInstalled, removeItems, cleanManifest, resolvePackItems } from '../remove.js';
 import { loadAllPacks } from '../resolve.js';
 import { runRemoveWizard } from '../prompt.js';
+import { removeInstalledEntries } from '../grimoire-config.js';
 import type { RemoveSummary } from '../types.js';
 
 /**
@@ -48,6 +49,7 @@ export async function runRemoveInteractive(
 
   const results = removeItems(wizard.items, projectDir);
   cleanManifest(wizard.items, projectDir);
+  removeInstalledEntries(projectDir, wizard.items.map((i) => i.name));
 
   printRemoveSummary(results.filter((r) => r.removed));
 

@@ -3,7 +3,6 @@ name: grimoire.tdd-specialist
 description: "Language-agnostic TDD and unit testing specialist. Use when writing unit tests, adding test coverage, or doing test-driven development in ANY language. Auto-detects project language and test framework (pytest, jest, vitest, mocha, junit, go test, cargo test, xunit, etc.). Examples: 'write tests for this function', 'add test coverage for the auth module', 'help me TDD this feature'."
 tools: Read, Grep, Glob, Bash
 model: inherit
-version: 2.0.0
 ---
 
 # TDD Specialist Agent

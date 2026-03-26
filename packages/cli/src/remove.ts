@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
 import type { InstallItem, PackManifest, RemoveResult } from './types.js';
+import { removeInstalledEntries } from './grimoire-config.js';
 
 /**
  * Scans the project's .claude/ directory for grimoire-managed agents and skills.
@@ -79,6 +80,7 @@ export function removeSingleItem(
 ): RemoveResult {
   const results = removeItems([item], projectDir);
   cleanManifest([item], projectDir);
+  removeInstalledEntries(projectDir, [item.name]);
   return results[0]!;
 }
 

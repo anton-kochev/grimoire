@@ -1,12 +1,11 @@
-import { basename, join } from 'path';
+import { basename } from 'path';
 import * as clack from '@clack/prompts';
 import { scanInstalled } from '../remove.js';
 import { loadAllPacks } from '../resolve.js';
 import { copyItems } from '../copy.js';
 import { printSummary } from '../summary.js';
-import { readFrontmatterVersion, isNewer } from '../version.js';
 import { readManifest, ensureEnforceHooks } from '../enforce.js';
-import { readGrimoireConfig } from '../grimoire-config.js';
+import { readGrimoireConfig, isNewer, recordInstalledVersions } from '../grimoire-config.js';
 import type { InstallItem } from '../types.js';
 
 export interface UpdateCheckResult {
@@ -15,6 +14,7 @@ export interface UpdateCheckResult {
   readonly availableVersion: string | undefined;
   readonly hasUpdate: boolean;
   readonly packDir: string;
+  readonly packName: string;
   readonly sourcePath: string;
 }
 
@@ -23,7 +23,7 @@ export function checkUpdates(projectDir: string): readonly UpdateCheckResult[] {
   const packs = loadAllPacks();
 
   // Build lookup: item name -> { entry version, packDir, sourcePath }
-  const packLookup = new Map<string, { version: string | undefined; packDir: string; sourcePath: string }>();
+  const packLookup = new Map<string, { version: string | undefined; packDir: string; packName: string; sourcePath: string }>();
 
   for (const pack of packs) {
     for (const agent of pack.manifest.agents) {
@@ -31,6 +31,7 @@ export function checkUpdates(projectDir: string): readonly UpdateCheckResult[] {
       packLookup.set(name, {
         version: agent.version,
         packDir: pack.dir,
+        packName: pack.name,
         sourcePath: agent.path,
       });
     }
@@ -39,10 +40,13 @@ export function checkUpdates(projectDir: string): readonly UpdateCheckResult[] {
       packLookup.set(name, {
         version: skill.version,
         packDir: pack.dir,
+        packName: pack.name,
         sourcePath: skill.path,
       });
     }
   }
+
+  const config = readGrimoireConfig(projectDir);
 
   return installed.map((item) => {
     const match = packLookup.get(item.name);
@@ -53,16 +57,12 @@ export function checkUpdates(projectDir: string): readonly UpdateCheckResult[] {
         availableVersion: undefined,
         hasUpdate: false,
         packDir: '',
+        packName: '',
         sourcePath: '',
       };
     }
 
-    const installedFilePath =
-      item.type === 'agent'
-        ? join(projectDir, '.claude', 'agents', `${item.name}.md`)
-        : join(projectDir, '.claude', 'skills', item.name, 'SKILL.md');
-
-    const installedVersion = readFrontmatterVersion(installedFilePath);
+    const installedVersion = config.installed?.[item.name]?.version;
     const availableVersion = match.version;
     const hasUpdate = isNewer(availableVersion, installedVersion);
 
@@ -72,6 +72,7 @@ export function checkUpdates(projectDir: string): readonly UpdateCheckResult[] {
       availableVersion,
       hasUpdate,
       packDir: match.packDir,
+      packName: match.packName,
       sourcePath: match.sourcePath,
     };
   });
@@ -132,10 +133,20 @@ export async function runUpdate(cwd?: string | undefined): Promise<void> {
   }
 
   const allResults = [];
+  const updatedItems: InstallItem[] = [];
   for (const { packDir, items } of byPack.values()) {
     const copyResults = copyItems(items, packDir, projectDir);
     allResults.push(...copyResults);
   }
+  for (const r of chosenResults) {
+    updatedItems.push({
+      ...r.item,
+      version: r.availableVersion,
+      pack: r.packName,
+      sourcePath: r.sourcePath,
+    });
+  }
+  recordInstalledVersions(projectDir, updatedItems);
 
   printSummary({ packs: [], results: allResults });
 
