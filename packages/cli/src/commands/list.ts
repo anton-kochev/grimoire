@@ -8,8 +8,9 @@ import { checkUpdates, type UpdateCheckResult } from './update.js';
 import { copyItems } from '../copy.js';
 import { runConfig } from './config.js';
 import { runAgentSkillsFor } from './agent-skills.js';
+import { runAgentPathsFor } from './agent-paths.js';
 import { readGrimoireConfig } from '../grimoire-config.js';
-import { ensureEnforceHooks } from '../enforce.js';
+import { ensureEnforceHooks, removeSubagentHooksFor } from '../enforce.js';
 import type { InstallItem } from '../types.js';
 
 // --- Frontmatter helpers ---
@@ -62,7 +63,7 @@ type SelectedItem =
   | { readonly kind: 'skill'; readonly name: string }
   | { readonly kind: 'settings' };
 
-type Action = 'remove' | 'update' | 'manage-skills';
+type Action = 'remove' | 'update' | 'manage-skills' | 'manage-paths';
 
 // --- Detail formatters ---
 
@@ -93,11 +94,12 @@ function wrapText(text: string, maxWidth: number): string {
 }
 
 function formatDescription(raw: string): string {
-  const maxWidth = Math.max(40, (process.stdout.columns ?? 80) - 4);
-  const unescaped = raw.replace(/\\n/g, '\n');
+  const maxWidth = Math.max(40, (process.stdout.columns ?? 80) - 6);
+  const unescaped = raw.replace(/\\+n/g, '\n');
   const stripped = unescaped
     .replace(/<example>[\s\S]*?<\/example>/g, '')
     .replace(/Examples?\s+of\s+when\s+to\s+use\s+this\s+agent\s*:?\s*/gi, '')
+    .replace(/\n*Examples?\s*:\s*$/i, '')
     .trim();
   return stripped
     .split('\n')
@@ -109,7 +111,11 @@ function formatDescription(raw: string): string {
 
 // --- Detail display helpers ---
 
-function buildAgentDetail(agentsDir: string, name: string): string {
+function buildAgentDetail(
+  agentsDir: string,
+  name: string,
+  filePatterns?: readonly string[],
+): string {
   const agentPath = join(agentsDir, `${name}.md`);
   const meta = readAgentFullMeta(agentPath);
   const desc = formatDescription(meta.description || '');
@@ -124,6 +130,9 @@ function buildAgentDetail(agentsDir: string, name: string): string {
       lines.push(`Skills: ${skills.join(', ')}`);
     }
   } catch { /* no skills */ }
+
+  const ep = filePatterns?.length ? filePatterns.join(', ') : '(none)';
+  lines.push(`Enforcement paths: ${ep}`);
 
   return lines.join('\n');
 }
@@ -237,7 +246,7 @@ export async function runList(projectDir: string): Promise<void> {
 
     // Show detail via note
     const detail = isAgent
-      ? buildAgentDetail(agentsDir, itemName)
+      ? buildAgentDetail(agentsDir, itemName, scan.agentFilePatterns.get(itemName))
       : buildSkillDetail(skillsDir, itemName, skillTriggers, skillManifestDescs);
     clack.note(detail, itemName);
 
@@ -260,6 +269,10 @@ export async function runList(projectDir: string): Promise<void> {
         value: 'manage-skills' as const,
         label: 'Manage skills',
       });
+      actionOptions.push({
+        value: 'manage-paths' as const,
+        label: 'Manage paths',
+      });
     }
 
     const action = await clack.select<Action>({
@@ -267,7 +280,7 @@ export async function runList(projectDir: string): Promise<void> {
       options: actionOptions,
     });
 
-    if (clack.isCancel(action)) continue; // back to item list
+    if (clack.isCancel(action)) break;
 
     if (action === 'remove') {
       const confirmed = await clack.confirm({
@@ -317,6 +330,32 @@ export async function runList(projectDir: string): Promise<void> {
 
     if (action === 'manage-skills') {
       await runAgentSkillsFor(projectDir, itemName);
+    }
+
+    if (action === 'manage-paths') {
+      await runAgentPathsFor(projectDir, itemName);
+
+      // Re-sync enforce hooks after path changes
+      try {
+        const config = readGrimoireConfig(projectDir);
+        if (config.enforcement) {
+          const manifest = readManifest(projectDir);
+          const currentPatterns = manifest.agents[itemName]?.file_patterns ?? [];
+
+          if (currentPatterns.length === 0) {
+            removeSubagentHooksFor(projectDir, itemName);
+          }
+
+          const agentsWithPatterns = Object.entries(manifest.agents)
+            .filter(([, entry]) => entry.file_patterns && entry.file_patterns.length > 0)
+            .map(([n]) => n);
+          if (agentsWithPatterns.length > 0) {
+            ensureEnforceHooks(projectDir, agentsWithPatterns);
+          }
+        }
+      } catch {
+        // No manifest or config
+      }
     }
 
     break; // exit after any completed action

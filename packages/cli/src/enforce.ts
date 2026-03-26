@@ -198,6 +198,47 @@ export function ensureEnforceHooks(projectDir: string, agentNames: readonly stri
 }
 
 /**
+ * Removes SubagentStart/Stop hook entries for a specific agent.
+ * Leaves all other hooks (PreToolUse, other agents) intact.
+ * No-op if the file or hooks don't exist.
+ */
+export function removeSubagentHooksFor(projectDir: string, agentName: string): void {
+  const settings = readSettings(projectDir);
+  if (!settings.hooks) return;
+
+  const hooks = settings.hooks as Record<string, HookEntry[]>;
+
+  if (hooks['SubagentStart']) {
+    hooks['SubagentStart'] = hooks['SubagentStart'].filter(
+      (e) =>
+        !(
+          e.matcher === agentName &&
+          e.hooks.some((h) => h.command.includes('--subagent-start') && h.command.includes(`--agent=${agentName}`))
+        ),
+    );
+    if (hooks['SubagentStart'].length === 0) delete hooks['SubagentStart'];
+  }
+
+  if (hooks['SubagentStop']) {
+    hooks['SubagentStop'] = hooks['SubagentStop'].filter(
+      (e) =>
+        !(
+          e.matcher === agentName &&
+          e.hooks.some((h) => h.command.includes('--subagent-stop') && h.command.includes(`--agent=${agentName}`))
+        ),
+    );
+    if (hooks['SubagentStop'].length === 0) delete hooks['SubagentStop'];
+  }
+
+  if (Object.keys(hooks).length > 0) {
+    settings.hooks = hooks;
+  } else {
+    delete settings.hooks;
+  }
+  writeSettings(projectDir, settings);
+}
+
+/**
  * Removes all enforcement-related hook entries from settings.json.
  * No-op if the file or hooks don't exist.
  */

@@ -10,6 +10,7 @@ import {
   hasSubagentHook,
   ensureEnforceHooks,
   removeEnforceHooks,
+  removeSubagentHooksFor,
 } from '../src/enforce.js';
 import type { SkillsManifest } from '../src/enforce.js';
 
@@ -447,5 +448,98 @@ describe('removeEnforceHooks', () => {
     const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
     expect(hooks['UserPromptSubmit']).toHaveLength(1);
+  });
+});
+
+// =============================================================================
+// removeSubagentHooksFor
+// =============================================================================
+
+describe('removeSubagentHooksFor', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('remove-subagent');
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('should remove SubagentStart/Stop hooks for a specific agent', () => {
+    // Arrange
+    ensureEnforceHooks(projectDir, ['grimoire.csharp-coder']);
+
+    // Act
+    removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder');
+
+    // Assert
+    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, unknown[]>;
+
+    expect(hooks['SubagentStart']).toBeUndefined();
+    expect(hooks['SubagentStop']).toBeUndefined();
+  });
+
+  it('should preserve hooks for other agents', () => {
+    // Arrange
+    ensureEnforceHooks(projectDir, ['grimoire.csharp-coder', 'grimoire.typescript-coder']);
+
+    // Act
+    removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder');
+
+    // Assert
+    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
+
+    expect(hooks['SubagentStart']).toHaveLength(1);
+    expect(hooks['SubagentStart']![0]!.matcher).toBe('grimoire.typescript-coder');
+    expect(hooks['SubagentStop']).toHaveLength(1);
+    expect(hooks['SubagentStop']![0]!.matcher).toBe('grimoire.typescript-coder');
+  });
+
+  it('should preserve non-enforcement hooks', () => {
+    // Arrange
+    makeSettings(projectDir, {
+      hooks: {
+        UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router' }] }],
+        PreToolUse: [{ matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] }],
+        SubagentStart: [{ matcher: 'grimoire.csharp-coder', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.csharp-coder' }] }],
+        SubagentStop: [{ matcher: 'grimoire.csharp-coder', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-stop --agent=grimoire.csharp-coder' }] }],
+      },
+    });
+
+    // Act
+    removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder');
+
+    // Assert
+    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, unknown[]>;
+
+    expect(hooks['UserPromptSubmit']).toHaveLength(1);
+    expect(hooks['PreToolUse']).toHaveLength(1);
+    expect(hooks['SubagentStart']).toBeUndefined();
+    expect(hooks['SubagentStop']).toBeUndefined();
+  });
+
+  it('should be a no-op when agent has no hooks', () => {
+    // Arrange
+    ensureEnforceHooks(projectDir, ['grimoire.typescript-coder']);
+
+    // Act + Assert
+    expect(() => removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder')).not.toThrow();
+
+    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
+
+    expect(hooks['SubagentStart']).toHaveLength(1);
+    expect(hooks['SubagentStart']![0]!.matcher).toBe('grimoire.typescript-coder');
+  });
+
+  it('should be a no-op when settings.json does not exist', () => {
+    // Arrange — fresh projectDir
+
+    // Act + Assert
+    expect(() => removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder')).not.toThrow();
   });
 });

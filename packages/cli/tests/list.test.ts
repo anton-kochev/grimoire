@@ -26,6 +26,27 @@ vi.mock('../src/commands/agent-skills.js', () => ({
   runAgentSkillsFor: vi.fn(),
 }));
 
+vi.mock('../src/commands/agent-paths.js', () => ({
+  runAgentPathsFor: vi.fn(),
+}));
+
+vi.mock('../src/enforce.js', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return {
+    ...actual,
+    ensureEnforceHooks: vi.fn(),
+    removeSubagentHooksFor: vi.fn(),
+  };
+});
+
+vi.mock('../src/grimoire-config.js', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return {
+    ...actual,
+    readGrimoireConfig: vi.fn().mockReturnValue({}),
+  };
+});
+
 vi.mock('../src/remove.js', async (importOriginal) => {
   const actual = await importOriginal() as Record<string, unknown>;
   return {
@@ -43,7 +64,10 @@ import { runList } from '../src/commands/list.js';
 import { checkUpdates } from '../src/commands/update.js';
 import { runConfig } from '../src/commands/config.js';
 import { runAgentSkillsFor } from '../src/commands/agent-skills.js';
+import { runAgentPathsFor } from '../src/commands/agent-paths.js';
 import { removeSingleItem } from '../src/remove.js';
+import { ensureEnforceHooks, removeSubagentHooksFor } from '../src/enforce.js';
+import { readGrimoireConfig } from '../src/grimoire-config.js';
 
 // ---- Helpers ----------------------------------------------------------------
 
@@ -186,10 +210,8 @@ describe('runList', () => {
       'model: claude-opus-4-5\ntools: Edit,Write\n',
     );
     writeManifest(projectDir, { 'my-agent': {} });
-    // select item → action menu cancel → outer cancel
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
@@ -211,7 +233,6 @@ describe('runList', () => {
     writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
@@ -221,6 +242,34 @@ describe('runList', () => {
     expect(noteContent).toContain('Skills:');
     expect(noteContent).toContain('skill-alpha');
     expect(noteContent).toContain('skill-beta');
+  });
+
+  it('shows enforcement paths in agent detail when file_patterns exist', async () => {
+    writeAgent(projectDir, 'my-agent', 'Typed agent', 'model: sonnet\n');
+    writeManifest(projectDir, { 'my-agent': { file_patterns: ['*.ts', '*.tsx'] } });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('Enforcement paths: *.ts, *.tsx');
+  });
+
+  it('shows (none) for enforcement paths when agent has no file_patterns', async () => {
+    writeAgent(projectDir, 'my-agent', 'Plain agent', 'model: sonnet\n');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('Enforcement paths: (none)');
   });
 
   it('shows skill detail via note with triggers', async () => {
@@ -239,7 +288,6 @@ describe('runList', () => {
     ]);
     mockSelect
       .mockResolvedValueOnce({ kind: 'skill', name: 'my-skill' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
@@ -304,7 +352,6 @@ describe('runList', () => {
     ]);
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
@@ -323,7 +370,6 @@ describe('runList', () => {
     // checkUpdates returns no updates (default mock returns [])
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
@@ -337,31 +383,33 @@ describe('runList', () => {
 
   // ---------- Action menu — manage skills (agents only) -----------------------
 
-  it('shows manage-skills action only for agents', async () => {
+  it('shows manage-skills action for agents', async () => {
     writeAgent(projectDir, 'my-agent', 'Agent desc');
-    writeSkill(projectDir, 'my-skill', 'Skill desc');
-    writeManifest(projectDir, { 'my-agent': {} }, [
-      { name: 'My Skill', path: '.claude/skills/my-skill' },
-    ]);
-
-    // Select agent → cancel action → select skill → cancel action → cancel outer
+    writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
-      .mockResolvedValueOnce({ kind: 'skill', name: 'my-skill' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
 
-    // Agent action menu (call index 1)
     const agentActions = mockSelect.mock.calls[1]![0] as {
       options: Array<{ value: string }>;
     };
     expect(agentActions.options.some((o) => o.value === 'manage-skills')).toBe(true);
+  });
 
-    // Skill action menu (call index 3)
-    const skillActions = mockSelect.mock.calls[3]![0] as {
+  it('does not show manage-skills action for skills', async () => {
+    writeSkill(projectDir, 'my-skill', 'Skill desc');
+    writeManifest(projectDir, {}, [
+      { name: 'My Skill', path: '.claude/skills/my-skill' },
+    ]);
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'skill', name: 'my-skill' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const skillActions = mockSelect.mock.calls[1]![0] as {
       options: Array<{ value: string }>;
     };
     expect(skillActions.options.some((o) => o.value === 'manage-skills')).toBe(false);
@@ -383,6 +431,108 @@ describe('runList', () => {
     expect(mockSelect).toHaveBeenCalledTimes(2);
   });
 
+  // ---------- Action menu — manage paths (agents only) -----------------------
+
+  it('shows manage-paths action for agents', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const agentActions = mockSelect.mock.calls[1]![0] as {
+      options: Array<{ value: string }>;
+    };
+    expect(agentActions.options.some((o) => o.value === 'manage-paths')).toBe(true);
+  });
+
+  it('does not show manage-paths action for skills', async () => {
+    writeSkill(projectDir, 'my-skill', 'Skill desc');
+    writeManifest(projectDir, {}, [
+      { name: 'My Skill', path: '.claude/skills/my-skill' },
+    ]);
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'skill', name: 'my-skill' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const skillActions = mockSelect.mock.calls[1]![0] as {
+      options: Array<{ value: string }>;
+    };
+    expect(skillActions.options.some((o) => o.value === 'manage-paths')).toBe(false);
+  });
+
+  it('calls runAgentPathsFor when manage-paths selected', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('manage-paths' as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(runAgentPathsFor)).toHaveBeenCalledWith(projectDir, 'my-agent');
+    expect(mockSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-applies enforcement hooks after manage-paths when enforcement enabled', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': { file_patterns: ['*.ts'] } });
+    vi.mocked(readGrimoireConfig).mockReturnValue({ enforcement: true });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('manage-paths' as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(ensureEnforceHooks)).toHaveBeenCalledWith(
+      projectDir,
+      expect.arrayContaining(['my-agent']),
+    );
+  });
+
+  it('does not re-apply hooks after manage-paths when enforcement disabled', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': { file_patterns: ['*.ts'] } });
+    vi.mocked(readGrimoireConfig).mockReturnValue({});
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('manage-paths' as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(ensureEnforceHooks)).not.toHaveBeenCalled();
+  });
+
+  it('removes stale subagent hooks after manage-paths when agent has no patterns', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    vi.mocked(readGrimoireConfig).mockReturnValue({ enforcement: true });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('manage-paths' as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(removeSubagentHooksFor)).toHaveBeenCalledWith(projectDir, 'my-agent');
+  });
+
+  it('does not remove subagent hooks when agent still has patterns after manage-paths', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': { file_patterns: ['*.ts'] } });
+    vi.mocked(readGrimoireConfig).mockReturnValue({ enforcement: true });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('manage-paths' as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(removeSubagentHooksFor)).not.toHaveBeenCalled();
+  });
+
   // ---------- Settings option --------------------------------------------------
 
   it('calls runConfig when settings selected', async () => {
@@ -399,24 +549,17 @@ describe('runList', () => {
 
   // ---------- Loop behavior ---------------------------------------------------
 
-  it('loops back to item list after action menu cancel', async () => {
+  it('exits after action menu cancel instead of looping back', async () => {
     writeAgent(projectDir, 'agent-a', 'First agent');
-    writeSkill(projectDir, 'skill-x', 'A skill');
-    writeManifest(projectDir, { 'agent-a': {} }, [
-      { name: 'Skill X', path: '.claude/skills/skill-x' },
-    ]);
-    // select agent → cancel action → select skill → cancel action → cancel outer
+    writeManifest(projectDir, { 'agent-a': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'agent-a' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
-      .mockResolvedValueOnce({ kind: 'skill', name: 'skill-x' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
 
-    // 5 select calls: item→action→item→action→item(cancel)
-    expect(mockSelect).toHaveBeenCalledTimes(5);
+    // 2 select calls: item select + action cancel — no loop back
+    expect(mockSelect).toHaveBeenCalledTimes(2);
   });
 
   // ---------- Description formatting ------------------------------------------
@@ -426,7 +569,6 @@ describe('runList', () => {
     writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
@@ -447,7 +589,6 @@ describe('runList', () => {
     writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
@@ -459,6 +600,41 @@ describe('runList', () => {
     expect(noteContent).toContain('Short intro');
   });
 
+  it('handles double-escaped \\\\n sequences without leaving trailing backslashes', async () => {
+    writeAgent(projectDir, 'my-agent', 'First line\\\\nSecond line\\\\nThird line');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('First line');
+    expect(noteContent).toContain('Second line');
+    expect(noteContent).not.toContain('\\');
+  });
+
+  it('strips trailing "Examples:" left after example block removal', async () => {
+    writeAgent(
+      projectDir,
+      'my-agent',
+      'Great agent.\\nExamples:\\n<example>stuff</example>',
+    );
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('Great agent');
+    expect(noteContent).not.toMatch(/Examples?\s*:/i);
+  });
+
   it('strips trailing "Examples of when to use this agent" after example removal', async () => {
     writeAgent(
       projectDir,
@@ -468,7 +644,6 @@ describe('runList', () => {
     writeManifest(projectDir, { 'my-agent': {} });
     mockSelect
       .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
-      .mockResolvedValueOnce(CANCEL as never)
       .mockResolvedValueOnce(CANCEL as never);
 
     await runList(projectDir);
