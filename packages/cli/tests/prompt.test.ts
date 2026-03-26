@@ -3,6 +3,7 @@ import type { PackOption, InstallItem } from '../src/types.js';
 
 vi.mock('@clack/prompts', () => ({
   multiselect: vi.fn(),
+  groupMultiselect: vi.fn(),
   confirm: vi.fn(),
   intro: vi.fn(),
   outro: vi.fn(),
@@ -14,6 +15,7 @@ import { runWizard, runRemoveWizard } from '../src/prompt.js';
 import * as clack from '@clack/prompts';
 
 const mockMultiselect = vi.mocked(clack.multiselect);
+const mockGroupMultiselect = vi.mocked(clack.groupMultiselect);
 const mockConfirm = vi.mocked(clack.confirm);
 const mockIsCancel = vi.mocked(clack.isCancel);
 
@@ -185,26 +187,33 @@ describe('runRemoveWizard', () => {
     mockIsCancel.mockReturnValue(false);
   });
 
-  it('should show pack-prefixed labels for known pack items and plain labels for others', async () => {
+  it('should group items by pack name with type-prefixed labels', async () => {
     // Arrange
-    mockMultiselect.mockResolvedValueOnce([]);
+    mockGroupMultiselect.mockResolvedValueOnce([]);
 
     // Act
     await runRemoveWizard(installedItems);
 
     // Assert
-    const call = mockMultiselect.mock.calls[0]?.[0] as { options: Array<{ label: string; value: InstallItem }> };
-    const labels = call.options.map((o) => o.label);
-    expect(labels).toContain('[dotnet-pack | agent] csharp-coder');
-    expect(labels).toContain('[dotnet-pack | skill] dotnet-testing');
-    expect(labels).toContain('[agent] dotnet-architect');
-    expect(labels).toHaveLength(3);
+    const call = mockGroupMultiselect.mock.calls[0]?.[0] as {
+      options: Record<string, Array<{ label: string; value: InstallItem }>>;
+    };
+    const groups = call.options;
+    expect(Object.keys(groups)).toContain('dotnet-pack');
+    expect(Object.keys(groups)).toContain('other');
+
+    const dotnetLabels = groups['dotnet-pack']!.map((o) => o.label);
+    expect(dotnetLabels).toContain('[agent] csharp-coder');
+    expect(dotnetLabels).toContain('[skill] dotnet-testing');
+
+    const otherLabels = groups['other']!.map((o) => o.label);
+    expect(otherLabels).toContain('[agent] dotnet-architect');
   });
 
   it('should return selected items when confirmed', async () => {
     // Arrange
     const toRemove = [installedItems[0]!, installedItems[1]!];
-    mockMultiselect.mockResolvedValueOnce(toRemove);
+    mockGroupMultiselect.mockResolvedValueOnce(toRemove);
     mockConfirm.mockResolvedValueOnce(true);
 
     // Act
@@ -216,7 +225,7 @@ describe('runRemoveWizard', () => {
 
   it('should return empty items when multiselect is cancelled', async () => {
     // Arrange
-    mockMultiselect.mockResolvedValueOnce(Symbol('cancel'));
+    mockGroupMultiselect.mockResolvedValueOnce(Symbol('cancel'));
     mockIsCancel.mockReturnValueOnce(true);
 
     // Act
@@ -229,7 +238,7 @@ describe('runRemoveWizard', () => {
 
   it('should return empty items when nothing is selected', async () => {
     // Arrange
-    mockMultiselect.mockResolvedValueOnce([]);
+    mockGroupMultiselect.mockResolvedValueOnce([]);
 
     // Act
     const result = await runRemoveWizard(installedItems);
@@ -241,7 +250,7 @@ describe('runRemoveWizard', () => {
 
   it('should return empty items when confirm is declined', async () => {
     // Arrange
-    mockMultiselect.mockResolvedValueOnce([installedItems[0]!]);
+    mockGroupMultiselect.mockResolvedValueOnce([installedItems[0]!]);
     mockConfirm.mockResolvedValueOnce(false);
 
     // Act
@@ -253,7 +262,7 @@ describe('runRemoveWizard', () => {
 
   it('should return empty items when confirm is cancelled', async () => {
     // Arrange
-    mockMultiselect.mockResolvedValueOnce([installedItems[0]!]);
+    mockGroupMultiselect.mockResolvedValueOnce([installedItems[0]!]);
     mockConfirm.mockResolvedValueOnce(Symbol('cancel') as never);
     mockIsCancel.mockReturnValueOnce(false).mockReturnValueOnce(true);
 

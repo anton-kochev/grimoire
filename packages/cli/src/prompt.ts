@@ -180,16 +180,20 @@ export async function runRemoveWizard(
 
   clack.intro('Grimoire Remover');
 
-  const itemOptions = installedItems.map((item) => ({
-    label: item.pack ? `[${item.pack} | ${item.type}] ${item.name}` : `[${item.type}] ${item.name}`,
-    value: item,
-    hint: item.description,
-  }));
+  const groups: Record<string, Array<{ label: string; value: InstallItem; hint: string }>> = {};
+  for (const item of installedItems) {
+    const group = item.pack ?? 'other';
+    if (!groups[group]) groups[group] = [];
+    groups[group].push({
+      label: `[${item.type}] ${item.name}`,
+      value: item,
+      hint: item.description,
+    });
+  }
 
-  const selectedItems = await clack.multiselect({
+  const selectedItems = await clack.groupMultiselect({
     message: 'Select items to remove (Space to toggle, Enter to confirm):',
-    options: itemOptions,
-    initialValues: [],
+    options: groups,
     required: false,
   });
 
