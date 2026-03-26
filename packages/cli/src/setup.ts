@@ -50,7 +50,7 @@ export function mergeSettings(projectDir: string): void {
     hooks['PreToolUse'] = [];
   }
   if (!hasRouterHook(hooks['PreToolUse'])) {
-    hooks['PreToolUse'].push(makeHookEntry('Edit|Write'));
+    hooks['PreToolUse'].push(makeHookEntry('Edit|Write|MultiEdit'));
   }
 
   settings['hooks'] = hooks;
@@ -66,7 +66,6 @@ interface ManifestSkill {
 
 interface ManifestAgentEntry {
   file_patterns?: string[];
-  enforce?: boolean;
 }
 
 interface SkillsManifest {
@@ -131,11 +130,13 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
     }
   }
 
-  // Merge agents — preserve existing entry (enforce flag, file_patterns) when present
+  // Merge agents — preserve existing entry (file_patterns) when present
   for (const agent of packManifest.agents) {
     if (!manifest.agents[agent.name]) {
       manifest.agents[agent.name] = {};
     }
+    // Strip leftover enforce flags (migrated away)
+    delete (manifest.agents[agent.name] as Record<string, unknown>)['enforce'];
     // Write file_patterns from pack definition when provided
     if (agent.file_patterns && agent.file_patterns.length > 0) {
       manifest.agents[agent.name]!.file_patterns = [...agent.file_patterns];

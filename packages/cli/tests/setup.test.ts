@@ -82,7 +82,7 @@ describe('mergeSettings', () => {
 
     const preToolHooks = hooks['PreToolUse'] as Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }>;
     expect(preToolHooks).toHaveLength(1);
-    expect(preToolHooks[0]!.matcher).toBe('Edit|Write');
+    expect(preToolHooks[0]!.matcher).toBe('Edit|Write|MultiEdit');
     expect(preToolHooks[0]!.hooks[0]!.command).toContain('@grimoire-cc/router');
   });
 
@@ -126,7 +126,7 @@ describe('mergeSettings', () => {
             { matcher: '', hooks: [{ type: 'command', command: 'npx @grimoire-cc/@grimoire-cc/router' }] },
           ],
           PreToolUse: [
-            { matcher: 'Edit|Write', hooks: [{ type: 'command', command: 'npx @grimoire-cc/@grimoire-cc/router' }] },
+            { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/@grimoire-cc/router' }] },
           ],
         },
       }),
@@ -288,7 +288,7 @@ describe('mergeManifest', () => {
     expect(entry['file_patterns']).toEqual(['*.ts', '*.tsx']);
   });
 
-  it('should preserve enforce flag when reinstalling agent', () => {
+  it('should strip leftover enforce flag when reinstalling agent', () => {
     const claudeDir = join(projectDir, '.claude');
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
@@ -321,7 +321,7 @@ describe('mergeManifest', () => {
     const entry = agents['grimoire.typescript-coder'] as Record<string, unknown>;
 
     expect(entry['file_patterns']).toEqual(['*.ts', '*.tsx']);
-    expect(entry['enforce']).toBe(true);
+    expect(entry['enforce']).toBeUndefined();
   });
 
   it('should use directory name from path (not name) for skill path in manifest', () => {
