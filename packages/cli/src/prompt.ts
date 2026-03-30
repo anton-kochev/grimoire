@@ -3,10 +3,9 @@ import { readGrimoireConfig, isNewer } from './grimoire-config.js';
 import type { PackOption, InstallItem, WizardResult, RemoveWizardResult } from './types.js';
 
 /**
- * Runs a 3-step interactive wizard:
- * 1. Select packs to install
- * 2. Select individual items (all pre-selected)
- * 3. Enable auto-activation?
+ * Runs a 2-step interactive wizard:
+ * 1. Select items to install (grouped by pack, all pre-selected)
+ * 2. Enable auto-activation?
  *
  * @returns The wizard result with selected items grouped by pack, or empty on cancel
  */
@@ -15,43 +14,20 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
 
   clack.intro('Grimoire Installer');
 
-  // Step 1 — Pack selection
-  const packOptions = packs.map((pack) => {
-    const agentCount = pack.manifest.agents.length;
-    const skillCount = pack.manifest.skills.length;
-    const parts: string[] = [];
-    if (agentCount > 0) parts.push(`${agentCount} agent${agentCount !== 1 ? 's' : ''}`);
-    if (skillCount > 0) parts.push(`${skillCount} skill${skillCount !== 1 ? 's' : ''}`);
-    return {
-      label: pack.name,
-      value: pack,
-      hint: parts.join(', '),
-    };
-  });
-
-  const selectedPacks = await clack.multiselect({
-    message: 'Select packs to install:',
-    options: packOptions,
-    required: true,
-  });
-
-  if (clack.isCancel(selectedPacks)) {
-    clack.cancel('Installation cancelled.');
-    return empty;
-  }
-
-  const chosenPacks = selectedPacks as PackOption[];
-
-  // Step 2 — Item selection (all pre-selected)
-  const itemOptions: Array<{ label: string; value: { pack: PackOption; item: InstallItem }; hint?: string }> = [];
+  // Step 1 — Item selection grouped by pack (all pre-selected)
   const config = readGrimoireConfig(projectDir);
+  const groups: Record<string, Array<{ label: string; value: { pack: PackOption; item: InstallItem }; hint: string }>> = {};
+  const allValues: Array<{ pack: PackOption; item: InstallItem }> = [];
 
-  for (const pack of chosenPacks) {
+  for (const pack of packs) {
+    const groupKey = pack.name;
+    if (!groups[groupKey]) groups[groupKey] = [];
+
     for (const agent of pack.manifest.agents) {
       const packVersion = agent.version;
       const label = packVersion
-        ? `[${pack.name} · agent · v${packVersion}] ${agent.name}`
-        : `[${pack.name} · agent] ${agent.name}`;
+        ? `[agent · v${packVersion}] ${agent.name}`
+        : `[agent] ${agent.name}`;
 
       const installedVersion = config.installed?.[agent.name]?.version;
       let hint: string;
@@ -64,28 +40,27 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
         hint = agent.description;
       }
 
-      itemOptions.push({
-        label,
-        value: {
-          pack,
-          item: {
-            type: 'agent' as const,
-            name: agent.name,
-            sourcePath: agent.path,
-            description: agent.description,
-            pack: pack.name,
-            ...(packVersion !== undefined && { version: packVersion }),
-          },
+      const value = {
+        pack,
+        item: {
+          type: 'agent' as const,
+          name: agent.name,
+          sourcePath: agent.path,
+          description: agent.description,
+          pack: pack.name,
+          ...(packVersion !== undefined && { version: packVersion }),
         },
-        hint,
-      });
+      };
+
+      groups[groupKey].push({ label, value, hint });
+      allValues.push(value);
     }
 
     for (const skill of pack.manifest.skills) {
       const packVersion = skill.version;
       const label = packVersion
-        ? `[${pack.name} · skill · v${packVersion}] ${skill.name}`
-        : `[${pack.name} · skill] ${skill.name}`;
+        ? `[skill · v${packVersion}] ${skill.name}`
+        : `[skill] ${skill.name}`;
 
       const installedVersion = config.installed?.[skill.name]?.version;
       let hint: string;
@@ -98,28 +73,27 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
         hint = skill.description;
       }
 
-      itemOptions.push({
-        label,
-        value: {
-          pack,
-          item: {
-            type: 'skill' as const,
-            name: skill.name,
-            sourcePath: skill.path,
-            description: skill.description,
-            pack: pack.name,
-            ...(packVersion !== undefined && { version: packVersion }),
-          },
+      const value = {
+        pack,
+        item: {
+          type: 'skill' as const,
+          name: skill.name,
+          sourcePath: skill.path,
+          description: skill.description,
+          pack: pack.name,
+          ...(packVersion !== undefined && { version: packVersion }),
         },
-        hint,
-      });
+      };
+
+      groups[groupKey].push({ label, value, hint });
+      allValues.push(value);
     }
   }
 
-  const selectedItems = await clack.multiselect({
+  const selectedItems = await clack.groupMultiselect({
     message: 'Select items to install (Space to toggle, Enter to confirm):',
-    options: itemOptions,
-    initialValues: itemOptions.map((o) => o.value),
+    options: groups,
+    initialValues: allValues,
     required: false,
   });
 
@@ -135,7 +109,7 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
     return empty;
   }
 
-  // Step 3 — Auto-activation
+  // Step 2 — Auto-activation
   const autoActivate = await clack.confirm({
     message: 'Enable auto-activation? (router hooks for automatic skill matching)',
     initialValue: true,
