@@ -113,10 +113,8 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
     };
   }
 
-  // Merge skills with triggers
+  // Merge all skills (with or without triggers) so they are tracked as managed items
   for (const skill of packManifest.skills) {
-    if (!skill.triggers) continue;
-
     const dirName = basename(skill.path);
     const skillPath = `.claude/skills/${dirName}`;
     const existingIndex = manifest.skills.findIndex((s) => s.path === skillPath);
@@ -125,7 +123,7 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
       path: skillPath,
       name: skill.name,
       description: skill.description,
-      triggers: { ...skill.triggers },
+      triggers: skill.triggers ? { ...skill.triggers } : {},
     };
 
     if (existingIndex >= 0) {

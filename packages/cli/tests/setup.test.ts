@@ -181,10 +181,10 @@ describe('mergeManifest', () => {
     const routerConfig = router['config'] as Record<string, unknown>;
     expect(routerConfig['activation_threshold']).toBe(3.0);
 
-    // Only skills with triggers are included
+    // All skills are included (with and without triggers)
     const skills = router['skills'] as Array<{ path: string; name: string }>;
-    expect(skills).toHaveLength(2);
-    expect(skills.map(s => s.name)).toEqual(['dotnet-testing', 'readme-guide']);
+    expect(skills).toHaveLength(3);
+    expect(skills.map(s => s.name)).toEqual(['dotnet-testing', 'readme-guide', 'no-triggers-skill']);
   });
 
   it('should preserve existing skills and append new ones', () => {
@@ -217,12 +217,13 @@ describe('mergeManifest', () => {
     const routerConfig = router['config'] as Record<string, unknown>;
     expect(routerConfig['activation_threshold']).toBe(5.0);
 
-    // Existing skill + 2 new skills with triggers
+    // Existing skill + 3 new skills (including one without triggers)
     const skills = router['skills'] as Array<{ path: string; name: string }>;
-    expect(skills).toHaveLength(3);
+    expect(skills).toHaveLength(4);
     expect(skills[0]!.name).toBe('existing-skill');
     expect(skills[1]!.name).toBe('dotnet-testing');
     expect(skills[2]!.name).toBe('readme-guide');
+    expect(skills[3]!.name).toBe('no-triggers-skill');
   });
 
   it('should update triggers for skill that already exists by path', () => {
@@ -367,7 +368,7 @@ describe('mergeManifest', () => {
     expect(skills[0]!.name).toBe('grimoire.modern-typescript');
   });
 
-  it('should skip skills without triggers', () => {
+  it('should register skills without triggers', () => {
     const manifestWithNoTriggers: PackManifest = {
       name: 'test-pack',
       version: '1.0.0',
@@ -381,8 +382,11 @@ describe('mergeManifest', () => {
 
     const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
     const router = config['router'] as Record<string, unknown>;
-    const skills = router['skills'] as unknown[];
-    expect(skills).toHaveLength(0);
+    const skills = router['skills'] as Array<{ path: string; name: string; triggers: unknown }>;
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.name).toBe('no-triggers');
+    expect(skills[0]!.path).toBe('.claude/skills/no-triggers');
+    expect(skills[0]!.triggers).toEqual({});
   });
 });
 

@@ -231,7 +231,7 @@ describe('runAdd', () => {
     expect(existsSync(join(projectDir, '.claude', 'grimoire.json'))).toBe(true);
   });
 
-  it('should not create config files when auto-activation is disabled', async () => {
+  it('should write manifest but not hooks when auto-activation is disabled', async () => {
     const pack = makePack();
     mockLoadAllPacks.mockReturnValue([pack]);
 
@@ -242,6 +242,7 @@ describe('runAdd', () => {
           manifest: pack.manifest,
           items: [
             { type: 'agent', name: 'agent-a', sourcePath: 'agents/agent-a.md', description: 'Agent A' },
+            { type: 'skill', name: 'skill-b', sourcePath: 'skills/skill-b', description: 'Skill B' },
           ],
         },
       ],
@@ -251,13 +252,19 @@ describe('runAdd', () => {
 
     await runAdd(projectDir);
 
+    // No hooks written
     expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
-    // grimoire.json should either not exist or have no router key
+
+    // Manifest IS written with installed items registered
     const configPath = join(projectDir, '.claude', 'grimoire.json');
-    if (existsSync(configPath)) {
-      const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
-      expect(config['router']).toBeUndefined();
-    }
+    expect(existsSync(configPath)).toBe(true);
+    const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    expect(config['router']).toBeDefined();
+    const router = config['router'] as Record<string, unknown>;
+    const agents = router['agents'] as Record<string, unknown>;
+    expect(agents['agent-a']).toBeDefined();
+    const skills = router['skills'] as Array<{ name: string }>;
+    expect(skills.some(s => s.name === 'skill-b')).toBe(true);
   });
 
   it('should end-to-end: fixture pack -> target dir has correct files', async () => {
