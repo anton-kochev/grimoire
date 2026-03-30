@@ -168,20 +168,21 @@ describe('mergeManifest', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should create manifest with default config and skills from pack on fresh project', () => {
+  it('should create grimoire.json with default router config and skills from pack on fresh project', () => {
     mergeManifest(projectDir, sampleManifest);
 
-    const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
-    expect(existsSync(manifestPath)).toBe(true);
+    const configPath = join(projectDir, '.claude', 'grimoire.json');
+    expect(existsSync(configPath)).toBe(true);
 
-    const manifest = readJson(manifestPath) as Record<string, unknown>;
-    expect(manifest['version']).toBe('2.0.0');
+    const config = readJson(configPath) as Record<string, unknown>;
+    const router = config['router'] as Record<string, unknown>;
+    expect(router['version']).toBe('2.0.0');
 
-    const config = manifest['config'] as Record<string, unknown>;
-    expect(config['activation_threshold']).toBe(3.0);
+    const routerConfig = router['config'] as Record<string, unknown>;
+    expect(routerConfig['activation_threshold']).toBe(3.0);
 
     // Only skills with triggers are included
-    const skills = manifest['skills'] as Array<{ path: string; name: string }>;
+    const skills = router['skills'] as Array<{ path: string; name: string }>;
     expect(skills).toHaveLength(2);
     expect(skills.map(s => s.name)).toEqual(['dotnet-testing', 'readme-guide']);
   });
@@ -190,31 +191,34 @@ describe('mergeManifest', () => {
     const claudeDir = join(projectDir, '.claude');
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
-      join(claudeDir, 'skills-manifest.json'),
+      join(claudeDir, 'grimoire.json'),
       JSON.stringify({
-        version: '2.0.0',
-        config: { activation_threshold: 5.0 },
-        skills: [
-          {
-            path: '.claude/skills/existing-skill',
-            name: 'existing-skill',
-            triggers: { keywords: ['existing'] },
-          },
-        ],
-        agents: {},
+        router: {
+          version: '2.0.0',
+          config: { activation_threshold: 5.0 },
+          skills: [
+            {
+              path: '.claude/skills/existing-skill',
+              name: 'existing-skill',
+              triggers: { keywords: ['existing'] },
+            },
+          ],
+          agents: {},
+        },
       }),
     );
 
     mergeManifest(projectDir, sampleManifest);
 
-    const manifest = readJson(join(claudeDir, 'skills-manifest.json')) as Record<string, unknown>;
+    const config = readJson(join(claudeDir, 'grimoire.json')) as Record<string, unknown>;
+    const router = config['router'] as Record<string, unknown>;
 
     // Existing config preserved
-    const config = manifest['config'] as Record<string, unknown>;
-    expect(config['activation_threshold']).toBe(5.0);
+    const routerConfig = router['config'] as Record<string, unknown>;
+    expect(routerConfig['activation_threshold']).toBe(5.0);
 
     // Existing skill + 2 new skills with triggers
-    const skills = manifest['skills'] as Array<{ path: string; name: string }>;
+    const skills = router['skills'] as Array<{ path: string; name: string }>;
     expect(skills).toHaveLength(3);
     expect(skills[0]!.name).toBe('existing-skill');
     expect(skills[1]!.name).toBe('dotnet-testing');
@@ -225,25 +229,28 @@ describe('mergeManifest', () => {
     const claudeDir = join(projectDir, '.claude');
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
-      join(claudeDir, 'skills-manifest.json'),
+      join(claudeDir, 'grimoire.json'),
       JSON.stringify({
-        version: '2.0.0',
-        config: {},
-        skills: [
-          {
-            path: '.claude/skills/dotnet-testing',
-            name: 'dotnet-testing',
-            triggers: { keywords: ['old-keyword'] },
-          },
-        ],
-        agents: {},
+        router: {
+          version: '2.0.0',
+          config: {},
+          skills: [
+            {
+              path: '.claude/skills/dotnet-testing',
+              name: 'dotnet-testing',
+              triggers: { keywords: ['old-keyword'] },
+            },
+          ],
+          agents: {},
+        },
       }),
     );
 
     mergeManifest(projectDir, sampleManifest);
 
-    const manifest = readJson(join(claudeDir, 'skills-manifest.json')) as Record<string, unknown>;
-    const skills = manifest['skills'] as Array<{ path: string; name: string; triggers: { keywords: string[] } }>;
+    const config = readJson(join(claudeDir, 'grimoire.json')) as Record<string, unknown>;
+    const router = config['router'] as Record<string, unknown>;
+    const skills = router['skills'] as Array<{ path: string; name: string; triggers: { keywords: string[] } }>;
 
     // Should not duplicate — just update
     const dotnetSkills = skills.filter(s => s.path === '.claude/skills/dotnet-testing');
@@ -260,8 +267,9 @@ describe('mergeManifest', () => {
       skills: [],
     });
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
-    const agents = manifest['agents'] as Record<string, unknown>;
+    const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
+    const router = config['router'] as Record<string, unknown>;
+    const agents = router['agents'] as Record<string, unknown>;
 
     expect(agents['csharp-coder']).toBeDefined();
     expect(agents['csharp-coder']).toEqual({});
@@ -281,8 +289,9 @@ describe('mergeManifest', () => {
       skills: [],
     });
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
-    const agents = manifest['agents'] as Record<string, unknown>;
+    const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
+    const router = config['router'] as Record<string, unknown>;
+    const agents = router['agents'] as Record<string, unknown>;
     const entry = agents['grimoire.typescript-coder'] as Record<string, unknown>;
 
     expect(entry['file_patterns']).toEqual(['*.ts', '*.tsx']);
@@ -292,13 +301,15 @@ describe('mergeManifest', () => {
     const claudeDir = join(projectDir, '.claude');
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
-      join(claudeDir, 'skills-manifest.json'),
+      join(claudeDir, 'grimoire.json'),
       JSON.stringify({
-        version: '2.0.0',
-        config: {},
-        skills: [],
-        agents: {
-          'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
+        router: {
+          version: '2.0.0',
+          config: {},
+          skills: [],
+          agents: {
+            'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
+          },
         },
       }),
     );
@@ -316,15 +327,16 @@ describe('mergeManifest', () => {
       skills: [],
     });
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
-    const agents = manifest['agents'] as Record<string, unknown>;
+    const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
+    const router = config['router'] as Record<string, unknown>;
+    const agents = router['agents'] as Record<string, unknown>;
     const entry = agents['grimoire.typescript-coder'] as Record<string, unknown>;
 
     expect(entry['file_patterns']).toEqual(['*.ts', '*.tsx']);
     expect(entry['enforce']).toBeUndefined();
   });
 
-  it('should use directory name from path (not name) for skill path in manifest', () => {
+  it('should use directory name from path (not name) for skill path in router', () => {
     const packWithPrefixedName: PackManifest = {
       name: 'test-pack',
       version: '1.0.0',
@@ -346,11 +358,11 @@ describe('mergeManifest', () => {
 
     mergeManifest(projectDir, packWithPrefixedName);
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
-    const skills = manifest['skills'] as Array<{ path: string; name: string }>;
+    const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
+    const router = config['router'] as Record<string, unknown>;
+    const skills = router['skills'] as Array<{ path: string; name: string }>;
 
     expect(skills).toHaveLength(1);
-    // Path should use directory name from skill.path, not skill.name (which contains ':')
     expect(skills[0]!.path).toBe('.claude/skills/gr.modern-typescript');
     expect(skills[0]!.name).toBe('grimoire.modern-typescript');
   });
@@ -367,8 +379,9 @@ describe('mergeManifest', () => {
 
     mergeManifest(projectDir, manifestWithNoTriggers);
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as Record<string, unknown>;
-    const skills = manifest['skills'] as unknown[];
+    const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
+    const router = config['router'] as Record<string, unknown>;
+    const skills = router['skills'] as unknown[];
     expect(skills).toHaveLength(0);
   });
 });
@@ -384,10 +397,12 @@ describe('setupRouter', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should create both settings.json and skills-manifest.json', () => {
+  it('should create both settings.json and grimoire.json with router key', () => {
     setupRouter(projectDir, sampleManifest);
 
     expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
-    expect(existsSync(join(projectDir, '.claude', 'skills-manifest.json'))).toBe(true);
+    expect(existsSync(join(projectDir, '.claude', 'grimoire.json'))).toBe(true);
+    const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
+    expect(config['router']).toBeDefined();
   });
 });

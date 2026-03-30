@@ -58,6 +58,7 @@ export interface AgentEntry {
  */
 export interface GrimoireConfig {
   enforcement?: boolean;
+  router?: SkillManifest;
 }
 
 /**

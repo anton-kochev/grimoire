@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -27,10 +27,13 @@ function makeTmpDir(): string {
 function writeManifest(projectDir: string): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
-  writeFileSync(
-    join(claudeDir, 'skills-manifest.json'),
-    JSON.stringify({ version: '1', config: {}, skills: [], agents: {} }),
-  );
+  const configPath = join(claudeDir, 'grimoire.json');
+  let config: Record<string, unknown> = {};
+  if (existsSync(configPath)) {
+    try { config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
+  }
+  config['router'] = { version: '1', config: {}, skills: [], agents: {} };
+  writeFileSync(configPath, JSON.stringify(config));
 }
 
 describe('runConfig', () => {

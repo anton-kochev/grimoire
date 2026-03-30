@@ -6,10 +6,9 @@ import { tmpdir } from 'os';
 
 describe('processPrompt (integration)', () => {
   let testDir: string;
-  let manifestPath: string;
   let logPath: string;
 
-  const validManifest = {
+  const validRouter = {
     version: '1.0.0',
     config: {
       weights: {
@@ -44,15 +43,17 @@ describe('processPrompt (integration)', () => {
 
   beforeEach(() => {
     testDir = join(tmpdir(), `skill-router-int-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
-    manifestPath = join(testDir, 'manifest.json');
+    mkdirSync(join(testDir, '.claude'), { recursive: true });
     logPath = join(testDir, 'logs', 'router.log');
 
-    const manifest = {
-      ...validManifest,
-      config: { ...validManifest.config, log_path: logPath },
+    const router = {
+      ...validRouter,
+      config: { ...validRouter.config, log_path: logPath },
     };
-    writeFileSync(manifestPath, JSON.stringify(manifest));
+    writeFileSync(
+      join(testDir, '.claude', 'grimoire.json'),
+      JSON.stringify({ router }),
+    );
   });
 
   afterEach(() => {
@@ -66,7 +67,7 @@ describe('processPrompt (integration)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, manifestPath);
+    const result = processPrompt(input, testDir);
 
     expect(result).not.toBeNull();
     expect(result?.hookSpecificOutput.additionalContext).toContain(
@@ -84,7 +85,7 @@ describe('processPrompt (integration)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, manifestPath);
+    const result = processPrompt(input, testDir);
 
     expect(result).toBeNull();
   });
@@ -96,7 +97,7 @@ describe('processPrompt (integration)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, manifestPath);
+    const result = processPrompt(input, testDir);
 
     expect(result).toBeNull();
   });
@@ -108,7 +109,7 @@ describe('processPrompt (integration)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, manifestPath);
+    const result = processPrompt(input, testDir);
 
     expect(result).toBeNull();
   });
@@ -120,7 +121,7 @@ describe('processPrompt (integration)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    processPrompt(input, manifestPath);
+    processPrompt(input, testDir);
 
     expect(existsSync(logPath)).toBe(true);
     const logContent = readFileSync(logPath, 'utf-8');
@@ -135,7 +136,7 @@ describe('processPrompt (integration)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    processPrompt(input, manifestPath);
+    processPrompt(input, testDir);
 
     expect(existsSync(logPath)).toBe(true);
     const logContent = readFileSync(logPath, 'utf-8');
@@ -153,7 +154,7 @@ describe('processPrompt (integration)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, manifestPath);
+    const result = processPrompt(input, testDir);
 
     expect(result).not.toBeNull();
     const context = result?.hookSpecificOutput.additionalContext ?? '';
@@ -169,7 +170,7 @@ describe('processPrompt (integration)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, manifestPath);
+    const result = processPrompt(input, testDir);
     const context = result?.hookSpecificOutput.additionalContext ?? '';
 
     // Invoice Processor should appear before Code Reviewer (higher score)
@@ -185,14 +186,12 @@ describe('processPrompt (integration)', () => {
 
 describe('processPrompt with projectDir (content injection)', () => {
   let testDir: string;
-  let manifestPath: string;
   let logPath: string;
 
   beforeEach(() => {
     const raw = join(tmpdir(), `skill-router-inject-${Date.now()}`);
     mkdirSync(raw, { recursive: true });
     testDir = realpathSync(raw);
-    manifestPath = join(testDir, 'manifest.json');
     logPath = join(testDir, 'logs', 'router.log');
 
     // Create skill directory with SKILL.md
@@ -203,7 +202,7 @@ describe('processPrompt with projectDir (content injection)', () => {
       '---\nname: invoice\ndescription: "Invoice processing"\n---\n\n# Invoice Skill\n\nProcess invoices carefully.'
     );
 
-    const manifest = {
+    const router = {
       version: '1.0.0',
       config: {
         weights: { keywords: 1.0, file_extensions: 1.5, patterns: 2.0, file_paths: 2.5 },
@@ -223,7 +222,11 @@ describe('processPrompt with projectDir (content injection)', () => {
         },
       ],
     };
-    writeFileSync(manifestPath, JSON.stringify(manifest));
+    mkdirSync(join(testDir, '.claude'), { recursive: true });
+    writeFileSync(
+      join(testDir, '.claude', 'grimoire.json'),
+      JSON.stringify({ router }),
+    );
   });
 
   afterEach(() => {
@@ -237,7 +240,7 @@ describe('processPrompt with projectDir (content injection)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, manifestPath, testDir);
+    const result = processPrompt(input, testDir);
 
     expect(result).not.toBeNull();
     const context = result!.hookSpecificOutput.additionalContext;
@@ -247,23 +250,7 @@ describe('processPrompt with projectDir (content injection)', () => {
     expect(context).toContain('Follow the skill instructions above.');
   });
 
-  it('should use fallback message when projectDir is not provided', () => {
-    const input = {
-      prompt: 'Process the invoice in invoices/march.pdf',
-      session_id: 'test-123',
-      timestamp: new Date().toISOString(),
-    };
-
-    const result = processPrompt(input, manifestPath);
-
-    expect(result).not.toBeNull();
-    const context = result!.hookSpecificOutput.additionalContext;
-    expect(context).toContain('Invoice Processor');
-    expect(context).toContain('Please read the SKILL.md');
-    expect(context).not.toContain('# Invoice Skill');
-  });
-
-  it('should gracefully handle missing SKILL.md when projectDir is provided', () => {
+  it('should gracefully handle missing SKILL.md', () => {
     // Remove the SKILL.md file
     rmSync(join(testDir, '.claude', 'skills', 'invoice', 'SKILL.md'));
 
@@ -273,7 +260,7 @@ describe('processPrompt with projectDir (content injection)', () => {
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, manifestPath, testDir);
+    const result = processPrompt(input, testDir);
 
     expect(result).not.toBeNull();
     const context = result!.hookSpecificOutput.additionalContext;
@@ -284,14 +271,14 @@ describe('processPrompt with projectDir (content injection)', () => {
 });
 
 describe('error handling', () => {
-  it('should return null for missing manifest', () => {
+  it('should return null for missing grimoire.json', () => {
     const input = {
       prompt: 'test',
       session_id: 'test-123',
       timestamp: new Date().toISOString(),
     };
 
-    const result = processPrompt(input, '/nonexistent/manifest.json');
+    const result = processPrompt(input, '/nonexistent/project');
 
     expect(result).toBeNull();
   });

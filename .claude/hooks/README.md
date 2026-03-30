@@ -25,7 +25,7 @@ Automatically activates relevant skills based on context. Supports three hook ev
 
 ## Configuration
 
-Edit `.claude/skills-manifest.json`:
+Edit `.claude/grimoire.json` (under the `router` key):
 
 ```json
 {

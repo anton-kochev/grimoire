@@ -228,7 +228,7 @@ describe('runAdd', () => {
     await runAdd(projectDir);
 
     expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
-    expect(existsSync(join(projectDir, '.claude', 'skills-manifest.json'))).toBe(true);
+    expect(existsSync(join(projectDir, '.claude', 'grimoire.json'))).toBe(true);
   });
 
   it('should not create config files when auto-activation is disabled', async () => {
@@ -252,7 +252,12 @@ describe('runAdd', () => {
     await runAdd(projectDir);
 
     expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
-    expect(existsSync(join(projectDir, '.claude', 'skills-manifest.json'))).toBe(false);
+    // grimoire.json should either not exist or have no router key
+    const configPath = join(projectDir, '.claude', 'grimoire.json');
+    if (existsSync(configPath)) {
+      const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+      expect(config['router']).toBeUndefined();
+    }
   });
 
   it('should end-to-end: fixture pack -> target dir has correct files', async () => {

@@ -43,7 +43,7 @@ export async function runAgentSkills(projectDir: string): Promise<void> {
   try {
     manifest = readManifest(projectDir);
   } catch {
-    clack.log.error('No skills-manifest.json found. Run `grimoire add` first.');
+    clack.log.error('No grimoire.json config found. Run `grimoire add` first.');
     process.exit(1);
   }
 

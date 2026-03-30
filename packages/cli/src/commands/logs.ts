@@ -10,7 +10,7 @@ export interface LogsOptions {
 }
 
 const DEFAULT_LOG_PATH = '.claude/logs/grimoire-router.log';
-const DEFAULT_MANIFEST_PATH = '.claude/skills-manifest.json';
+const DEFAULT_MANIFEST_PATH = '.claude/grimoire.json';
 
 export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<Server> {
   const logFilePath = options.logFile

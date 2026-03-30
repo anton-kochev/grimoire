@@ -31,30 +31,32 @@ function setupProject(projectDir: string): void {
 }
 
 function setupManifest(projectDir: string): void {
-  const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
-  writeFileSync(
-    manifestPath,
-    JSON.stringify({
-      version: '2.0.0',
-      config: {},
-      skills: [
-        {
-          path: '.claude/skills/dotnet-testing',
-          name: 'dotnet-testing',
-          triggers: { keywords: ['test'] },
-        },
-        {
-          path: '.claude/skills/readme-guide',
-          name: 'readme-guide',
-          triggers: { keywords: ['readme'] },
-        },
-      ],
-      agents: {
-        'csharp-coder': {},
-        'dotnet-architect': {},
+  const configPath = join(projectDir, '.claude', 'grimoire.json');
+  let config: Record<string, unknown> = {};
+  if (existsSync(configPath)) {
+    try { config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
+  }
+  config['router'] = {
+    version: '2.0.0',
+    config: {},
+    skills: [
+      {
+        path: '.claude/skills/dotnet-testing',
+        name: 'dotnet-testing',
+        triggers: { keywords: ['test'] },
       },
-    }),
-  );
+      {
+        path: '.claude/skills/readme-guide',
+        name: 'readme-guide',
+        triggers: { keywords: ['readme'] },
+      },
+    ],
+    agents: {
+      'csharp-coder': {},
+      'dotnet-architect': {},
+    },
+  };
+  writeFileSync(configPath, JSON.stringify(config));
 }
 
 /** Sets up a project with namespaced pack names (like real grimoire installs) */
@@ -71,26 +73,28 @@ function setupNamespacedProject(projectDir: string): void {
 }
 
 function setupNamespacedManifest(projectDir: string): void {
-  const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
-  writeFileSync(
-    manifestPath,
-    JSON.stringify({
-      version: '2.0.0',
-      config: {},
-      skills: [
-        {
-          path: '.claude/skills/gr.dotnet-feature-workflow',
-          name: 'grimoire.dotnet-feature-workflow',
-          description: 'Workflow skill',
-          triggers: { keywords: ['feature'] },
-        },
-      ],
-      agents: {
-        'grimoire.csharp-code-reviewer': {},
-        'grimoire.csharp-coder': {},
+  const configPath = join(projectDir, '.claude', 'grimoire.json');
+  let config: Record<string, unknown> = {};
+  if (existsSync(configPath)) {
+    try { config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
+  }
+  config['router'] = {
+    version: '2.0.0',
+    config: {},
+    skills: [
+      {
+        path: '.claude/skills/gr.dotnet-feature-workflow',
+        name: 'grimoire.dotnet-feature-workflow',
+        description: 'Workflow skill',
+        triggers: { keywords: ['feature'] },
       },
-    }),
-  );
+    ],
+    agents: {
+      'grimoire.csharp-code-reviewer': {},
+      'grimoire.csharp-coder': {},
+    },
+  };
+  writeFileSync(configPath, JSON.stringify(config));
 }
 
 const FAKE_PACK_MANIFEST: PackManifest = {
@@ -233,7 +237,7 @@ describe('cleanManifest', () => {
 
     cleanManifest(items, projectDir);
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+    const manifest = (readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>)['router'] as {
       skills: Array<{ name: string }>;
     };
     expect(manifest.skills).toHaveLength(1);
@@ -247,15 +251,15 @@ describe('cleanManifest', () => {
 
     cleanManifest(items, projectDir);
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+    const manifest = (readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>)['router'] as {
       agents: Record<string, unknown>;
     };
     expect(manifest.agents['csharp-coder']).toBeUndefined();
     expect(manifest.agents['dotnet-architect']).toBeDefined();
   });
 
-  it('should be a no-op when manifest file does not exist', () => {
-    rmSync(join(projectDir, '.claude', 'skills-manifest.json'));
+  it('should be a no-op when grimoire.json does not exist', () => {
+    rmSync(join(projectDir, '.claude', 'grimoire.json'));
 
     const items: InstallItem[] = [
       { type: 'skill', name: 'dotnet-testing', sourcePath: '', description: '' },
@@ -315,7 +319,7 @@ describe('removeSingleItem', () => {
 
     expect(result.removed).toBe(true);
     expect(existsSync(join(projectDir, '.claude', 'agents', 'csharp-coder.md'))).toBe(false);
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+    const manifest = (readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>)['router'] as {
       agents: Record<string, unknown>;
     };
     expect(manifest.agents['csharp-coder']).toBeUndefined();
@@ -329,7 +333,7 @@ describe('removeSingleItem', () => {
 
     expect(result.removed).toBe(true);
     expect(existsSync(join(projectDir, '.claude', 'skills', 'dotnet-testing'))).toBe(false);
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+    const manifest = (readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>)['router'] as {
       skills: Array<{ name: string }>;
     };
     expect(manifest.skills.every((s) => s.name !== 'dotnet-testing')).toBe(true);
@@ -366,7 +370,7 @@ describe('cleanManifest with namespaced names', () => {
 
     cleanManifest(items, projectDir);
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+    const manifest = (readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>)['router'] as {
       skills: Array<{ name: string }>;
     };
     expect(manifest.skills).toHaveLength(0);
@@ -381,7 +385,7 @@ describe('cleanManifest with namespaced names', () => {
       agentNames: ['grimoire.csharp-code-reviewer'],
     });
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+    const manifest = (readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>)['router'] as {
       agents: Record<string, unknown>;
     };
     expect(manifest.agents['grimoire.csharp-code-reviewer']).toBeUndefined();
@@ -395,7 +399,7 @@ describe('cleanManifest with namespaced names', () => {
 
     cleanManifest(items, projectDir);
 
-    const manifest = readJson(join(projectDir, '.claude', 'skills-manifest.json')) as {
+    const manifest = (readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>)['router'] as {
       agents: Record<string, unknown>;
     };
     expect(manifest.agents['grimoire.csharp-code-reviewer']).toBeUndefined();

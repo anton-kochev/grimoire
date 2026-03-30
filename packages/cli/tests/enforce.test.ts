@@ -27,13 +27,21 @@ function readJson(filePath: string): unknown {
 function makeManifest(projectDir: string, agents: Record<string, { file_patterns?: string[] }>): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
+  const grimoirePath = join(claudeDir, 'grimoire.json');
+  let existing: Record<string, unknown> = {};
+  if (existsSync(grimoirePath)) {
+    try { existing = JSON.parse(readFileSync(grimoirePath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
+  }
   writeFileSync(
-    join(claudeDir, 'skills-manifest.json'),
+    grimoirePath,
     JSON.stringify({
-      version: '2.0.0',
-      config: {},
-      skills: [],
-      agents,
+      ...existing,
+      router: {
+        version: '2.0.0',
+        config: {},
+        skills: [],
+        agents,
+      },
     }),
   );
 }

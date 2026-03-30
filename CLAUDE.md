@@ -30,8 +30,7 @@ Collection of specialized agents and skills for Claude Code.
 - Router: `packages/router/` - hook runtime for skill auto-activation and agent enforcement
   - UserPromptSubmit: Matches skills to user prompts (keywords: exact, stem, fuzzy)
   - PreToolUse: Injects skill context before Edit/Write tools; blocks edits to files owned by agents (via file_patterns) when enforcement is enabled
-- Config: `.claude/skills-manifest.json` defines skill triggers, weights, and agent mappings
-- Config: `.claude/grimoire.json` stores global settings (e.g. `enforcement: true`)
+- Config: `.claude/grimoire.json` unified config — global settings (`enforcement`, `installed`) and router config (`router` key: skill triggers, weights, agent mappings)
 
 ## Code Conventions
 - Skills use progressive disclosure (supporting files load on-demand)

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, realpathSync, rmSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -34,15 +34,20 @@ function writeManifest(
 ): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
-  writeFileSync(
-    join(claudeDir, 'skills-manifest.json'),
-    JSON.stringify({ version: '1', config: {}, skills: [], agents }, null, 2),
-  );
+  const configPath = join(claudeDir, 'grimoire.json');
+  let config: Record<string, unknown> = {};
+  if (existsSync(configPath)) {
+    try { config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
+  }
+  config['router'] = { version: '1', config: {}, skills: [], agents };
+  writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
 
 function readManifestAgents(projectDir: string): Record<string, { file_patterns?: string[] }> {
-  const raw = readFileSync(join(projectDir, '.claude', 'skills-manifest.json'), 'utf-8');
-  return (JSON.parse(raw) as { agents: Record<string, { file_patterns?: string[] }> }).agents;
+  const raw = readFileSync(join(projectDir, '.claude', 'grimoire.json'), 'utf-8');
+  const config = JSON.parse(raw) as Record<string, unknown>;
+  const router = config['router'] as { agents: Record<string, { file_patterns?: string[] }> };
+  return router.agents;
 }
 
 describe('runAgentPathsFor', () => {

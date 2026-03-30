@@ -46,23 +46,34 @@ interface ClaudeSettings {
 // =============================================================================
 
 export function readManifest(projectDir: string): SkillsManifest {
-  const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
-  if (!existsSync(manifestPath)) {
-    throw new Error(`Manifest not found: ${manifestPath}`);
+  const configPath = join(projectDir, '.claude', 'grimoire.json');
+  if (!existsSync(configPath)) {
+    throw new Error(`Config not found: ${configPath}`);
   }
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as SkillsManifest;
+  const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+  if (!config['router'] || typeof config['router'] !== 'object') {
+    throw new Error(`No router configuration in: ${configPath}`);
+  }
+  const manifest = config['router'] as SkillsManifest;
 
   // Strip leftover enforce flags from agent entries (migrated away)
-  for (const entry of Object.values(manifest.agents)) {
-    delete (entry as Record<string, unknown>)['enforce'];
+  if (manifest.agents) {
+    for (const entry of Object.values(manifest.agents)) {
+      delete (entry as Record<string, unknown>)['enforce'];
+    }
   }
 
   return manifest;
 }
 
 export function writeManifest(projectDir: string, manifest: SkillsManifest): void {
-  const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  const configPath = join(projectDir, '.claude', 'grimoire.json');
+  let config: Record<string, unknown> = {};
+  if (existsSync(configPath)) {
+    try { config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
+  }
+  config['router'] = manifest;
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
 // =============================================================================

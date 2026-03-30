@@ -87,18 +87,23 @@ const DEFAULT_CONFIG = {
 };
 
 /**
- * Merges pack skill triggers and agent entries into `.claude/skills-manifest.json`.
+ * Merges pack skill triggers and agent entries into `.claude/grimoire.json` (router key).
  * Creates the file with defaults if it doesn't exist. Preserves existing entries.
  */
 export function mergeManifest(projectDir: string, packManifest: PackManifest): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
 
-  const manifestPath = join(claudeDir, 'skills-manifest.json');
+  const configPath = join(claudeDir, 'grimoire.json');
+
+  let config: Record<string, unknown> = {};
+  if (existsSync(configPath)) {
+    try { config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
+  }
 
   let manifest: SkillsManifest;
-  if (existsSync(manifestPath)) {
-    manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as SkillsManifest;
+  if (config['router'] && typeof config['router'] === 'object') {
+    manifest = config['router'] as SkillsManifest;
   } else {
     manifest = {
       version: '2.0.0',
@@ -143,7 +148,8 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
     }
   }
 
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  config['router'] = manifest;
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
 function hasAgentHook(entries: readonly HookEntry[], agentName: string, flag: string): boolean {
@@ -203,7 +209,7 @@ export function setupRouter(projectDir: string, packManifest: PackManifest): voi
 
   console.log('\nSkill router configured:');
   console.log('  hooks: .claude/settings.json');
-  console.log('  manifest: .claude/skills-manifest.json');
+  console.log('  config: .claude/grimoire.json');
 
   if (!isRouterInstalled(projectDir)) {
     console.log('\n⚠ @grimoire-cc/router is not installed.');

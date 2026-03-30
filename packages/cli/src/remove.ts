@@ -5,20 +5,23 @@ import { removeInstalledEntries } from './grimoire-config.js';
 
 /**
  * Scans the project's .claude/ directory for grimoire-managed agents and skills.
- * Only items tracked in skills-manifest.json are returned.
+ * Only items tracked in grimoire.json (router key) are returned.
  */
 export function scanInstalled(projectDir: string): readonly InstallItem[] {
-  // Load manifest to determine which items grimoire manages
-  const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
+  // Load router config to determine which items grimoire manages
+  const configPath = join(projectDir, '.claude', 'grimoire.json');
   let managedAgentNames: Set<string> | null = null;
   let managedSkillDirNames: Set<string> | null = null;
-  if (existsSync(manifestPath)) {
+  if (existsSync(configPath)) {
     try {
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as SkillsManifest;
-      managedAgentNames = new Set(Object.keys(manifest.agents));
-      managedSkillDirNames = new Set(manifest.skills.map((s) => basename(s.path)));
+      const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+      const manifest = config['router'] as SkillsManifest | undefined;
+      if (manifest) {
+        managedAgentNames = new Set(Object.keys(manifest.agents));
+        managedSkillDirNames = new Set(manifest.skills.map((s) => basename(s.path)));
+      }
     } catch {
-      // corrupt manifest — treat as no managed items
+      // corrupt config — treat as no managed items
     }
   }
 
@@ -125,7 +128,7 @@ export function resolvePackItems(packManifest: PackManifest): readonly InstallIt
 }
 
 /**
- * Removes entries for the given items from skills-manifest.json.
+ * Removes entries for the given items from grimoire.json (router key).
  * Removes skill entries, agent entries, and agent references from other agents.
  *
  * Skills are matched by path (`.claude/skills/{dirName}`) to handle namespaced names.
@@ -140,10 +143,13 @@ export function cleanManifest(
     readonly skillNames?: readonly string[];
   },
 ): void {
-  const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
-  if (!existsSync(manifestPath)) return;
+  const configPath = join(projectDir, '.claude', 'grimoire.json');
+  if (!existsSync(configPath)) return;
 
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as SkillsManifest;
+  const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+  if (!config['router'] || typeof config['router'] !== 'object') return;
+
+  const manifest = config['router'] as SkillsManifest;
 
   // Build path-based removal set for skills
   const removedSkillPaths = new Set(
@@ -185,5 +191,6 @@ export function cleanManifest(
     delete manifest.agents[name];
   }
 
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  config['router'] = manifest;
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }

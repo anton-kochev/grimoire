@@ -51,7 +51,6 @@ function writeRegistry(registryPath: string, sessions: string[]): void {
  */
 export function evaluateEnforce(
   input: PreToolUseInput,
-  manifestPath: string,
   registryPath: string,
   projectDir?: string,
   /** Override for grimoire.json lookup directory (defaults to projectDir). */
@@ -75,10 +74,10 @@ export function evaluateEnforce(
     return { action: 'allow' };
   }
 
-  // Load manifest
+  // Load manifest from grimoire.json router key
   let manifest;
   try {
-    manifest = loadManifest(manifestPath);
+    manifest = loadManifest(resolvedConfigDir);
   } catch {
     // If manifest is missing or invalid, don't block
     return { action: 'allow' };
@@ -150,10 +149,9 @@ export function evaluateEnforce(
  */
 export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimoire-router.log'): void {
   const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-  const manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
   const registryPath = join(projectDir, DEFAULT_REGISTRY_PATH);
 
-  const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+  const result = evaluateEnforce(input, registryPath, projectDir);
 
   if (result.action === 'allow' && result.debugInfo) {
     writeLog({

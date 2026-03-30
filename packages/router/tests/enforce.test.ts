@@ -21,16 +21,25 @@ function makeManifest(
 ): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
+  const grimoirePath = join(claudeDir, 'grimoire.json');
+  // Preserve existing grimoire.json keys (e.g. enforcement) when adding router
+  let existing: Record<string, unknown> = {};
+  if (existsSync(grimoirePath)) {
+    try { existing = JSON.parse(readFileSync(grimoirePath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
+  }
   writeFileSync(
-    join(claudeDir, 'skills-manifest.json'),
+    grimoirePath,
     JSON.stringify({
-      version: '2.0.0',
-      config: {
-        weights: { keywords: 1.0, file_extensions: 1.5, patterns: 2.0, file_paths: 2.5 },
-        activation_threshold: 3.0,
+      ...existing,
+      router: {
+        version: '2.0.0',
+        config: {
+          weights: { keywords: 1.0, file_extensions: 1.5, patterns: 2.0, file_paths: 2.5 },
+          activation_threshold: 3.0,
+        },
+        skills: [],
+        agents,
       },
-      skills: [],
-      agents,
     }),
   );
 }
@@ -66,12 +75,10 @@ function makePreToolUseInput(
 
 describe('evaluateEnforce', () => {
   let projectDir: string;
-  let manifestPath: string;
   let registryPath: string;
 
   beforeEach(() => {
     projectDir = makeTmpDir('eval');
-    manifestPath = join(projectDir, '.claude', 'skills-manifest.json');
     registryPath = join(projectDir, '.claude', 'hooks', '.grimoire-subagents.json');
   });
 
@@ -88,19 +95,19 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Read', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
   });
 
-  it('should allow when manifest is missing', () => {
-    // Arrange
+  it('should allow when router config is missing from grimoire.json', () => {
+    // Arrange — grimoire.json has enforcement but no router key
     writeGrimoireConfig(projectDir, { enforcement: true });
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, '/nonexistent/manifest.json', registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -115,7 +122,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -129,7 +136,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -137,23 +144,26 @@ describe('evaluateEnforce', () => {
 
   it('should allow when no agents section exists', () => {
     // Arrange
-    writeGrimoireConfig(projectDir, { enforcement: true });
-    mkdirSync(join(projectDir, '.claude'), { recursive: true });
+    const claudeDir = join(projectDir, '.claude');
+    mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
-      manifestPath,
+      join(claudeDir, 'grimoire.json'),
       JSON.stringify({
-        version: '2.0.0',
-        config: {
-          weights: { keywords: 1, file_extensions: 1.5, patterns: 2, file_paths: 2.5 },
-          activation_threshold: 3,
+        enforcement: true,
+        router: {
+          version: '2.0.0',
+          config: {
+            weights: { keywords: 1, file_extensions: 1.5, patterns: 2, file_paths: 2.5 },
+            activation_threshold: 3,
+          },
+          skills: [],
         },
-        skills: [],
       }),
     );
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -169,7 +179,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts', 'test-session');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -184,7 +194,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/utils.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -203,7 +213,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Write', 'new-file.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -218,7 +228,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('MultiEdit', 'src/api.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -233,7 +243,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'README.md');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -249,7 +259,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/MyService.cs');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -269,7 +279,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -284,7 +294,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'packages/core/src/deep/util.ts');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -300,7 +310,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', absFilePath);
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -319,7 +329,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', absFilePath);
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -338,7 +348,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', absFilePath);
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -354,7 +364,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', winPath);
 
     // Act — configDir points to real temp dir for grimoire.json lookup
-    const result = evaluateEnforce(input, manifestPath, registryPath, 'C:\\Users\\AKochev\\project', projectDir);
+    const result = evaluateEnforce(input, registryPath, 'C:\\Users\\AKochev\\project', projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -373,7 +383,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Write', winPath);
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, 'C:\\Projects', projectDir);
+    const result = evaluateEnforce(input, registryPath, 'C:\\Projects', projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -392,7 +402,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', winPath);
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, 'C:\\Users\\Dev\\project', projectDir);
+    const result = evaluateEnforce(input, registryPath, 'C:\\Users\\Dev\\project', projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -411,7 +421,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts', 'my-session');
 
     // Act
-    const result = evaluateEnforce(input, manifestPath, registryPath, projectDir);
+    const result = evaluateEnforce(input, registryPath, projectDir);
 
     // Assert
     expect(result.action).toBe('block');

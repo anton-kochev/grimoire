@@ -55,20 +55,11 @@ function setupProjectWithVersions(
     );
   }
 
-  // Write skills-manifest so scanInstalled recognises these as grimoire-managed
+  // Write grimoire.json with router config so scanInstalled recognises these as grimoire-managed
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
-  writeFileSync(
-    join(claudeDir, 'skills-manifest.json'),
-    JSON.stringify({
-      version: '1',
-      config: {},
-      skills: skills.map((s) => ({ name: s.name, path: `.claude/skills/${s.name}` })),
-      agents: Object.fromEntries(agents.map((a) => [a.name, {}])),
-    }, null, 2),
-  );
 
-  // Write installed versions to grimoire.json
+  // Write installed versions + router config to grimoire.json
   const installed: Record<string, { version: string; pack: string }> = {};
   for (const agent of agents) {
     installed[agent.name] = { version: agent.version, pack: 'test-pack' };
@@ -76,7 +67,15 @@ function setupProjectWithVersions(
   for (const skill of skills) {
     installed[skill.name] = { version: skill.version, pack: 'test-pack' };
   }
-  writeGrimoireConfig(projectDir, { installed });
+  writeGrimoireConfig(projectDir, {
+    installed,
+    router: {
+      version: '1',
+      config: {},
+      skills: skills.map((s) => ({ name: s.name, path: `.claude/skills/${s.name}` })),
+      agents: Object.fromEntries(agents.map((a) => [a.name, {}])),
+    },
+  } as Record<string, unknown>);
 }
 
 function makePack(overrides?: Partial<PackOption>): PackOption {

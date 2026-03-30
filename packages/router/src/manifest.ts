@@ -2,43 +2,93 @@
  * Manifest loading and validation
  */
 
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import type { SkillManifest, SkillDefinition, AgentEntry } from './types.js';
 
 const DEFAULT_LOG_PATH = '.claude/logs/grimoire-router.log';
 
 /**
- * Loads and validates a skill manifest from the filesystem.
+ * Loads and validates the skill manifest from `.claude/grimoire.json` (router key).
  *
- * @param manifestPath - Absolute path to the manifest JSON file
+ * Migration: if grimoire.json has no `router` key but `.claude/skills-manifest.json`
+ * exists, the manifest is merged into grimoire.json and the old file is deleted.
+ *
+ * @param projectDir - Absolute path to the project root
  * @returns Validated SkillManifest
- * @throws Error if file not found, invalid JSON, or schema validation fails
+ * @throws Error if config not found, invalid JSON, or schema validation fails
  */
-export function loadManifest(manifestPath: string): SkillManifest {
-  // Read file
-  let content: string;
-  try {
-    content = readFileSync(manifestPath, 'utf-8');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Manifest file not found: ${manifestPath} - ${message}`);
+export function loadManifest(projectDir: string): SkillManifest {
+  const grimoirePath = join(projectDir, '.claude', 'grimoire.json');
+  const legacyPath = join(projectDir, '.claude', 'skills-manifest.json');
+
+  // Read grimoire.json (may or may not exist)
+  let grimoireData: Record<string, unknown> | null = null;
+  if (existsSync(grimoirePath)) {
+    let content: string;
+    try {
+      content = readFileSync(grimoirePath, 'utf-8');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Config file not found: ${grimoirePath} - ${message}`);
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to parse manifest JSON: ${message}`);
+    }
+
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      grimoireData = parsed as Record<string, unknown>;
+    }
   }
 
-  // Parse JSON
-  let data: unknown;
-  try {
-    data = JSON.parse(content);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to parse manifest JSON: ${message}`);
+  // If grimoire.json has a router key, use it directly
+  if (grimoireData && grimoireData['router'] && typeof grimoireData['router'] === 'object') {
+    return validateManifest(grimoireData['router'] as Record<string, unknown>);
   }
 
-  // Validate structure
-  if (!data || typeof data !== 'object') {
-    throw new Error('Manifest must be an object');
+  // Migration: try legacy skills-manifest.json
+  if (existsSync(legacyPath)) {
+    let legacyContent: string;
+    try {
+      legacyContent = readFileSync(legacyPath, 'utf-8');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Legacy manifest not found: ${legacyPath} - ${message}`);
+    }
+
+    let legacyData: unknown;
+    try {
+      legacyData = JSON.parse(legacyContent);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to parse manifest JSON: ${message}`);
+    }
+
+    // Merge into grimoire.json under router key
+    const merged = { ...(grimoireData ?? {}), router: legacyData };
+    writeFileSync(grimoirePath, JSON.stringify(merged, null, 2) + '\n');
+    unlinkSync(legacyPath);
+
+    return validateManifest(legacyData as Record<string, unknown>);
   }
 
-  const manifest = data as Record<string, unknown>;
+  // Neither source available
+  if (grimoireData) {
+    throw new Error('grimoire.json has no router configuration');
+  }
+  throw new Error(`Config file not found: ${grimoirePath}`);
+}
+
+/**
+ * Validates and normalizes a raw manifest object into a SkillManifest.
+ */
+function validateManifest(data: Record<string, unknown>): SkillManifest {
+  const manifest = data;
 
   // Validate version
   if (!manifest['version'] || typeof manifest['version'] !== 'string') {

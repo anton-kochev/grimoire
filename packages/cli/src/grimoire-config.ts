@@ -10,6 +10,7 @@ export interface InstalledEntry {
 export interface GrimoireConfig {
   enforcement?: boolean;
   installed?: Record<string, InstalledEntry>;
+  router?: Record<string, unknown>;
 }
 
 export function readGrimoireConfig(projectDir: string): GrimoireConfig {

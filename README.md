@@ -85,9 +85,9 @@ Copy agent markdown files from `.claude/agents/` to your project and reference t
 
 To enable automatic skill activation:
 
-1. Copy `.claude/hooks/`, `.claude/settings.json`, and `.claude/skills-manifest.json`
+1. Copy `.claude/hooks/`, `.claude/settings.json`, and `.claude/grimoire.json`
 2. Install the skill-router package: `pnpm install`
-3. Configure triggers in `skills-manifest.json`
+3. Configure triggers in `grimoire.json` under the `router` key
 
 ## CLI
 
@@ -113,7 +113,7 @@ The wizard walks you through three steps:
 grimoire list
 ```
 
-Only items tracked in `skills-manifest.json` (installed by `grimoire add`) are shown. Agents and skills you created manually are not listed.
+Only items tracked in `grimoire.json` (installed by `grimoire add`) are shown. Agents and skills you created manually are not listed.
 
 Selecting an item opens a detail view with description, model, assigned skills, and enforcement paths. From there you can:
 
@@ -129,7 +129,7 @@ Selecting an item opens a detail view with description, model, assigned skills, 
 grimoire remove
 ```
 
-Presents a checklist of items installed by grimoire. Selecting an item removes its files from `.claude/` and cleans up its entry in `skills-manifest.json`. Manually created items are never shown, so they cannot be accidentally removed.
+Presents a checklist of items installed by grimoire. Selecting an item removes its files from `.claude/` and cleans up its entry in `grimoire.json`. Manually created items are never shown, so they cannot be accidentally removed.
 
 ### Update
 
@@ -242,7 +242,7 @@ Example: editing `src/services/UserService.cs` activates DotNet skills before th
 
 ### Configuration
 
-Skills, triggers, and agent mappings are defined in `.claude/skills-manifest.json`:
+Skills, triggers, and agent mappings are defined in `.claude/grimoire.json` under the `router` key:
 
 ```json
 {
@@ -700,7 +700,7 @@ grimoire/
 │       └── tests/                     # Vitest tests
 └── .claude/
     ├── settings.json                  # Hook registration
-    ├── skills-manifest.json           # Skill triggers config
+    ├── grimoire.json                  # Unified config (settings + router)
     ├── hooks/
     │   └── skill-router.ts            # Hook entry point
     ├── agents/

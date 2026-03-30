@@ -8,10 +8,9 @@ import type { PreToolUseInput } from '../src/types.js';
 
 describe('processToolUse (integration)', () => {
   let testDir: string;
-  let manifestPath: string;
   let logPath: string;
 
-  const validManifest = {
+  const validRouter = {
     version: '1.0.0',
     config: {
       weights: {
@@ -60,14 +59,17 @@ describe('processToolUse (integration)', () => {
     const raw = join(tmpdir(), `skill-router-tool-int-${Date.now()}`);
     mkdirSync(raw, { recursive: true });
     testDir = realpathSync(raw);
-    manifestPath = join(testDir, 'manifest.json');
     logPath = join(testDir, 'logs', 'router.log');
 
-    const manifest = {
-      ...validManifest,
-      config: { ...validManifest.config, log_path: logPath },
+    const router = {
+      ...validRouter,
+      config: { ...validRouter.config, log_path: logPath },
     };
-    writeFileSync(manifestPath, JSON.stringify(manifest));
+    mkdirSync(join(testDir, '.claude'), { recursive: true });
+    writeFileSync(
+      join(testDir, '.claude', 'grimoire.json'),
+      JSON.stringify({ router }),
+    );
   });
 
   afterEach(() => {
@@ -89,7 +91,7 @@ describe('processToolUse (integration)', () => {
 
   it('should match TypeScript skill when editing .ts file', () => {
     const input = makeInput('Edit', `${testDir}/src/main.ts`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result).not.toBeNull();
     expect(result?.hookSpecificOutput.additionalContext).toContain(
@@ -100,7 +102,7 @@ describe('processToolUse (integration)', () => {
 
   it('should match .cs skill when writing .cs file', () => {
     const input = makeInput('Write', `${testDir}/tests/UserService.cs`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result).not.toBeNull();
     expect(result?.hookSpecificOutput.additionalContext).toContain(
@@ -110,14 +112,14 @@ describe('processToolUse (integration)', () => {
 
   it('should return null for non-matching extension in non-matching path', () => {
     const input = makeInput('Edit', `${testDir}/assets/image.png`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result).toBeNull();
   });
 
   it('should match based on file_paths trigger', () => {
     const input = makeInput('Write', `${testDir}/src/utils/helper.ts`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result).not.toBeNull();
     // .ts (1.5) + src/ path (2.5) = 4.0 > 1.5 threshold
@@ -127,21 +129,21 @@ describe('processToolUse (integration)', () => {
 
   it('should include tool name in formatted output', () => {
     const input = makeInput('Edit', `${testDir}/src/main.ts`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result?.hookSpecificOutput.additionalContext).toContain('Edit');
   });
 
   it('should always set permissionDecision to allow', () => {
     const input = makeInput('Edit', `${testDir}/src/main.ts`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result?.hookSpecificOutput.permissionDecision).toBe('allow');
   });
 
   it('should write log entry with PreToolUse info', () => {
     const input = makeInput('Edit', `${testDir}/src/main.ts`);
-    processToolUse(input, manifestPath, testDir);
+    processToolUse(input, testDir);
 
     expect(existsSync(logPath)).toBe(true);
     const logContent = readFileSync(logPath, 'utf-8');
@@ -151,28 +153,31 @@ describe('processToolUse (integration)', () => {
     expect(logEntry.outcome).toBe('activated');
   });
 
-  it('should return null for missing manifest', () => {
+  it('should return null for missing grimoire.json', () => {
     const input = makeInput('Edit', '/project/src/main.ts');
-    const result = processToolUse(input, '/nonexistent/manifest.json', '/project');
+    const result = processToolUse(input, '/nonexistent/project');
 
     expect(result).toBeNull();
   });
 
   it('should use default threshold when pretooluse_threshold not set', () => {
-    // Rewrite manifest without pretooluse_threshold
-    const noThresholdManifest = {
-      ...validManifest,
+    // Rewrite grimoire.json without pretooluse_threshold
+    const noThresholdRouter = {
+      ...validRouter,
       config: {
-        weights: validManifest.config.weights,
+        weights: validRouter.config.weights,
         activation_threshold: 3.0,
         log_path: logPath,
       },
     };
-    writeFileSync(manifestPath, JSON.stringify(noThresholdManifest));
+    writeFileSync(
+      join(testDir, '.claude', 'grimoire.json'),
+      JSON.stringify({ router: noThresholdRouter }),
+    );
 
     // .ts extension (1.5) should match with default threshold of 1.5
     const input = makeInput('Edit', `${testDir}/src/main.ts`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result).not.toBeNull();
   });
@@ -187,7 +192,7 @@ describe('processToolUse (integration)', () => {
     );
 
     const input = makeInput('Edit', `${testDir}/src/main.ts`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result).not.toBeNull();
     const ctx = result?.hookSpecificOutput.additionalContext ?? '';
@@ -199,7 +204,7 @@ describe('processToolUse (integration)', () => {
   it('should fall back to read instruction when SKILL.md missing', () => {
     // No SKILL.md on disk — only manifest entry
     const input = makeInput('Edit', `${testDir}/src/main.ts`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result).not.toBeNull();
     const ctx = result?.hookSpecificOutput.additionalContext ?? '';
@@ -209,7 +214,7 @@ describe('processToolUse (integration)', () => {
   it('should match multiple skills when both exceed threshold', () => {
     // .ts in tests/ should match both TypeScript and potentially via paths
     const input = makeInput('Write', `${testDir}/tests/component.ts`);
-    const result = processToolUse(input, manifestPath, testDir);
+    const result = processToolUse(input, testDir);
 
     expect(result).not.toBeNull();
     const ctx = result?.hookSpecificOutput.additionalContext ?? '';

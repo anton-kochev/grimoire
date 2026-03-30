@@ -1,6 +1,6 @@
 /**
  * `runAgentPathsFor` — manage enforcement file patterns for a specific agent.
- * Reads/writes patterns in skills-manifest.json.
+ * Reads/writes patterns in grimoire.json (router key).
  * Hook re-sync is the caller's responsibility.
  */
 

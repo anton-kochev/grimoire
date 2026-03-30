@@ -44,14 +44,12 @@ function logError(error: unknown, logPath: string): void {
  * Processes a prompt and returns hook output if skills match.
  *
  * @param input - Parsed hook input
- * @param manifestPath - Path to the skill manifest
- * @param projectDir - Optional project directory for SKILL.md content injection
+ * @param projectDir - Project directory for manifest loading and SKILL.md content injection
  * @returns HookOutput if skills matched, null otherwise
  */
 export function processPrompt(
   input: HookInput,
-  manifestPath: string,
-  projectDir?: string
+  projectDir: string,
 ): HookOutput | null {
   const startTime = Date.now();
   let logPath = '.claude/logs/grimoire-router.log';
@@ -63,7 +61,7 @@ export function processPrompt(
     }
 
     // Load manifest
-    const manifest = loadManifest(manifestPath);
+    const manifest = loadManifest(projectDir);
     logPath = manifest.config.log_path ?? logPath;
 
     // Normalize prompt
@@ -104,15 +102,12 @@ export function processPrompt(
 
     // Return output if skills matched
     if (matched.length > 0) {
-      // Read SKILL.md content when projectDir is available
-      let skillContents: Map<string, string> | undefined;
-      if (projectDir) {
-        skillContents = new Map();
-        for (const result of matched) {
-          const body = readSkillBody(result.skill.path, projectDir);
-          if (body) {
-            skillContents.set(result.skill.path, body);
-          }
+      // Read SKILL.md content for injection
+      const skillContents = new Map<string, string>();
+      for (const result of matched) {
+        const body = readSkillBody(result.skill.path, projectDir);
+        if (body) {
+          skillContents.set(result.skill.path, body);
         }
       }
 
@@ -131,21 +126,19 @@ export function processPrompt(
  * Processes a PreToolUse hook event and returns output if skills match.
  *
  * @param input - Parsed PreToolUse input
- * @param manifestPath - Path to the skill manifest
- * @param projectDir - Project directory for path stripping
+ * @param projectDir - Project directory for manifest loading and path stripping
  * @returns PreToolUseOutput if skills matched, null otherwise
  */
 export function processToolUse(
   input: PreToolUseInput,
-  manifestPath: string,
-  projectDir: string
+  projectDir: string,
 ): PreToolUseOutput | null {
   const startTime = Date.now();
   let logPath = '.claude/logs/grimoire-router.log';
 
   try {
     // Load manifest
-    const manifest = loadManifest(manifestPath);
+    const manifest = loadManifest(projectDir);
     logPath = manifest.config.log_path ?? logPath;
 
     // Extract signals from tool input (file path)
@@ -248,10 +241,9 @@ export async function main(): Promise<void> {
         const stdinInput = parseStdinInput(stdinContent);
         if (stdinInput.kind === 'tooluse') {
           const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-          const manifestPath = `${projectDir}/.claude/skills-manifest.json`;
           let logPath = '.claude/logs/grimoire-router.log';
           try {
-            const manifest = loadManifest(manifestPath);
+            const manifest = loadManifest(projectDir);
             logPath = manifest.config.log_path ?? logPath;
           } catch { /* use default */ }
           runEnforce(stdinInput.input, logPath);
@@ -272,9 +264,8 @@ export async function main(): Promise<void> {
       process.exit(0);
     }
 
-    // Get manifest path from environment
+    // Get project directory from environment
     const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-    const manifestPath = `${projectDir}/.claude/skills-manifest.json`;
 
     // Parse and dispatch based on input type
     const stdinInput = parseStdinInput(stdinContent);
@@ -283,10 +274,10 @@ export async function main(): Promise<void> {
 
     if (stdinInput.kind === 'tooluse') {
       // PreToolUse hook
-      output = processToolUse(stdinInput.input, manifestPath, projectDir);
+      output = processToolUse(stdinInput.input, projectDir);
     } else {
       // UserPromptSubmit mode
-      output = processPrompt(stdinInput.input, manifestPath, projectDir);
+      output = processPrompt(stdinInput.input, projectDir);
     }
 
     // Write output if skills matched
