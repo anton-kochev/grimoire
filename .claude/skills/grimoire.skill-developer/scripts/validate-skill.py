@@ -108,8 +108,8 @@ def validate_name_field(name):
         errors.append("'name' must be lowercase (found uppercase letters)")
 
     # Check for invalid characters
-    if not re.match(r'^[a-z0-9-]+$', name):
-        errors.append("'name' can only contain lowercase letters, numbers, and hyphens")
+    if not re.match(r'^[a-z0-9.-]+$', name):
+        errors.append("'name' can only contain lowercase letters, numbers, hyphens, and dots")
 
     # Check for reserved words
     if 'anthropic' in name or 'claude' in name:

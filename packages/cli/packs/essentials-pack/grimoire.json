@@ -10,5 +10,18 @@
       "file_patterns": ["*.md", "*.mdx", "*.txt", "docs/**", "**/README*"]
     }
   ],
-  "skills": []
+  "skills": [
+    {
+      "name": "grimoire.translate-ua",
+      "path": "skills/grimoire.translate-ua",
+      "description": "Use when asked to translate text into Ukrainian. Converts English prose to Ukrainian while preserving all technical terms, code snippets, file paths, and technical language in English.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "grimoire.translate-es",
+      "path": "skills/grimoire.translate-es",
+      "description": "Use when asked to translate text into Spanish. Converts English prose to Spanish while preserving all technical terms, code snippets, file paths, and technical language in English.",
+      "version": "1.0.0"
+    }
+  ]
 }
