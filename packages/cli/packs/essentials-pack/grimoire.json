@@ -22,6 +22,12 @@
       "path": "skills/grimoire.translate-es",
       "description": "Use when asked to translate text into Spanish. Converts English prose to Spanish while preserving all technical terms, code snippets, file paths, and technical language in English.",
       "version": "1.0.0"
+    },
+    {
+      "name": "grimoire.srs-to-user-stories",
+      "path": "skills/grimoire.srs-to-user-stories",
+      "description": "Analyze a Software Requirements Specification (SRS) document and generate Scrum user stories grouped under Epics. Use when asked to extract user stories from an SRS, convert requirements into a product backlog, or decompose a specification into epics and stories.",
+      "version": "1.0.0"
     }
   ]
 }
