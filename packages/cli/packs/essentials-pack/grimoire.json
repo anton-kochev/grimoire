@@ -8,6 +8,12 @@
       "description": "Use this agent when you need to verify the accuracy of written content before publishing or sharing. Invoke when: (1) Drafting is complete and content contains factual claims like statistics, dates, technical specifications, or historical references; (2) Content is ready for final review before publishing; (3) Accuracy is critical for public-facing or decision-making materials.",
       "version": "1.0.0",
       "file_patterns": ["*.md", "*.mdx", "*.txt", "docs/**", "**/README*"]
+    },
+    {
+      "name": "grimoire.content-crafter",
+      "path": "agents/grimoire.content-crafter.md",
+      "description": "Use this agent when the user asks to write, create, draft, or compose blog posts, articles, creative stories, podcast scripts, YouTube video scripts, screenplays, or documentary narration.",
+      "version": "1.0.0"
     }
   ],
   "skills": [
