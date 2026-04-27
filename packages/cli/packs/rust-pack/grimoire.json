@@ -6,13 +6,13 @@
       "name": "grimoire.rust-architect",
       "path": "agents/grimoire.rust-architect.md",
       "description": "Use this agent when working on Rust projects and needing high-level architectural guidance, code review for structural soundness, refactoring plans, or design decision analysis. This includes module organization, trait design, ownership/borrowing patterns, error handling strategies, and crate-level architecture.",
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "name": "grimoire.rust-coder",
       "path": "agents/grimoire.rust-coder.md",
       "description": "Use this agent when the user needs to write, edit, debug, or refactor Rust code. This includes implementing new features, fixing bugs, writing tests, resolving compiler errors, dealing with lifetimes and borrow checker issues, and applying refactors to Rust codebases.",
-      "version": "1.0.0"
+      "version": "1.1.0"
     }
   ],
   "skills": [

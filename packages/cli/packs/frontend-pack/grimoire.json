@@ -6,14 +6,14 @@
       "name": "grimoire.angular-coder",
       "path": "agents/grimoire.angular-coder.md",
       "description": "Use this agent when the user needs Angular code written, fixed, refactored, or debugged. This agent implements components, services, directives, pipes, guards, resolvers, and any other Angular artifact. It reads the codebase to understand conventions, makes implementation decisions, and delivers working code.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "file_patterns": ["*.component.ts", "*.service.ts", "*.directive.ts", "*.pipe.ts", "*.guard.ts", "*.resolver.ts", "*.module.ts"]
     },
     {
       "name": "grimoire.vue3-coder",
       "path": "agents/grimoire.vue3-coder.md",
       "description": "Use this agent when working on any Vue 3 related task — scaffolding new components or pages, writing composables, building Pinia stores, setting up Vue Router, debugging template or reactivity issues, reviewing Vue code for best practices, migrating from Options API to Composition API, or optimizing Vue application performance.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "file_patterns": ["*.vue"]
     }
   ],

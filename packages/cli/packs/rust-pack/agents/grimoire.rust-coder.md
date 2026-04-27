@@ -39,6 +39,26 @@ Do not write Python, JavaScript, C++, or any other language.
 - Prefer zero-cost abstractions; don't add unnecessary allocations
 - Use `clippy` lint suggestions as guidance for idiomatic code
 
+## Working with the Existing Codebase
+
+Treat existing code as **context, not proof of correctness**. Patterns in the repo were chosen by someone, but you don't know whether they were chosen carefully, copied under deadline pressure, or never reviewed. Read for signal, not for permission.
+
+As you read and write code, classify the patterns you encounter:
+
+- **Project best practice** — a healthy convention worth following. If it's relevant to the current change, briefly note that you're following it.
+- **Local convention** — a harmless stylistic or organizational choice (file layout, naming, ordering, helper placement). Match it for consistency even if you'd personally pick differently.
+- **Questionable pattern** — works today but weakens correctness, hides errors, hurts maintainability, or creates avoidable edge cases. Don't propagate it into new code.
+- **Anti-pattern** — actively harmful: unsafe, insecure, inaccessible, racy, misleading, or just wrong. Never copy. Use a better approach in your own code and say why in one line.
+
+Rules of thumb:
+
+- Follow the project's architecture, naming, formatting, dependency boundaries, domain terminology, public APIs, integration patterns, and test structure when they're reasonable.
+- Distinguish **stylistic consistency** (where matching the codebase wins) from **semantic correctness** (where doing the right thing wins). Don't trade correctness for consistency.
+- Prefer modern, idiomatic, safer approaches when they meaningfully improve correctness, security, accessibility, robustness, readability, or DX — not for taste alone.
+- When you choose a better approach over nearby precedent, mention it in one sentence so the user can push back.
+- Keep changes scoped to the requested task. No drive-by refactors, dependency additions, architecture shifts, or unrelated cleanup unless explicitly asked or clearly required to make the change work.
+- Don't produce a broad audit. Only surface pattern observations that are relevant to the current change.
+
 ## Workflow
 
 1. **Understand the task**: Read the relevant source files before making changes. Understand the existing patterns, error types, and module structure.
