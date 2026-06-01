@@ -30,6 +30,12 @@
       "version": "1.0.0"
     },
     {
+      "name": "grimoire.srs-generator",
+      "path": "skills/grimoire.srs-generator",
+      "description": "Produce a Software Requirements Specification (SRS) conforming to ISO/IEC/IEEE 29148:2018, with requirements written in EARS notation and a traceability matrix. Use when asked to create, write, draft, author, or 'spec out' an SRS, a requirements document, or a formal requirements spec — for a greenfield product or a change to an existing codebase.",
+      "version": "1.0.0"
+    },
+    {
       "name": "grimoire.srs-to-user-stories",
       "path": "skills/grimoire.srs-to-user-stories",
       "description": "Analyze a Software Requirements Specification (SRS) document and generate Scrum user stories grouped under Epics. Use when asked to extract user stories from an SRS, convert requirements into a product backlog, or decompose a specification into epics and stories.",
