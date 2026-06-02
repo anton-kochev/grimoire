@@ -40,6 +40,30 @@
         ],
         "file_paths": []
       }
+    },
+    {
+      "name": "grimoire.tdd",
+      "path": "skills/grimoire.tdd",
+      "description": "A test-first workflow for writing or changing code: list the behaviors you want, drive each into existence through the red-green-refactor loop, and let the tests shape the design. Use when building a feature, fixing a bug, or changing behavior test-first in ANY language. Triggers: TDD, test-driven, test first, write tests first, red-green-refactor, drive this with tests.",
+      "version": "1.0.0",
+      "triggers": {
+        "keywords": [
+          "tdd",
+          "test-driven",
+          "test first",
+          "red-green-refactor",
+          "test-driven development"
+        ],
+        "file_extensions": [],
+        "patterns": [
+          "test.first",
+          "test.driven",
+          "red.green.refactor",
+          "drive.*with.*test",
+          "write.*test.*first"
+        ],
+        "file_paths": []
+      }
     }
   ]
 }
