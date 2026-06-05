@@ -71,10 +71,13 @@ describe('loadManifest', () => {
     expect(() => loadManifest(testDir)).toThrow(/version/i);
   });
 
-  it('should throw for missing config in router', () => {
+  it('should allow missing config in router', () => {
     writeGrimoireJson({ version: '1.0.0', skills: [] });
 
-    expect(() => loadManifest(testDir)).toThrow(/config/i);
+    const manifest = loadManifest(testDir);
+
+    expect(manifest.config.weights).toEqual(validRouter.config.weights);
+    expect(manifest.config.activation_threshold).toBe(3.0);
   });
 
   it('should apply default weights when missing in router', () => {

@@ -111,7 +111,7 @@ describe('mergeManifest', () => {
     const config = readJson(configPath) as Record<string, unknown>;
     const router = config['router'] as Record<string, unknown>;
     expect(router['version']).toBe('2.0.0');
-    expect(router['config']).toEqual({});
+    expect(router['config']).toBeUndefined();
 
     const skills = router['skills'] as Array<{ path: string; name: string; triggers?: unknown }>;
     expect(skills).toHaveLength(3);
@@ -119,7 +119,7 @@ describe('mergeManifest', () => {
     expect(skills.every((s) => s.triggers === undefined)).toBe(true);
   });
 
-  it('should preserve existing skills and append new ones', () => {
+  it('should preserve existing config while appending new skills', () => {
     const claudeDir = join(projectDir, '.claude');
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(

@@ -53,12 +53,10 @@ interface ManifestAgentEntry {
 
 interface SkillsManifest {
   version: string;
-  config: Record<string, unknown>;
+  config?: Record<string, unknown>;
   skills: ManifestSkill[];
   agents: Record<string, ManifestAgentEntry>;
 }
-
-const DEFAULT_CONFIG = {};
 
 /**
  * Merges pack skill and agent entries into `.claude/grimoire.json` (router key).
@@ -81,7 +79,6 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
   } else {
     manifest = {
       version: '2.0.0',
-      config: { ...DEFAULT_CONFIG },
       skills: [],
       agents: {},
     };

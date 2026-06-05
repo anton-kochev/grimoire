@@ -101,12 +101,9 @@ function validateManifest(data: Record<string, unknown>): SkillManifest {
     throw new Error('Manifest must have a version field');
   }
 
-  // Validate config
-  if (!manifest['config'] || typeof manifest['config'] !== 'object') {
-    throw new Error('Manifest must have a config object');
-  }
-
-  const config = manifest['config'] as Record<string, unknown>;
+  const config = manifest['config'] && typeof manifest['config'] === 'object'
+    ? manifest['config'] as Record<string, unknown>
+    : {};
 
   // Validate skills array
   if (!Array.isArray(manifest['skills'])) {
