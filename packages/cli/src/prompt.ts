@@ -2,7 +2,7 @@ import * as clack from '@clack/prompts';
 import { readGrimoireConfig, isNewer } from './grimoire-config.js';
 import type { PackOption, InstallItem, WizardResult, RemoveWizardResult } from './types.js';
 
-const DESCRIPTION_SEPARATOR = ' — ';
+const HINT_SEPARATOR = ' — ';
 
 function oneLine(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
@@ -14,13 +14,16 @@ function truncate(text: string, maxLength: number): string {
   return text.slice(0, maxLength - 1).trimEnd() + '…';
 }
 
-function withInlineDescription(baseLabel: string, description: string): string {
+function itemHint(label: string, description: string, status?: string): string {
   const columns = process.stdout.columns ?? 100;
-  const available = columns - baseLabel.length - DESCRIPTION_SEPARATOR.length - 6;
+  const prefix = status ? `${status}${HINT_SEPARATOR}` : '';
+  // Clack renders active hints inline as: "│  │ ◼ <label> (<hint>)".
+  // Reserve room for prompt chrome, group indentation, icon, spaces, and parens
+  // so the active row stays on one terminal line.
+  const available = columns - label.length - prefix.length - 16;
   const normalized = oneLine(description);
-  return normalized && available > 1
-    ? `${baseLabel}${DESCRIPTION_SEPARATOR}${truncate(normalized, available)}`
-    : baseLabel;
+  const truncated = available > 1 ? truncate(normalized, available) : '';
+  return `${prefix}${truncated}`.trimEnd();
 }
 
 /**
@@ -45,17 +48,17 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
 
     for (const agent of pack.manifest.agents) {
       const packVersion = agent.version;
-      const baseLabel = packVersion
+      const label = packVersion
         ? `[agent · v${packVersion}] ${agent.name}`
         : `[agent] ${agent.name}`;
-      const label = withInlineDescription(baseLabel, agent.description);
 
       const installedVersion = config.installed?.[agent.name]?.version;
-      const hint = installedVersion !== undefined
+      const status = installedVersion !== undefined
         ? (!isNewer(packVersion, installedVersion)
             ? `installed: v${installedVersion} (up to date)`
             : `installed: v${installedVersion}`)
-        : '';
+        : undefined;
+      const hint = itemHint(label, agent.description, status);
 
       const value = {
         pack,
@@ -69,23 +72,23 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
         },
       };
 
-      groups[groupKey].push({ label, value, ...(hint ? { hint } : {}) });
+      groups[groupKey].push({ label, value, hint });
       allValues.push(value);
     }
 
     for (const skill of pack.manifest.skills) {
       const packVersion = skill.version;
-      const baseLabel = packVersion
+      const label = packVersion
         ? `[skill · v${packVersion}] ${skill.name}`
         : `[skill] ${skill.name}`;
-      const label = withInlineDescription(baseLabel, skill.description);
 
       const installedVersion = config.installed?.[skill.name]?.version;
-      const hint = installedVersion !== undefined
+      const status = installedVersion !== undefined
         ? (!isNewer(packVersion, installedVersion)
             ? `installed: v${installedVersion} (up to date)`
             : `installed: v${installedVersion}`)
-        : '';
+        : undefined;
+      const hint = itemHint(label, skill.description, status);
 
       const value = {
         pack,
@@ -99,7 +102,7 @@ export async function runWizard(packs: readonly PackOption[], projectDir: string
         },
       };
 
-      groups[groupKey].push({ label, value, ...(hint ? { hint } : {}) });
+      groups[groupKey].push({ label, value, hint });
       allValues.push(value);
     }
   }

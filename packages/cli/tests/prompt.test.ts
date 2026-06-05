@@ -121,11 +121,11 @@ describe('runWizard', () => {
     expect(Object.keys(groups)).toContain('ts-pack');
 
     const dotnetLabels = groups['dotnet-pack']!.map((o) => o.label);
-    expect(dotnetLabels.some((label) => label.startsWith('[agent · v1.0.0] csharp-coder — '))).toBe(true);
-    expect(dotnetLabels.some((label) => label.startsWith('[skill · v1.0.0] dotnet-workflow — '))).toBe(true);
+    expect(dotnetLabels).toContain('[agent · v1.0.0] csharp-coder');
+    expect(dotnetLabels).toContain('[skill · v1.0.0] dotnet-workflow');
 
     const tsLabels = groups['ts-pack']!.map((o) => o.label);
-    expect(tsLabels.some((label) => label.startsWith('[skill · v2.0.0] modern-ts — '))).toBe(true);
+    expect(tsLabels).toContain('[skill · v2.0.0] modern-ts');
   });
 
   it('should include items from all packs in group options', async () => {
@@ -278,7 +278,7 @@ describe('runWizard', () => {
     };
     const dotnetHints = call.options['dotnet-pack']!.map((o) => o.hint);
     expect(dotnetHints[0]).toContain('installed: v0.9.0');
-    expect(dotnetHints[0]).not.toContain('C# coder');
+    expect(dotnetHints[0]).toContain('C# coder');
   });
 
   it('should show up-to-date hint when installed version matches', async () => {
