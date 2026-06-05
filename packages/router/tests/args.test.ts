@@ -10,55 +10,14 @@ describe('parseArgs', () => {
     expect(parseArgs(['node', 'script.js', '--other', 'value'])).toEqual({});
   });
 
-  it('should parse --agent=<name> format', () => {
-    const result = parseArgs(['node', 'script.js', '--agent=csharp-coder']);
-    expect(result.agent).toBe('csharp-coder');
+  it('should ignore legacy --agent flag (skill injection is native via skills frontmatter)', () => {
+    expect(parseArgs(['node', 'script.js', '--agent=csharp-coder'])).toEqual({});
+    expect(parseArgs(['node', 'script.js', '--agent', 'dotnet-architect'])).toEqual({});
   });
 
-  it('should parse --agent <name> format', () => {
-    const result = parseArgs(['node', 'script.js', '--agent', 'dotnet-architect']);
-    expect(result.agent).toBe('dotnet-architect');
-  });
-
-  it('should handle agent name with hyphens', () => {
-    const result = parseArgs(['--agent=my-custom-agent-name']);
-    expect(result.agent).toBe('my-custom-agent-name');
-  });
-
-  it('should ignore empty --agent= value', () => {
-    const result = parseArgs(['--agent=']);
-    expect(result.agent).toBeUndefined();
-  });
-
-  it('should prefer later --agent flag', () => {
-    const result = parseArgs([
-      '--agent=first',
-      '--agent=second',
-    ]);
-    expect(result.agent).toBe('second');
-  });
-
-  it('should handle mixed format (last occurrence wins)', () => {
-    // Space-separated format is processed after equals format
-    const result = parseArgs([
-      '--agent=equals-value',
-      '--agent', 'space-value',
-    ]);
-    expect(result.agent).toBe('space-value');
-  });
-
-  it('should not use flag-like value for --agent <value>', () => {
-    const result = parseArgs(['--agent', '--other-flag']);
-    expect(result.agent).toBeUndefined();
-  });
-
-  it('should handle typical process.argv format', () => {
-    const result = parseArgs([
-      '/usr/local/bin/node',
-      '/path/to/script.js',
-      '--agent=csharp-coder',
-    ]);
-    expect(result.agent).toBe('csharp-coder');
+  it('should still parse known flags when legacy --agent is present', () => {
+    const result = parseArgs(['node', 'script.js', '--subagent-start', '--agent=csharp-coder']);
+    expect(result).toEqual({ subagentStart: true });
   });
 
   it('should parse --enforce flag', () => {

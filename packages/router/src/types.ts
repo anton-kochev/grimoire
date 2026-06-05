@@ -185,8 +185,6 @@ export interface SkillScoreResult {
  * CLI arguments parsed from process.argv
  */
 export interface ParsedArgs {
-  /** Agent name if --agent flag is provided */
-  agent?: string;
   /** Run enforcement check (PreToolUse) */
   enforce?: boolean;
   /** Register session as a subagent (SubagentStart) */
@@ -214,8 +212,6 @@ export type EnforceResult =
  */
 export interface SubagentHookInput {
   session_id: string;
-  /** Agent name passed via --agent CLI arg; undefined when not provided. */
-  agent_name?: string;
 }
 
 // =============================================================================

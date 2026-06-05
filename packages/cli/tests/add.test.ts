@@ -187,12 +187,9 @@ describe('runAdd', () => {
 
     await runAdd(projectDir);
 
-    // No automatic matching hooks are written
-    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
-    const settings = JSON.parse(readFileSync(join(projectDir, '.claude', 'settings.json'), 'utf-8')) as Record<string, unknown>;
-    const hooks = settings['hooks'] as Record<string, unknown[]>;
-    expect(hooks['UserPromptSubmit']).toBeUndefined();
-    expect(hooks['PreToolUse']).toBeUndefined();
+    // No hooks are written at install time — skill injection is native
+    // (skills: frontmatter), so settings.json is not created
+    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
 
     // Manifest IS written with installed items registered
     const configPath = join(projectDir, '.claude', 'grimoire.json');

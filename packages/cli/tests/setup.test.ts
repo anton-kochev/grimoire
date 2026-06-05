@@ -244,14 +244,29 @@ describe('setupRouter', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should create grimoire.json with router key without matching hooks', () => {
+  it('should create grimoire.json with router key without writing any hooks', () => {
     setupRouter(projectDir, sampleManifest);
 
     expect(existsSync(join(projectDir, '.claude', 'grimoire.json'))).toBe(true);
-    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    // Skill injection is native (skills: frontmatter) — install writes no hooks,
+    // so settings.json is not created on a fresh project
+    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
+  });
+
+  it('should not add subagent hooks to existing settings.json', () => {
+    const claudeDir = join(projectDir, '.claude');
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, 'settings.json'),
+      JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] }] } }),
+    );
+
+    setupRouter(projectDir, sampleManifest);
+
+    const settings = readJson(join(claudeDir, 'settings.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
-    expect(hooks['UserPromptSubmit']).toBeUndefined();
-    expect(hooks['PreToolUse']).toBeUndefined();
+    expect(hooks['SubagentStart']).toBeUndefined();
+    expect(hooks['SubagentStop']).toBeUndefined();
+    expect(hooks['PreToolUse']).toHaveLength(1);
   });
 });

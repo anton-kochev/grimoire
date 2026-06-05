@@ -185,11 +185,11 @@ Skills are installed as Claude Code skill directories. Automatic skill matching 
 
 ## Router and Agent Enforcement
 
-The router supports agent enforcement and subagent skill injection. Automatic skill matching has been removed.
+The router supports agent enforcement. Automatic skill matching has been removed.
 
 ### Agent Enforcement (PreToolUse)
 
-When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched.
+When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched. SubagentStart/Stop hooks maintain a session registry so specialist agents can edit their own files.
 
 Enable or disable enforcement with:
 
@@ -197,9 +197,9 @@ Enable or disable enforcement with:
 grimoire config
 ```
 
-### Subagent Skill Injection
+### Subagent Skills
 
-Agents can declare skill assignments in their frontmatter with a `skills:` array. Router subagent hooks inject those skill instructions when the agent starts; this is explicit agent configuration, not automatic matching.
+Agents can declare skill assignments in their frontmatter with a `skills:` array (managed with `grimoire agent-skills`). Claude Code natively injects the full content of those skills into the subagent's context at startup — no router hooks involved.
 
 ### Configuration
 

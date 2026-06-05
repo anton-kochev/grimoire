@@ -1,8 +1,9 @@
 /**
  * @grimoire-cc/router
  *
- * Hook runtime for Grimoire — agent enforcement and explicit subagent skill injection.
- * Bare legacy matching hooks are treated as no-ops.
+ * Hook runtime for Grimoire — agent enforcement and the subagent session registry
+ * (enforcement bypass). Subagent skill injection is handled natively by Claude Code
+ * via the `skills:` field in agent frontmatter. Bare legacy matching hooks are no-ops.
  */
 
 export * from './types.js';

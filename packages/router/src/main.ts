@@ -252,7 +252,7 @@ export async function main(): Promise<void> {
       }
 
       if (args.subagentStart) {
-        runSubagentStart({ session_id: sessionId, agent_name: args.agent });
+        runSubagentStart({ session_id: sessionId });
         // runSubagentStart calls process.exit internally
       }
 

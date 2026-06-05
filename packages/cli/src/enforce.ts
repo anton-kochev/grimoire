@@ -115,13 +115,11 @@ export function readAgentMeta(agentPath: string): AgentMeta {
 
 const ENFORCE_COMMAND = 'npx @grimoire-cc/router --enforce';
 
-function makeSubagentStartCmd(agentName: string): string {
-  return `npx @grimoire-cc/router --subagent-start --agent=${agentName}`;
-}
-
-function makeSubagentStopCmd(agentName: string): string {
-  return `npx @grimoire-cc/router --subagent-stop --agent=${agentName}`;
-}
+// Subagent hooks only maintain the session registry (enforcement bypass).
+// Skill injection is handled natively by Claude Code via the `skills:` field
+// in agent frontmatter, so no --agent= flag is needed.
+const SUBAGENT_START_COMMAND = 'npx @grimoire-cc/router --subagent-start';
+const SUBAGENT_STOP_COMMAND = 'npx @grimoire-cc/router --subagent-stop';
 
 function readSettings(projectDir: string): ClaudeSettings {
   const path = join(projectDir, '.claude', 'settings.json');
@@ -143,7 +141,8 @@ export function hasEnforcePreToolUseHook(entries: readonly HookEntry[]): boolean
 }
 
 /**
- * Returns true if a SubagentStart/Stop entry with the new --agent=<name> format already exists.
+ * Returns true if a current-format SubagentStart/Stop entry already exists
+ * (per-agent matcher, no legacy --agent= flag).
  */
 export function hasSubagentHook(
   entries: readonly HookEntry[],
@@ -153,7 +152,7 @@ export function hasSubagentHook(
   return entries.some(
     (e) =>
       e.matcher === agentName &&
-      e.hooks.some((h) => h.command.includes(flag) && h.command.includes(`--agent=${agentName}`)),
+      e.hooks.some((h) => h.command.includes(flag) && !h.command.includes('--agent=')),
   );
 }
 
@@ -173,15 +172,21 @@ export function ensureEnforceHooks(projectDir: string, agentNames: readonly stri
     });
   }
 
-  // Migrate old-format hooks (without --agent=) to new format
+  // Migrate legacy hook formats:
+  // - injection format with --agent=<name> (skill injection is native now)
+  // - combined pipe-matcher entries (one entry per agent is the current format)
+  const isLegacySubagentEntry = (e: HookEntry, flag: string): boolean =>
+    e.hooks.some((h) => h.command.includes(flag)) &&
+    (e.hooks.some((h) => h.command.includes('--agent=')) || e.matcher.includes('|'));
+
   if (hooks['SubagentStart']) {
     hooks['SubagentStart'] = hooks['SubagentStart'].filter(
-      (e) => !e.hooks.some((h) => h.command.includes('--subagent-start') && !h.command.includes('--agent=')),
+      (e) => !isLegacySubagentEntry(e, '--subagent-start'),
     );
   }
   if (hooks['SubagentStop']) {
     hooks['SubagentStop'] = hooks['SubagentStop'].filter(
-      (e) => !e.hooks.some((h) => h.command.includes('--subagent-stop') && !h.command.includes('--agent=')),
+      (e) => !isLegacySubagentEntry(e, '--subagent-stop'),
     );
   }
 
@@ -193,13 +198,13 @@ export function ensureEnforceHooks(projectDir: string, agentNames: readonly stri
     if (!hasSubagentHook(hooks['SubagentStart']!, agentName, '--subagent-start')) {
       hooks['SubagentStart']!.push({
         matcher: agentName,
-        hooks: [{ type: 'command', command: makeSubagentStartCmd(agentName) }],
+        hooks: [{ type: 'command', command: SUBAGENT_START_COMMAND }],
       });
     }
     if (!hasSubagentHook(hooks['SubagentStop']!, agentName, '--subagent-stop')) {
       hooks['SubagentStop']!.push({
         matcher: agentName,
-        hooks: [{ type: 'command', command: makeSubagentStopCmd(agentName) }],
+        hooks: [{ type: 'command', command: SUBAGENT_STOP_COMMAND }],
       });
     }
   }
@@ -219,12 +224,13 @@ export function removeSubagentHooksFor(projectDir: string, agentName: string): v
 
   const hooks = settings.hooks as Record<string, HookEntry[]>;
 
+  // Format-agnostic: removes both current entries and legacy --agent= entries
   if (hooks['SubagentStart']) {
     hooks['SubagentStart'] = hooks['SubagentStart'].filter(
       (e) =>
         !(
           e.matcher === agentName &&
-          e.hooks.some((h) => h.command.includes('--subagent-start') && h.command.includes(`--agent=${agentName}`))
+          e.hooks.some((h) => h.command.includes('--subagent-start'))
         ),
     );
     if (hooks['SubagentStart'].length === 0) delete hooks['SubagentStart'];
@@ -235,7 +241,7 @@ export function removeSubagentHooksFor(projectDir: string, agentName: string): v
       (e) =>
         !(
           e.matcher === agentName &&
-          e.hooks.some((h) => h.command.includes('--subagent-stop') && h.command.includes(`--agent=${agentName}`))
+          e.hooks.some((h) => h.command.includes('--subagent-stop'))
         ),
     );
     if (hooks['SubagentStop'].length === 0) delete hooks['SubagentStop'];

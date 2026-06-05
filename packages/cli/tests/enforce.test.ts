@@ -204,12 +204,12 @@ describe('hasEnforcePreToolUseHook', () => {
 });
 
 describe('hasSubagentHook', () => {
-  it('should return true when subagent-start hook exists with --agent= format', () => {
-    // Arrange — new format includes --agent=<name>
+  it('should return true when current-format subagent-start hook exists (no --agent=)', () => {
+    // Arrange — current format: per-agent matcher, no --agent= flag
     const entries = [
       {
         matcher: 'grimoire.typescript-coder',
-        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.typescript-coder' }],
+        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start' }],
       },
     ];
 
@@ -217,12 +217,12 @@ describe('hasSubagentHook', () => {
     expect(hasSubagentHook(entries, 'grimoire.typescript-coder', '--subagent-start')).toBe(true);
   });
 
-  it('should return false for old-format hook without --agent=', () => {
-    // Arrange — old format without --agent= should not match (triggers migration path)
+  it('should return false for legacy injection-format hook with --agent=', () => {
+    // Arrange — legacy format with --agent= should not match (triggers migration path)
     const entries = [
       {
         matcher: 'grimoire.typescript-coder',
-        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start' }],
+        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.typescript-coder' }],
       },
     ];
 
@@ -235,7 +235,7 @@ describe('hasSubagentHook', () => {
     const entries = [
       {
         matcher: 'grimoire.typescript-coder',
-        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.typescript-coder' }],
+        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start' }],
       },
     ];
 
@@ -248,7 +248,7 @@ describe('hasSubagentHook', () => {
     const entries = [
       {
         matcher: 'grimoire.typescript-coder',
-        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.typescript-coder' }],
+        hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start' }],
       },
     ];
 
@@ -290,11 +290,79 @@ describe('ensureEnforceHooks', () => {
     const startEntry = (hooks['SubagentStart'] as Array<{ matcher: string; hooks: Array<{ command: string }> }>)[0];
     expect(startEntry!.matcher).toBe('grimoire.typescript-coder');
     expect(startEntry!.hooks[0]!.command).toContain('--subagent-start');
+    expect(startEntry!.hooks[0]!.command).not.toContain('--agent=');
 
     expect(hooks['SubagentStop']).toHaveLength(1);
     const stopEntry = (hooks['SubagentStop'] as Array<{ matcher: string; hooks: Array<{ command: string }> }>)[0];
     expect(stopEntry!.matcher).toBe('grimoire.typescript-coder');
     expect(stopEntry!.hooks[0]!.command).toContain('--subagent-stop');
+    expect(stopEntry!.hooks[0]!.command).not.toContain('--agent=');
+  });
+
+  it('should migrate legacy injection-format hooks (--agent=) to current format', () => {
+    // Arrange — legacy per-agent entries with --agent= flag
+    makeSettings(projectDir, {
+      hooks: {
+        SubagentStart: [
+          {
+            matcher: 'grimoire.typescript-coder',
+            hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.typescript-coder' }],
+          },
+        ],
+        SubagentStop: [
+          {
+            matcher: 'grimoire.typescript-coder',
+            hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-stop --agent=grimoire.typescript-coder' }],
+          },
+        ],
+      },
+    });
+
+    // Act
+    ensureEnforceHooks(projectDir, ['grimoire.typescript-coder']);
+
+    // Assert — exactly one entry per event, no --agent= anywhere
+    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, Array<{ matcher: string; hooks: Array<{ command: string }> }>>;
+
+    expect(hooks['SubagentStart']).toHaveLength(1);
+    expect(hooks['SubagentStart']![0]!.matcher).toBe('grimoire.typescript-coder');
+    expect(hooks['SubagentStart']![0]!.hooks[0]!.command).not.toContain('--agent=');
+
+    expect(hooks['SubagentStop']).toHaveLength(1);
+    expect(hooks['SubagentStop']![0]!.hooks[0]!.command).not.toContain('--agent=');
+  });
+
+  it('should migrate legacy combined-matcher hooks to per-agent entries', () => {
+    // Arrange — oldest format: one entry with pipe-combined matcher
+    makeSettings(projectDir, {
+      hooks: {
+        SubagentStart: [
+          {
+            matcher: 'grimoire.typescript-coder|grimoire.vue3-coder',
+            hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start' }],
+          },
+        ],
+        SubagentStop: [
+          {
+            matcher: 'grimoire.typescript-coder|grimoire.vue3-coder',
+            hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-stop' }],
+          },
+        ],
+      },
+    });
+
+    // Act
+    ensureEnforceHooks(projectDir, ['grimoire.typescript-coder', 'grimoire.vue3-coder']);
+
+    // Assert — combined entry replaced with one entry per agent
+    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
+
+    const startMatchers = hooks['SubagentStart']!.map((e) => e.matcher);
+    expect(startMatchers).toEqual(['grimoire.typescript-coder', 'grimoire.vue3-coder']);
+    const stopMatchers = hooks['SubagentStop']!.map((e) => e.matcher);
+    expect(stopMatchers).toEqual(['grimoire.typescript-coder', 'grimoire.vue3-coder']);
   });
 
   it('should create PreToolUse enforce hook even with empty agent list', () => {
