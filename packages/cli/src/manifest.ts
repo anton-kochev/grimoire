@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import type { PackManifest, PackAgentEntry, PackSkillEntry, PackSkillTriggers } from './types.js';
+import type { PackManifest, PackAgentEntry, PackSkillEntry } from './types.js';
 
 /**
  * Loads and validates a grimoire pack manifest from a directory.
@@ -117,41 +117,11 @@ function validateSkillEntry(entry: unknown, index: number): PackSkillEntry {
     throw new Error(`Skill entry [${index}] must have a "description" string field`);
   }
 
-  const triggers = raw['triggers'] != null
-    ? validateTriggers(raw['triggers'], index)
-    : undefined;
-
   const skillVersion = typeof raw['version'] === 'string' ? raw['version'] : undefined;
   return {
     name: raw['name'] as string,
     path: raw['path'] as string,
     description: raw['description'] as string,
-    ...(triggers !== undefined && { triggers }),
     ...(skillVersion !== undefined && { version: skillVersion }),
   };
-}
-
-function validateTriggers(triggers: unknown, skillIndex: number): PackSkillTriggers {
-  if (typeof triggers !== 'object' || triggers === null) {
-    throw new Error(`Skill entry [${skillIndex}] triggers must be an object`);
-  }
-
-  const raw = triggers as Record<string, unknown>;
-
-  return {
-    keywords: asStringArray(raw['keywords']),
-    file_extensions: asStringArray(raw['file_extensions']),
-    patterns: asStringArray(raw['patterns']),
-    file_paths: asStringArray(raw['file_paths']),
-  };
-}
-
-function asStringArray(value: unknown): readonly string[] {
-  if (value === undefined || value === null) {
-    return [];
-  }
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value as string[];
 }

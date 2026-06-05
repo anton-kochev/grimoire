@@ -7,6 +7,12 @@ import { join } from 'path';
 import type { SkillManifest, SkillDefinition, AgentEntry } from './types.js';
 
 const DEFAULT_LOG_PATH = '.claude/logs/grimoire-router.log';
+const DEFAULT_WEIGHTS = {
+  keywords: 1.0,
+  file_extensions: 1.5,
+  patterns: 2.0,
+  file_paths: 2.5,
+};
 
 /**
  * Loads and validates the skill manifest from `.claude/grimoire.json` (router key).
@@ -102,16 +108,6 @@ function validateManifest(data: Record<string, unknown>): SkillManifest {
 
   const config = manifest['config'] as Record<string, unknown>;
 
-  // Validate weights
-  if (!config['weights'] || typeof config['weights'] !== 'object') {
-    throw new Error('Manifest config must have weights object');
-  }
-
-  // Validate activation_threshold
-  if (typeof config['activation_threshold'] !== 'number') {
-    throw new Error('Manifest config must have activation_threshold number');
-  }
-
   // Validate skills array
   if (!Array.isArray(manifest['skills'])) {
     throw new Error('Manifest must have skills array');
@@ -128,8 +124,12 @@ function validateManifest(data: Record<string, unknown>): SkillManifest {
   return {
     version: manifest['version'] as string,
     config: {
-      weights: config['weights'] as SkillManifest['config']['weights'],
-      activation_threshold: config['activation_threshold'] as number,
+      weights: (config['weights'] && typeof config['weights'] === 'object')
+        ? config['weights'] as SkillManifest['config']['weights']
+        : DEFAULT_WEIGHTS,
+      activation_threshold: typeof config['activation_threshold'] === 'number'
+        ? config['activation_threshold']
+        : 3.0,
       pretooluse_threshold:
         typeof config['pretooluse_threshold'] === 'number'
           ? config['pretooluse_threshold']

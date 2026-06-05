@@ -264,27 +264,7 @@ export async function main(): Promise<void> {
       process.exit(0);
     }
 
-    // Get project directory from environment
-    const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-
-    // Parse and dispatch based on input type
-    const stdinInput = parseStdinInput(stdinContent);
-
-    let output: HookOutput | PreToolUseOutput | null;
-
-    if (stdinInput.kind === 'tooluse') {
-      // PreToolUse hook
-      output = processToolUse(stdinInput.input, projectDir);
-    } else {
-      // UserPromptSubmit mode
-      output = processPrompt(stdinInput.input, projectDir);
-    }
-
-    // Write output if skills matched
-    if (output) {
-      process.stdout.write(JSON.stringify(output));
-    }
-
+    // Automatic skill matching has been removed. Bare legacy hooks are harmless no-ops.
     process.exit(0);
   } catch {
     // Always exit 0 — never block the user

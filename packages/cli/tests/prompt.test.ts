@@ -66,7 +66,7 @@ describe('runWizard', () => {
 
   // --- Happy path ---
 
-  it('should return selections grouped by pack with auto-activation', async () => {
+  it('should return selections grouped by pack', async () => {
     // Arrange: groupMultiselect returns items from both packs
     const selectedItems = [
       { pack: packs[0], item: { type: 'agent' as const, name: 'csharp-coder', sourcePath: 'agents/csharp-coder.md', description: 'C# coder', pack: 'dotnet-pack', version: '1.0.0' } },
@@ -80,7 +80,6 @@ describe('runWizard', () => {
     const result = await runWizard(packs, '/test/project');
 
     // Assert
-    expect(result.enableAutoActivation).toBe(true);
     expect(result.selections).toHaveLength(2);
     expect(result.selections[0]?.items).toHaveLength(2);
     expect(result.selections[0]?.packDir).toBe('/packs/dotnet-pack');
@@ -88,20 +87,19 @@ describe('runWizard', () => {
     expect(result.selections[1]?.packDir).toBe('/packs/ts-pack');
   });
 
-  it('should return auto-activation disabled when declined', async () => {
+  it('should not ask about auto-activation', async () => {
     // Arrange
     const selectedItems = [
       { pack: packs[0], item: { type: 'agent' as const, name: 'csharp-coder', sourcePath: 'agents/csharp-coder.md', description: 'C# coder', pack: 'dotnet-pack', version: '1.0.0' } },
     ];
     mockGroupMultiselect.mockResolvedValueOnce(selectedItems);
-    mockConfirm.mockResolvedValueOnce(false);
 
     // Act
     const result = await runWizard(packs, '/test/project');
 
     // Assert
-    expect(result.enableAutoActivation).toBe(false);
     expect(result.selections).toHaveLength(1);
+    expect(mockConfirm).not.toHaveBeenCalled();
   });
 
   // --- UI structure ---
@@ -123,11 +121,11 @@ describe('runWizard', () => {
     expect(Object.keys(groups)).toContain('ts-pack');
 
     const dotnetLabels = groups['dotnet-pack']!.map((o) => o.label);
-    expect(dotnetLabels).toContain('[agent · v1.0.0] csharp-coder');
-    expect(dotnetLabels).toContain('[skill · v1.0.0] dotnet-workflow');
+    expect(dotnetLabels.some((label) => label.startsWith('[agent · v1.0.0] csharp-coder — '))).toBe(true);
+    expect(dotnetLabels.some((label) => label.startsWith('[skill · v1.0.0] dotnet-workflow — '))).toBe(true);
 
     const tsLabels = groups['ts-pack']!.map((o) => o.label);
-    expect(tsLabels).toContain('[skill · v2.0.0] modern-ts');
+    expect(tsLabels.some((label) => label.startsWith('[skill · v2.0.0] modern-ts — '))).toBe(true);
   });
 
   it('should include items from all packs in group options', async () => {
@@ -182,24 +180,8 @@ describe('runWizard', () => {
     const result = await runWizard(packs, '/test/project');
 
     // Assert
-    expect(result).toEqual({ selections: [], enableAutoActivation: false });
+    expect(result).toEqual({ selections: [] });
     expect(mockConfirm).not.toHaveBeenCalled();
-  });
-
-  it('should handle confirm cancellation', async () => {
-    // Arrange
-    const selectedItems = [
-      { pack: packs[0], item: { type: 'agent' as const, name: 'csharp-coder', sourcePath: 'agents/csharp-coder.md', description: 'C# coder', pack: 'dotnet-pack', version: '1.0.0' } },
-    ];
-    mockGroupMultiselect.mockResolvedValueOnce(selectedItems);
-    mockConfirm.mockResolvedValueOnce(Symbol('cancel') as never);
-    mockIsCancel.mockReturnValueOnce(false).mockReturnValueOnce(true);
-
-    // Act
-    const result = await runWizard(packs, '/test/project');
-
-    // Assert
-    expect(result).toEqual({ selections: [], enableAutoActivation: false });
   });
 
   it('should return empty when no items selected', async () => {
@@ -210,7 +192,7 @@ describe('runWizard', () => {
     const result = await runWizard(packs, '/test/project');
 
     // Assert
-    expect(result).toEqual({ selections: [], enableAutoActivation: false });
+    expect(result).toEqual({ selections: [] });
     expect(mockConfirm).not.toHaveBeenCalled();
   });
 
@@ -296,7 +278,7 @@ describe('runWizard', () => {
     };
     const dotnetHints = call.options['dotnet-pack']!.map((o) => o.hint);
     expect(dotnetHints[0]).toContain('installed: v0.9.0');
-    expect(dotnetHints[0]).toContain('C# coder');
+    expect(dotnetHints[0]).not.toContain('C# coder');
   });
 
   it('should show up-to-date hint when installed version matches', async () => {
@@ -328,6 +310,7 @@ describe('runRemoveWizard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsCancel.mockReturnValue(false);
+    mockConfirm.mockResolvedValue(false);
   });
 
   it('should group items by pack name with type-prefixed labels', async () => {
@@ -394,6 +377,7 @@ describe('runRemoveWizard', () => {
   it('should return empty items when confirm is declined', async () => {
     // Arrange
     mockGroupMultiselect.mockResolvedValueOnce([installedItems[0]!]);
+    mockConfirm.mockReset();
     mockConfirm.mockResolvedValueOnce(false);
 
     // Act

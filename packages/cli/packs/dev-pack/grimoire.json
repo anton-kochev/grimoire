@@ -5,7 +5,7 @@
     {
       "name": "grimoire.code-reviewer",
       "path": "agents/grimoire.code-reviewer.md",
-      "description": "Language-agnostic code review specialist. Use immediately after writing or modifying code, or when explicitly requested to review code quality, security, performance, and best practices. Works with any programming language — detects language automatically and applies idiomatic conventions.",
+      "description": "Language-agnostic code review specialist. Use immediately after writing or modifying code, or when explicitly requested to review code quality, security, performance, and best practices. Works with any programming language \u2014 detects language automatically and applies idiomatic conventions.",
       "version": "1.0.0"
     },
     {
@@ -20,50 +20,13 @@
       "name": "grimoire.conventional-commit",
       "path": "skills/grimoire.conventional-commit",
       "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes. Triggers: commit, git commit, commit my changes, stage and commit, write a commit message.",
-      "version": "1.1.1",
-      "triggers": {
-        "keywords": [
-          "conventional-commit",
-          "git-commit",
-          "commit",
-          "git commit"
-        ],
-        "file_extensions": [],
-        "patterns": [
-          "commit.*change",
-          "create.*commit",
-          "make.*commit",
-          "conventional.*commit",
-          "commit.*my",
-          "stage.*commit",
-          "write.*commit"
-        ],
-        "file_paths": []
-      }
+      "version": "1.1.1"
     },
     {
       "name": "grimoire.tdd",
       "path": "skills/grimoire.tdd",
       "description": "A test-first workflow for writing or changing code: list the behaviors you want, drive each into existence through the red-green-refactor loop, and let the tests shape the design. Use when building a feature, fixing a bug, or changing behavior test-first in ANY language. Triggers: TDD, test-driven, test first, write tests first, red-green-refactor, drive this with tests.",
-      "version": "1.0.0",
-      "triggers": {
-        "keywords": [
-          "tdd",
-          "test-driven",
-          "test first",
-          "red-green-refactor",
-          "test-driven development"
-        ],
-        "file_extensions": [],
-        "patterns": [
-          "test.first",
-          "test.driven",
-          "red.green.refactor",
-          "drive.*with.*test",
-          "write.*test.*first"
-        ],
-        "file_paths": []
-      }
+      "version": "1.0.0"
     }
   ]
 }

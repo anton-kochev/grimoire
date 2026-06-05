@@ -5,7 +5,7 @@
     {
       "name": "grimoire.typescript-coder",
       "path": "agents/grimoire.typescript-coder.md",
-      "description": "Use this agent when the user needs to write, refactor, debug, review, or understand TypeScript code in any environment — Node.js backends, React, Angular, Vue, Svelte, or any other TypeScript-compatible platform. This includes tasks like designing type-safe data models, implementing utility types, handling errors with discriminated unions, refactoring JavaScript to TypeScript, or reviewing TypeScript code for type safety and correctness.",
+      "description": "Use this agent when the user needs to write, refactor, debug, review, or understand TypeScript code in any environment \u2014 Node.js backends, React, Angular, Vue, Svelte, or any other TypeScript-compatible platform. This includes tasks like designing type-safe data models, implementing utility types, handling errors with discriminated unions, refactoring JavaScript to TypeScript, or reviewing TypeScript code for type safety and correctness.",
       "version": "2.1.0"
     }
   ],
@@ -14,80 +14,13 @@
       "name": "grimoire.modern-typescript",
       "path": "skills/grimoire.modern-typescript",
       "description": "Modern TypeScript best practices, patterns, and type system mastery for TS 5.7+. Use when writing TypeScript, reviewing TS code, designing types, configuring tsconfig, or asking about TypeScript patterns, generics, type safety, strict mode, idiomatic TypeScript, discriminated unions, branded types, or modern TS features.",
-      "version": "1.0.0",
-      "triggers": {
-        "keywords": [
-          "typescript",
-          "tsconfig",
-          "satisfies",
-          "narrowing",
-          "readonly"
-        ],
-        "file_extensions": [
-          ".ts",
-          ".tsx",
-          ".mts",
-          ".cts"
-        ],
-        "patterns": [
-          "type.*safe",
-          "strict.*mode",
-          "discriminated.*union",
-          "branded.*type",
-          "modern.*typescript",
-          "typescript.*generic",
-          "typescript.*pattern",
-          "typescript.*best",
-          "type.*error",
-          "type.*guard",
-          "configure.*tsconfig",
-          "write.*typescript",
-          "review.*typescript",
-          "refactor.*type"
-        ],
-        "file_paths": [
-          "**/tsconfig*",
-          "**/*.ts",
-          "**/*.tsx",
-          "**/*.mts",
-          "**/*.cts"
-        ]
-      }
+      "version": "1.0.0"
     },
     {
       "name": "grimoire.unit-testing-typescript",
       "path": "skills/grimoire.unit-testing-typescript",
       "description": "TypeScript/JavaScript unit testing specialist. Framework selection, patterns, and best practices for Vitest, Jest, Mocha, and Node test runner. Use when writing tests for .ts/.tsx/.js files, configuring test frameworks, or asking about TypeScript testing patterns, mocking, assertions, async testing.",
-      "version": "1.0.0",
-      "triggers": {
-        "keywords": [
-          "vitest",
-          "jest",
-          "mocha"
-        ],
-        "file_extensions": [
-          ".ts",
-          ".tsx",
-          ".js",
-          ".jsx"
-        ],
-        "patterns": [
-          "write.*test",
-          "add.*test",
-          "create.*test",
-          "test.*coverage",
-          "typescript.*test"
-        ],
-        "file_paths": [
-          "__tests__/**",
-          "**/*.test.ts",
-          "**/*.spec.ts",
-          "**/*.test.js",
-          "**/*.spec.js",
-          "**/vitest.config.*",
-          "**/jest.config.*"
-        ]
-      }
+      "version": "1.0.0"
     }
   ]
 }

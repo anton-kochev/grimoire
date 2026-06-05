@@ -81,7 +81,6 @@ describe('runAdd', () => {
           ],
         },
       ],
-      enableAutoActivation: false,
     };
     mockRunWizard.mockResolvedValue(wizardResult);
 
@@ -133,7 +132,6 @@ describe('runAdd', () => {
           ],
         },
       ],
-      enableAutoActivation: false,
     };
     mockRunWizard.mockResolvedValue(wizardResult);
 
@@ -151,7 +149,7 @@ describe('runAdd', () => {
 
   it('should return empty summary when wizard is cancelled', async () => {
     mockLoadAllPacks.mockReturnValue([makePack()]);
-    mockRunWizard.mockResolvedValue({ selections: [], enableAutoActivation: false });
+    mockRunWizard.mockResolvedValue({ selections: [] });
 
     const summary = await runAdd(projectDir);
 
@@ -169,69 +167,7 @@ describe('runAdd', () => {
     expect(mockRunWizard).not.toHaveBeenCalled();
   });
 
-  it('should configure router when auto-activation enabled', async () => {
-    writeFileSync(
-      join(packDir, 'grimoire.json'),
-      JSON.stringify({
-        name: 'test-pack',
-        version: '1.0.0',
-        agents: [
-          { name: 'agent-a', path: 'agents/agent-a.md', description: 'Agent A' },
-        ],
-        skills: [
-          {
-            name: 'skill-b',
-            path: 'skills/skill-b',
-            description: 'Skill B',
-            triggers: { keywords: ['test'], file_extensions: [], patterns: [], file_paths: [] },
-          },
-        ],
-      }),
-    );
-
-    const pack: PackOption = {
-      name: 'test-pack',
-      dir: packDir,
-      manifest: {
-        name: 'test-pack',
-        version: '1.0.0',
-        agents: [
-          { name: 'agent-a', path: 'agents/agent-a.md', description: 'Agent A' },
-        ],
-        skills: [
-          {
-            name: 'skill-b',
-            path: 'skills/skill-b',
-            description: 'Skill B',
-            triggers: { keywords: ['test'], file_extensions: [], patterns: [], file_paths: [] },
-          },
-        ],
-      },
-    };
-
-    mockLoadAllPacks.mockReturnValue([pack]);
-
-    const wizardResult: WizardResult = {
-      selections: [
-        {
-          packDir: pack.dir,
-          manifest: pack.manifest,
-          items: [
-            { type: 'skill', name: 'skill-b', sourcePath: 'skills/skill-b', description: 'Skill B' },
-          ],
-        },
-      ],
-      enableAutoActivation: true,
-    };
-    mockRunWizard.mockResolvedValue(wizardResult);
-
-    await runAdd(projectDir);
-
-    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
-    expect(existsSync(join(projectDir, '.claude', 'grimoire.json'))).toBe(true);
-  });
-
-  it('should write manifest but not hooks when auto-activation is disabled', async () => {
+  it('should write manifest but not matching hooks', async () => {
     const pack = makePack();
     mockLoadAllPacks.mockReturnValue([pack]);
 
@@ -246,14 +182,17 @@ describe('runAdd', () => {
           ],
         },
       ],
-      enableAutoActivation: false,
     };
     mockRunWizard.mockResolvedValue(wizardResult);
 
     await runAdd(projectDir);
 
-    // No hooks written
-    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
+    // No automatic matching hooks are written
+    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
+    const settings = JSON.parse(readFileSync(join(projectDir, '.claude', 'settings.json'), 'utf-8')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, unknown[]>;
+    expect(hooks['UserPromptSubmit']).toBeUndefined();
+    expect(hooks['PreToolUse']).toBeUndefined();
 
     // Manifest IS written with installed items registered
     const configPath = join(projectDir, '.claude', 'grimoire.json');
@@ -303,7 +242,6 @@ describe('runAdd', () => {
           ],
         },
       ],
-      enableAutoActivation: false,
     };
     mockRunWizard.mockResolvedValue(wizardResult);
 

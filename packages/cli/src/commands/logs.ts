@@ -21,10 +21,10 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
   if (!existsSync(logFilePath)) {
     console.error(`Log file not found: ${logFilePath}\n`);
     console.error('The Grimoire router has not produced any logs yet.');
-    console.error('Logs are created after the router hook runs for the first time.\n');
+    console.error('Logs are created by enforcement hooks when agent enforcement is enabled.\n');
     console.error('To get started:');
-    console.error('  1. Install a pack with auto-activation: grimoire add <pack> --enable-auto-activation');
-    console.error('  2. Open Claude Code in the project and send a prompt');
+    console.error('  1. Enable agent enforcement: grimoire config');
+    console.error('  2. Use Claude Code to edit a file covered by an agent enforcement path');
     console.error('  3. Run this command again');
     process.exit(1);
   }

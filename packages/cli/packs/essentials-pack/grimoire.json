@@ -31,7 +31,7 @@
     {
       "name": "grimoire.srs-generator",
       "path": "skills/grimoire.srs-generator",
-      "description": "Produce a Software Requirements Specification (SRS) conforming to ISO/IEC/IEEE 29148:2018, with requirements written in EARS notation and a traceability matrix. Use when asked to create, write, draft, author, or 'spec out' an SRS, a requirements document, or a formal requirements spec — for a greenfield product or a change to an existing codebase.",
+      "description": "Produce a Software Requirements Specification (SRS) conforming to ISO/IEC/IEEE 29148:2018, with requirements written in EARS notation and a traceability matrix. Use when asked to create, write, draft, author, or 'spec out' an SRS, a requirements document, or a formal requirements spec \u2014 for a greenfield product or a change to an existing codebase.",
       "version": "1.0.0"
     },
     {

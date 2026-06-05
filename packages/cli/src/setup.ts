@@ -9,51 +9,37 @@ interface HookEntry {
   readonly hooks: ReadonlyArray<{ readonly type: string; readonly command: string }>;
 }
 
-function hasRouterHook(entries: readonly HookEntry[]): boolean {
-  return entries.some((entry) =>
-    entry.hooks.some((h) => h.command.includes('@grimoire-cc/router')),
-  );
-}
-
-function makeHookEntry(matcher: string): HookEntry {
-  return {
-    matcher,
-    hooks: [{ type: 'command', command: SKILL_ROUTER_COMMAND }],
-  };
-}
-
 /**
- * Merges router hook entries into `.claude/settings.json`.
- * Creates the file if it doesn't exist. Preserves existing entries.
+ * Removes legacy bare matching hooks from `.claude/settings.json`.
+ * Enforcement hooks (`--enforce`) and subagent hooks are preserved.
  */
 export function mergeSettings(projectDir: string): void {
-  const claudeDir = join(projectDir, '.claude');
-  mkdirSync(claudeDir, { recursive: true });
+  const settingsPath = join(projectDir, '.claude', 'settings.json');
+  if (!existsSync(settingsPath)) return;
 
-  const settingsPath = join(claudeDir, 'settings.json');
+  const settings = JSON.parse(readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;
+  const hooks = settings['hooks'] as Record<string, HookEntry[]> | undefined;
+  if (!hooks) return;
 
-  let settings: Record<string, unknown> = {};
-  if (existsSync(settingsPath)) {
-    settings = JSON.parse(readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;
+  if (hooks['UserPromptSubmit']) {
+    hooks['UserPromptSubmit'] = hooks['UserPromptSubmit'].filter(
+      (entry) => !entry.hooks.some((h) => h.command.includes('@grimoire-cc/router'))
+    );
+    if (hooks['UserPromptSubmit'].length === 0) delete hooks['UserPromptSubmit'];
   }
 
-  const hooks = (settings['hooks'] ?? {}) as Record<string, HookEntry[]>;
-
-  if (!hooks['UserPromptSubmit']) {
-    hooks['UserPromptSubmit'] = [];
-  }
-  if (!hasRouterHook(hooks['UserPromptSubmit'])) {
-    hooks['UserPromptSubmit'].push(makeHookEntry(''));
+  if (hooks['PreToolUse']) {
+    hooks['PreToolUse'] = hooks['PreToolUse'].filter((entry) =>
+      !entry.hooks.some((h) => h.command.includes('@grimoire-cc/router') && !h.command.includes('--enforce'))
+    );
+    if (hooks['PreToolUse'].length === 0) delete hooks['PreToolUse'];
   }
 
-  if (!hooks['PreToolUse']) {
-    hooks['PreToolUse'] = [];
+  if (Object.keys(hooks).length > 0) {
+    settings['hooks'] = hooks;
+  } else {
+    delete settings['hooks'];
   }
-  if (!hasRouterHook(hooks['PreToolUse'])) {
-    hooks['PreToolUse'].push(makeHookEntry('Edit|Write|MultiEdit'));
-  }
-
-  settings['hooks'] = hooks;
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
 }
 
@@ -61,7 +47,6 @@ interface ManifestSkill {
   path: string;
   name: string;
   description?: string;
-  triggers: Record<string, unknown>;
 }
 
 interface ManifestAgentEntry {
@@ -75,19 +60,10 @@ interface SkillsManifest {
   agents: Record<string, ManifestAgentEntry>;
 }
 
-const DEFAULT_CONFIG = {
-  weights: {
-    keywords: 1.0,
-    file_extensions: 1.5,
-    patterns: 2.0,
-    file_paths: 2.5,
-  },
-  activation_threshold: 3.0,
-  pretooluse_threshold: 1.5,
-};
+const DEFAULT_CONFIG = {};
 
 /**
- * Merges pack skill triggers and agent entries into `.claude/grimoire.json` (router key).
+ * Merges pack skill and agent entries into `.claude/grimoire.json` (router key).
  * Creates the file with defaults if it doesn't exist. Preserves existing entries.
  */
 export function mergeManifest(projectDir: string, packManifest: PackManifest): void {
@@ -113,7 +89,7 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
     };
   }
 
-  // Merge all skills (with or without triggers) so they are tracked as managed items
+  // Merge all skills so they are tracked as managed items
   for (const skill of packManifest.skills) {
     const dirName = basename(skill.path);
     const skillPath = `.claude/skills/${dirName}`;
@@ -123,7 +99,6 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
       path: skillPath,
       name: skill.name,
       description: skill.description,
-      triggers: skill.triggers ? { ...skill.triggers } : {},
     };
 
     if (existingIndex >= 0) {
@@ -198,21 +173,16 @@ function mergeAgentHooks(projectDir: string, agentNames: readonly string[]): voi
 /**
  * Sets up the router by merging hook config and skill manifest.
  */
-export function setupRouter(projectDir: string, packManifest: PackManifest): void {
+export function setupRouter(projectDir: string, packManifest: PackManifest, options?: { quiet?: boolean }): void {
   mergeSettings(projectDir);
   mergeManifest(projectDir, packManifest);
   if (packManifest.agents.length > 0) {
     mergeAgentHooks(projectDir, packManifest.agents.map((a) => a.name));
   }
 
-  console.log('\nSkill router configured:');
-  console.log('  hooks: .claude/settings.json');
-  console.log('  config: .claude/grimoire.json');
-
-  if (!isRouterInstalled(projectDir)) {
-    console.log('\n⚠ @grimoire-cc/router is not installed.');
-    console.log('  Auto-activation requires it. Install with:');
-    console.log('  npm install -D @grimoire-cc/router');
+  if (!options?.quiet) {
+    console.log('\nGrimoire router metadata configured:');
+    console.log('  config: .claude/grimoire.json');
   }
 }
 

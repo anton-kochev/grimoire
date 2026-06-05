@@ -67,13 +67,6 @@ type Action = 'remove' | 'update' | 'manage-skills' | 'manage-paths';
 
 // --- Detail formatters ---
 
-interface ManifestSkillTriggers {
-  readonly keywords?: readonly string[];
-  readonly file_extensions?: readonly string[];
-  readonly patterns?: readonly string[];
-  readonly file_paths?: readonly string[];
-}
-
 function wrapText(text: string, maxWidth: number): string {
   if (maxWidth <= 0) return text;
   const words = text.split(' ');
@@ -140,26 +133,13 @@ function buildAgentDetail(
 function buildSkillDetail(
   skillsDir: string,
   name: string,
-  skillTriggers: Map<string, ManifestSkillTriggers>,
   skillManifestDescs: Map<string, string>,
 ): string {
   const rawDesc =
     readSkillDescription(join(skillsDir, name, 'SKILL.md')) ||
     skillManifestDescs.get(name) ||
     '';
-  const triggers = skillTriggers.get(name);
-  const desc = formatDescription(rawDesc);
-  const kw = triggers?.keywords?.length ? triggers.keywords.join(', ') : '(none)';
-  const ext = triggers?.file_extensions?.length ? triggers.file_extensions.join(', ') : '(none)';
-  const pat = triggers?.patterns?.length ? triggers.patterns.join(', ') : '(none)';
-  const fp = triggers?.file_paths?.length ? triggers.file_paths.join(', ') : '(none)';
-  const lines: string[] = [];
-  if (desc) lines.push(desc);
-  lines.push(`Keywords: ${kw}`);
-  lines.push(`File extensions: ${ext}`);
-  lines.push(`Patterns: ${pat}`);
-  lines.push(`File paths: ${fp}`);
-  return lines.join('\n');
+  return formatDescription(rawDesc);
 }
 
 // --- Main command ---
@@ -189,7 +169,7 @@ export async function runList(projectDir: string): Promise<void> {
       break;
     }
 
-    const { agentFiles, skillDirs, skillTriggers, skillManifestDescs } = scan;
+    const { agentFiles, skillDirs, skillManifestDescs } = scan;
 
     type SelectOption =
       | { value: { readonly kind: 'agent'; readonly name: string }; label: string; hint?: string }
@@ -247,7 +227,7 @@ export async function runList(projectDir: string): Promise<void> {
     // Show detail via note
     const detail = isAgent
       ? buildAgentDetail(agentsDir, itemName, scan.agentFilePatterns.get(itemName))
-      : buildSkillDetail(skillsDir, itemName, skillTriggers, skillManifestDescs);
+      : buildSkillDetail(skillsDir, itemName, skillManifestDescs);
     clack.note(detail, itemName);
 
     // Action menu — single action then exit
@@ -374,13 +354,11 @@ function scanInstalledItems(
   agentFiles: string[];
   skillDirs: string[];
   agentFilePatterns: Map<string, string[]>;
-  skillTriggers: Map<string, ManifestSkillTriggers>;
   skillManifestDescs: Map<string, string>;
 } | null {
   let managedAgentNames: Set<string> | null = null;
   let managedSkillDirNames: Set<string> | null = null;
   const agentFilePatterns = new Map<string, string[]>();
-  const skillTriggers = new Map<string, ManifestSkillTriggers>();
   const skillManifestDescs = new Map<string, string>();
 
   try {
@@ -392,7 +370,6 @@ function scanInstalledItems(
     }
     for (const skill of manifest.skills) {
       const dirName = basename(skill.path);
-      if (skill['triggers']) skillTriggers.set(dirName, skill['triggers'] as ManifestSkillTriggers);
       if (skill['description']) skillManifestDescs.set(dirName, skill['description'] as string);
     }
   } catch {
@@ -422,7 +399,7 @@ function scanInstalledItems(
 
   if (agentFiles.length === 0 && skillDirs.length === 0) return null;
 
-  return { agentFiles, skillDirs, agentFilePatterns, skillTriggers, skillManifestDescs };
+  return { agentFiles, skillDirs, agentFilePatterns, skillManifestDescs };
 }
 
 function buildUpdateMap(results: readonly UpdateCheckResult[]): Map<string, UpdateCheckResult> {

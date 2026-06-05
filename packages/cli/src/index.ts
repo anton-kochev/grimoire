@@ -9,7 +9,6 @@ export type { LogsOptions } from './commands/logs.js';
 export { mergeSettings, mergeManifest, setupRouter } from './setup.js';
 export { scanInstalled, removeItems, cleanManifest } from './remove.js';
 export type {
-  PackSkillTriggers,
   PackAgentEntry,
   PackSkillEntry,
   PackManifest,

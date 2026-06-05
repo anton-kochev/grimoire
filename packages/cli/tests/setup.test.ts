@@ -22,33 +22,9 @@ const sampleManifest: PackManifest = {
     { name: 'csharp-coder', path: 'agents/csharp-coder.md', description: 'C# coder agent' },
   ],
   skills: [
-    {
-      name: 'dotnet-testing',
-      path: 'skills/dotnet-testing',
-      description: 'Unit testing for .NET',
-      triggers: {
-        keywords: ['unittest', 'xunit'],
-        file_extensions: ['.cs'],
-        patterns: ['write.*test'],
-        file_paths: ['tests/**'],
-      },
-    },
-    {
-      name: 'readme-guide',
-      path: 'skills/readme-guide',
-      description: 'README writing guide',
-      triggers: {
-        keywords: ['readme'],
-        file_extensions: [],
-        patterns: ['create.*readme'],
-        file_paths: [],
-      },
-    },
-    {
-      name: 'no-triggers-skill',
-      path: 'skills/no-triggers',
-      description: 'Skill without triggers',
-    },
+    { name: 'dotnet-testing', path: 'skills/dotnet-testing', description: 'Unit testing for .NET' },
+    { name: 'readme-guide', path: 'skills/readme-guide', description: 'README writing guide' },
+    { name: 'plain-skill', path: 'skills/plain-skill', description: 'Plain skill' },
   ],
 };
 
@@ -63,30 +39,13 @@ describe('mergeSettings', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should create settings.json with hook entries on fresh project', () => {
+  it('should no-op on a fresh project', () => {
     mergeSettings(projectDir);
 
-    const settingsPath = join(projectDir, '.claude', 'settings.json');
-    expect(existsSync(settingsPath)).toBe(true);
-
-    const settings = readJson(settingsPath) as Record<string, unknown>;
-    const hooks = settings['hooks'] as Record<string, unknown[]>;
-
-    expect(hooks['UserPromptSubmit']).toBeDefined();
-    expect(hooks['PreToolUse']).toBeDefined();
-
-    const userPromptHooks = hooks['UserPromptSubmit'] as Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }>;
-    expect(userPromptHooks).toHaveLength(1);
-    expect(userPromptHooks[0]!.matcher).toBe('');
-    expect(userPromptHooks[0]!.hooks[0]!.command).toContain('@grimoire-cc/router');
-
-    const preToolHooks = hooks['PreToolUse'] as Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }>;
-    expect(preToolHooks).toHaveLength(1);
-    expect(preToolHooks[0]!.matcher).toBe('Edit|Write|MultiEdit');
-    expect(preToolHooks[0]!.hooks[0]!.command).toContain('@grimoire-cc/router');
+    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
   });
 
-  it('should preserve existing hooks and append @grimoire-cc/router entries', () => {
+  it('should remove legacy bare matching hooks and preserve other hooks', () => {
     const settingsDir = join(projectDir, '.claude');
     mkdirSync(settingsDir, { recursive: true });
     writeFileSync(
@@ -94,39 +53,12 @@ describe('mergeSettings', () => {
       JSON.stringify({
         hooks: {
           UserPromptSubmit: [
+            { matcher: '', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router' }] },
             { matcher: '', hooks: [{ type: 'command', command: 'echo existing' }] },
           ],
-        },
-      }),
-    );
-
-    mergeSettings(projectDir);
-
-    const settings = readJson(join(settingsDir, 'settings.json')) as Record<string, unknown>;
-    const hooks = settings['hooks'] as Record<string, unknown[]>;
-
-    // Existing hook preserved + @grimoire-cc/router appended
-    const userPromptHooks = hooks['UserPromptSubmit'] as Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }>;
-    expect(userPromptHooks).toHaveLength(2);
-    expect(userPromptHooks[0]!.hooks[0]!.command).toBe('echo existing');
-    expect(userPromptHooks[1]!.hooks[0]!.command).toContain('@grimoire-cc/router');
-
-    // PreToolUse created fresh
-    expect(hooks['PreToolUse']).toHaveLength(1);
-  });
-
-  it('should not duplicate if @grimoire-cc/router hooks already present', () => {
-    const settingsDir = join(projectDir, '.claude');
-    mkdirSync(settingsDir, { recursive: true });
-    writeFileSync(
-      join(settingsDir, 'settings.json'),
-      JSON.stringify({
-        hooks: {
-          UserPromptSubmit: [
-            { matcher: '', hooks: [{ type: 'command', command: 'npx @grimoire-cc/@grimoire-cc/router' }] },
-          ],
           PreToolUse: [
-            { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/@grimoire-cc/router' }] },
+            { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router' }] },
+            { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] },
           ],
         },
       }),
@@ -135,10 +67,12 @@ describe('mergeSettings', () => {
     mergeSettings(projectDir);
 
     const settings = readJson(join(settingsDir, 'settings.json')) as Record<string, unknown>;
-    const hooks = settings['hooks'] as Record<string, unknown[]>;
+    const hooks = settings['hooks'] as Record<string, Array<{ hooks: Array<{ command: string }> }>>;
 
     expect(hooks['UserPromptSubmit']).toHaveLength(1);
+    expect(hooks['UserPromptSubmit']![0]!.hooks[0]!.command).toBe('echo existing');
     expect(hooks['PreToolUse']).toHaveLength(1);
+    expect(hooks['PreToolUse']![0]!.hooks[0]!.command).toContain('--enforce');
   });
 
   it('should preserve non-hook settings fields', () => {
@@ -153,7 +87,7 @@ describe('mergeSettings', () => {
 
     const settings = readJson(join(settingsDir, 'settings.json')) as Record<string, unknown>;
     expect(settings['permissions']).toEqual({ allow: ['Read'] });
-    expect(settings['hooks']).toBeDefined();
+    expect(settings['hooks']).toBeUndefined();
   });
 });
 
@@ -168,7 +102,7 @@ describe('mergeManifest', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should create grimoire.json with default router config and skills from pack on fresh project', () => {
+  it('should create grimoire.json with router metadata and skills from pack on fresh project', () => {
     mergeManifest(projectDir, sampleManifest);
 
     const configPath = join(projectDir, '.claude', 'grimoire.json');
@@ -177,14 +111,12 @@ describe('mergeManifest', () => {
     const config = readJson(configPath) as Record<string, unknown>;
     const router = config['router'] as Record<string, unknown>;
     expect(router['version']).toBe('2.0.0');
+    expect(router['config']).toEqual({});
 
-    const routerConfig = router['config'] as Record<string, unknown>;
-    expect(routerConfig['activation_threshold']).toBe(3.0);
-
-    // All skills are included (with and without triggers)
-    const skills = router['skills'] as Array<{ path: string; name: string }>;
+    const skills = router['skills'] as Array<{ path: string; name: string; triggers?: unknown }>;
     expect(skills).toHaveLength(3);
-    expect(skills.map(s => s.name)).toEqual(['dotnet-testing', 'readme-guide', 'no-triggers-skill']);
+    expect(skills.map(s => s.name)).toEqual(['dotnet-testing', 'readme-guide', 'plain-skill']);
+    expect(skills.every((s) => s.triggers === undefined)).toBe(true);
   });
 
   it('should preserve existing skills and append new ones', () => {
@@ -195,14 +127,8 @@ describe('mergeManifest', () => {
       JSON.stringify({
         router: {
           version: '2.0.0',
-          config: { activation_threshold: 5.0 },
-          skills: [
-            {
-              path: '.claude/skills/existing-skill',
-              name: 'existing-skill',
-              triggers: { keywords: ['existing'] },
-            },
-          ],
+          config: { custom: true },
+          skills: [{ path: '.claude/skills/existing-skill', name: 'existing-skill' }],
           agents: {},
         },
       }),
@@ -212,21 +138,15 @@ describe('mergeManifest', () => {
 
     const config = readJson(join(claudeDir, 'grimoire.json')) as Record<string, unknown>;
     const router = config['router'] as Record<string, unknown>;
+    expect(router['config']).toEqual({ custom: true });
 
-    // Existing config preserved
-    const routerConfig = router['config'] as Record<string, unknown>;
-    expect(routerConfig['activation_threshold']).toBe(5.0);
-
-    // Existing skill + 3 new skills (including one without triggers)
     const skills = router['skills'] as Array<{ path: string; name: string }>;
     expect(skills).toHaveLength(4);
     expect(skills[0]!.name).toBe('existing-skill');
     expect(skills[1]!.name).toBe('dotnet-testing');
-    expect(skills[2]!.name).toBe('readme-guide');
-    expect(skills[3]!.name).toBe('no-triggers-skill');
   });
 
-  it('should update triggers for skill that already exists by path', () => {
+  it('should update skill metadata by path without preserving legacy triggers', () => {
     const claudeDir = join(projectDir, '.claude');
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
@@ -235,13 +155,7 @@ describe('mergeManifest', () => {
         router: {
           version: '2.0.0',
           config: {},
-          skills: [
-            {
-              path: '.claude/skills/dotnet-testing',
-              name: 'dotnet-testing',
-              triggers: { keywords: ['old-keyword'] },
-            },
-          ],
+          skills: [{ path: '.claude/skills/dotnet-testing', name: 'old-name', triggers: { keywords: ['old'] } }],
           agents: {},
         },
       }),
@@ -251,42 +165,26 @@ describe('mergeManifest', () => {
 
     const config = readJson(join(claudeDir, 'grimoire.json')) as Record<string, unknown>;
     const router = config['router'] as Record<string, unknown>;
-    const skills = router['skills'] as Array<{ path: string; name: string; triggers: { keywords: string[] } }>;
-
-    // Should not duplicate — just update
+    const skills = router['skills'] as Array<{ path: string; name: string; triggers?: unknown }>;
     const dotnetSkills = skills.filter(s => s.path === '.claude/skills/dotnet-testing');
     expect(dotnetSkills).toHaveLength(1);
-    expect(dotnetSkills[0]!.triggers.keywords).toEqual(['unittest', 'xunit']);
+    expect(dotnetSkills[0]!.name).toBe('dotnet-testing');
+    expect(dotnetSkills[0]!.triggers).toBeUndefined();
   });
 
   it('should create empty agent entry when pack agent has no file_patterns', () => {
-    mergeManifest(projectDir, {
-      ...sampleManifest,
-      agents: [
-        { name: 'csharp-coder', path: 'agents/csharp-coder.md', description: 'C# coder' },
-      ],
-      skills: [],
-    });
+    mergeManifest(projectDir, { ...sampleManifest, skills: [] });
 
     const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
     const router = config['router'] as Record<string, unknown>;
     const agents = router['agents'] as Record<string, unknown>;
-
-    expect(agents['csharp-coder']).toBeDefined();
     expect(agents['csharp-coder']).toEqual({});
   });
 
   it('should write file_patterns from pack agent entry', () => {
     mergeManifest(projectDir, {
       ...sampleManifest,
-      agents: [
-        {
-          name: 'grimoire.typescript-coder',
-          path: 'agents/grimoire.typescript-coder.md',
-          description: 'TS coder',
-          file_patterns: ['*.ts', '*.tsx'],
-        },
-      ],
+      agents: [{ name: 'grimoire.typescript-coder', path: 'agents/grimoire.typescript-coder.md', description: 'TS coder', file_patterns: ['*.ts', '*.tsx'] }],
       skills: [],
     });
 
@@ -294,7 +192,6 @@ describe('mergeManifest', () => {
     const router = config['router'] as Record<string, unknown>;
     const agents = router['agents'] as Record<string, unknown>;
     const entry = agents['grimoire.typescript-coder'] as Record<string, unknown>;
-
     expect(entry['file_patterns']).toEqual(['*.ts', '*.tsx']);
   });
 
@@ -303,28 +200,12 @@ describe('mergeManifest', () => {
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
       join(claudeDir, 'grimoire.json'),
-      JSON.stringify({
-        router: {
-          version: '2.0.0',
-          config: {},
-          skills: [],
-          agents: {
-            'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true },
-          },
-        },
-      }),
+      JSON.stringify({ router: { version: '2.0.0', config: {}, skills: [], agents: { 'grimoire.typescript-coder': { file_patterns: ['*.ts'], enforce: true } } } }),
     );
 
     mergeManifest(projectDir, {
       ...sampleManifest,
-      agents: [
-        {
-          name: 'grimoire.typescript-coder',
-          path: 'agents/grimoire.typescript-coder.md',
-          description: 'TS coder',
-          file_patterns: ['*.ts', '*.tsx'],
-        },
-      ],
+      agents: [{ name: 'grimoire.typescript-coder', path: 'agents/grimoire.typescript-coder.md', description: 'TS coder', file_patterns: ['*.ts', '*.tsx'] }],
       skills: [],
     });
 
@@ -332,61 +213,23 @@ describe('mergeManifest', () => {
     const router = config['router'] as Record<string, unknown>;
     const agents = router['agents'] as Record<string, unknown>;
     const entry = agents['grimoire.typescript-coder'] as Record<string, unknown>;
-
     expect(entry['file_patterns']).toEqual(['*.ts', '*.tsx']);
     expect(entry['enforce']).toBeUndefined();
   });
 
   it('should use directory name from path (not name) for skill path in router', () => {
-    const packWithPrefixedName: PackManifest = {
+    mergeManifest(projectDir, {
       name: 'test-pack',
       version: '1.0.0',
       agents: [],
-      skills: [
-        {
-          name: 'grimoire.modern-typescript',
-          path: 'skills/gr.modern-typescript',
-          description: 'TS skill',
-          triggers: {
-            keywords: ['typescript'],
-            file_extensions: ['.ts'],
-            patterns: [],
-            file_paths: [],
-          },
-        },
-      ],
-    };
-
-    mergeManifest(projectDir, packWithPrefixedName);
+      skills: [{ name: 'grimoire.modern-typescript', path: 'skills/gr.modern-typescript', description: 'TS skill' }],
+    });
 
     const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
     const router = config['router'] as Record<string, unknown>;
     const skills = router['skills'] as Array<{ path: string; name: string }>;
-
-    expect(skills).toHaveLength(1);
     expect(skills[0]!.path).toBe('.claude/skills/gr.modern-typescript');
     expect(skills[0]!.name).toBe('grimoire.modern-typescript');
-  });
-
-  it('should register skills without triggers', () => {
-    const manifestWithNoTriggers: PackManifest = {
-      name: 'test-pack',
-      version: '1.0.0',
-      agents: [],
-      skills: [
-        { name: 'no-triggers', path: 'skills/no-triggers', description: 'No triggers' },
-      ],
-    };
-
-    mergeManifest(projectDir, manifestWithNoTriggers);
-
-    const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
-    const router = config['router'] as Record<string, unknown>;
-    const skills = router['skills'] as Array<{ path: string; name: string; triggers: unknown }>;
-    expect(skills).toHaveLength(1);
-    expect(skills[0]!.name).toBe('no-triggers');
-    expect(skills[0]!.path).toBe('.claude/skills/no-triggers');
-    expect(skills[0]!.triggers).toEqual({});
   });
 });
 
@@ -401,12 +244,14 @@ describe('setupRouter', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should create both settings.json and grimoire.json with router key', () => {
+  it('should create grimoire.json with router key without matching hooks', () => {
     setupRouter(projectDir, sampleManifest);
 
-    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
     expect(existsSync(join(projectDir, '.claude', 'grimoire.json'))).toBe(true);
-    const config = readJson(join(projectDir, '.claude', 'grimoire.json')) as Record<string, unknown>;
-    expect(config['router']).toBeDefined();
+    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(true);
+    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, unknown[]>;
+    expect(hooks['UserPromptSubmit']).toBeUndefined();
+    expect(hooks['PreToolUse']).toBeUndefined();
   });
 });

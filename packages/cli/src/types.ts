@@ -1,10 +1,3 @@
-export interface PackSkillTriggers {
-  readonly keywords: readonly string[];
-  readonly file_extensions: readonly string[];
-  readonly patterns: readonly string[];
-  readonly file_paths: readonly string[];
-}
-
 export interface PackAgentEntry {
   readonly name: string;
   readonly path: string;
@@ -17,7 +10,6 @@ export interface PackSkillEntry {
   readonly name: string;
   readonly path: string;
   readonly description: string;
-  readonly triggers?: PackSkillTriggers | undefined;
   readonly version?: string | undefined;
 }
 
@@ -51,7 +43,6 @@ export interface WizardResult {
     readonly manifest: PackManifest;
     readonly items: readonly InstallItem[];
   }>;
-  readonly enableAutoActivation: boolean;
 }
 
 export interface InstallResult {

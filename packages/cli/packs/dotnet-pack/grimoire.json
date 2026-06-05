@@ -38,34 +38,7 @@
       "name": "grimoire.unit-testing-dotnet",
       "path": "skills/grimoire.unit-testing-dotnet",
       "description": "C#/.NET unit testing specialist. Framework selection, patterns, and best practices for xUnit, TUnit, NUnit, Moq, and NSubstitute. Use when writing tests for .cs files, configuring test projects, or asking about .NET testing patterns, mocking, assertions, async testing, FluentAssertions alternatives.",
-      "version": "1.0.0",
-      "triggers": {
-        "keywords": [
-          "xunit",
-          "nunit",
-          "tunit",
-          "mstest",
-          "moq",
-          "nsubstitute"
-        ],
-        "file_extensions": [
-          ".cs"
-        ],
-        "patterns": [
-          "write.*test",
-          "add.*test",
-          "create.*test",
-          "unit.*test",
-          "dotnet.*test"
-        ],
-        "file_paths": [
-          "tests/**",
-          "test/**",
-          "Tests/**",
-          "**/*Tests.cs",
-          "**/*Test.cs"
-        ]
-      }
+      "version": "1.0.0"
     }
   ]
 }

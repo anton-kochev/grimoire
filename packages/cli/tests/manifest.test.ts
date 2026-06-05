@@ -31,12 +31,6 @@ describe('loadManifest', () => {
         name: 'test-skill',
         path: 'skills/test-skill',
         description: 'A test skill',
-        triggers: {
-          keywords: ['test'],
-          file_extensions: ['.ts'],
-          patterns: ['test.*'],
-          file_paths: ['src/test/'],
-        },
       },
     ],
   };
@@ -66,17 +60,17 @@ describe('loadManifest', () => {
     expect(manifest.skills).toEqual([]);
   });
 
-  it('should load manifest with skill triggers', () => {
+  it('should ignore legacy skill triggers', () => {
     const manifestPath = join(testDir, 'grimoire.json');
-    writeFileSync(manifestPath, JSON.stringify(validManifest));
+    writeFileSync(manifestPath, JSON.stringify({
+      ...validManifest,
+      skills: [{ ...validManifest.skills[0], triggers: { keywords: ['test'] } }],
+    }));
 
     const manifest = loadManifest(testDir);
-    const skill = manifest.skills[0];
+    const skill = manifest.skills[0] as { triggers?: unknown } | undefined;
 
-    expect(skill?.triggers?.keywords).toEqual(['test']);
-    expect(skill?.triggers?.file_extensions).toEqual(['.ts']);
-    expect(skill?.triggers?.patterns).toEqual(['test.*']);
-    expect(skill?.triggers?.file_paths).toEqual(['src/test/']);
+    expect(skill?.triggers).toBeUndefined();
   });
 
   it('should throw on missing grimoire.json file', () => {

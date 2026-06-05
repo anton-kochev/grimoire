@@ -3,7 +3,7 @@ import { copyItems } from '../copy.js';
 import { printSummary } from '../summary.js';
 import { recordInstalledVersions } from '../grimoire-config.js';
 import { runWizard } from '../prompt.js';
-import { mergeManifest, setupRouter } from '../setup.js';
+import { setupRouter } from '../setup.js';
 import type { InstallResult, InstallSummary } from '../types.js';
 
 /**
@@ -40,12 +40,9 @@ export async function runAdd(cwd?: string | undefined): Promise<InstallSummary> 
       version: selection.manifest.version,
     });
 
-    // Always register items in the manifest so list/remove/update can find them
-    mergeManifest(projectDir, selection.manifest);
-
-    if (wizard.enableAutoActivation) {
-      setupRouter(projectDir, selection.manifest);
-    }
+    // Always register items and non-matching router metadata so list/remove/update,
+    // enforcement, and explicit subagent skill injection can find them.
+    setupRouter(projectDir, selection.manifest, { quiet: true });
   }
 
   const summary: InstallSummary = {

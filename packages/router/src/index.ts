@@ -1,24 +1,13 @@
 /**
  * @grimoire-cc/router
  *
- * Hook runtime for Grimoire — skill auto-activation and agent enforcement.
- * Matches user prompts against configured skill triggers
- * and injects relevant skill references into LLM context.
+ * Hook runtime for Grimoire — agent enforcement and explicit subagent skill injection.
+ * Bare legacy matching hooks are treated as no-ops.
  */
 
 export * from './types.js';
-export * from './normalize.js';
-export * from './signals.js';
-export * from './scoring.js';
-export * from './matching.js';
-export * from './filtering.js';
-export * from './formatting.js';
 export * from './manifest.js';
 export * from './input.js';
 export * from './logging.js';
-export * from './output.js';
 export * from './args.js';
-export * from './tool-input.js';
-export * from './tool-formatting.js';
-export * from './tool-output.js';
-export * from './main.js';
+export * from './enforce.js';

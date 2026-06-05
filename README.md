@@ -81,13 +81,9 @@ cp -r .claude/skills/grimoire.conventional-commit /path/to/your/project/.claude/
 
 Copy agent markdown files from `.claude/agents/` to your project and reference them in your `.claude/settings.json`.
 
-### Skill Router (Optional)
+### Agent Enforcement (Optional)
 
-To enable automatic skill activation:
-
-1. Copy `.claude/hooks/`, `.claude/settings.json`, and `.claude/grimoire.json`
-2. Install the skill-router package: `pnpm install`
-3. Configure triggers in `grimoire.json` under the `router` key
+Grimoire can use router hooks to enforce agent ownership of files. Enable it with `grimoire config` after installing agents with `file_patterns`.
 
 ## CLI
 
@@ -100,11 +96,7 @@ The `grimoire` CLI installs agents and skills from npm packs into your project's
 grimoire add
 ```
 
-The wizard walks you through three steps:
-
-1. **Select packs** — choose from all available packs (e.g. `dotnet-pack`, `ts-pack`, `frontend-pack`, `meta-pack`)
-2. **Select items** — pick individual agents and skills (all pre-selected by default)
-3. **Auto-activation** — optionally configure skill-router hooks for automatic skill matching
+The wizard lets you select individual agents and skills from all available packs. All items are pre-selected by default.
 
 ### List
 
@@ -160,7 +152,7 @@ Starts a local server and opens an interactive dashboard with stats, filters, an
 - Discovers all bundled packs and presents an interactive wizard
 - Copies agent `.md` files to `.claude/agents/`
 - Copies skill directories to `.claude/skills/`
-- Optionally configures skill-router hooks and manifest for auto-activation
+- Registers installed items and agent enforcement metadata in `.claude/grimoire.json`
 - Overwrites existing files with a warning if conflicts exist
 - Creates `.claude/agents/` and `.claude/skills/` directories if they don't exist
 
@@ -183,90 +175,45 @@ Each pack includes a `grimoire.json` manifest describing its contents:
     {
       "name": "dotnet-unit-testing",
       "path": "skills/dotnet-unit-testing/",
-      "description": "Expert .NET unit testing specialist",
-      "triggers": {
-        "keywords": ["unit test", "xunit"],
-        "file_extensions": [".cs", ".csproj"],
-        "patterns": ["write.*test"],
-        "file_paths": ["tests/"]
-      }
+      "description": "Expert .NET unit testing specialist"
     }
   ]
 }
 ```
 
-Skills can include `triggers` for integration with the [Skill Router](#skill-router) auto-activation system.
+Skills are installed as Claude Code skill directories. Automatic skill matching is not configured by Grimoire.
 
-## Skill Router
+## Router and Agent Enforcement
 
-The skill router automatically activates relevant skills based on context. It supports three modes:
+The router supports agent enforcement and subagent skill injection. Automatic skill matching has been removed.
 
-### User Prompt Mode (UserPromptSubmit)
+### Agent Enforcement (PreToolUse)
 
-Activates skills based on user prompt content:
+When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched.
 
-1. **Extracts signals** from prompts: words, file extensions, file paths
-2. **Scores skills** against signals using weighted matching (keywords support exact, stem, and fuzzy matching)
-3. **Injects matched skills** into LLM context when score exceeds threshold
+Enable or disable enforcement with:
 
-### Agent Mode (SubagentStart)
-
-Injects skill activation instructions into subagents based on agent type and task content:
-
-1. **Required skills** - Agent MUST activate before starting work
-2. **Recommended skills** - Matched from compatible skills based on task prompt
-
-Example output for `dotnet-unit-test-writer` agent:
-
-```
-## Skill Activation Required
-
-You MUST activate the following skills before starting work:
-- DotNet Unit Testing
-
-Use the Skill tool to load each required skill.
+```bash
+grimoire config
 ```
 
-### Tool Mode (PreToolUse)
+### Subagent Skill Injection
 
-Injects skill context before Edit/Write tool calls based on file path signals:
-
-1. **Detects tool type** from stdin (`tool_name: "Edit"` or `"Write"`)
-2. **Extracts signals** from `file_path` in tool input: extension, path segments, keywords
-3. **Scores skills** using the same weighted matching (keywords with exact/stem/fuzzy, extensions, paths)
-4. **Injects matched skills** when score exceeds `pretooluse_threshold` (default: 1.5)
-
-This mode uses a lower threshold than prompt mode because tool inputs yield fewer signals — a single `.cs` extension match (weight 1.5) is enough to activate the relevant skill. Pattern matching is skipped since file paths don't contain natural language.
-
-Example: editing `src/services/UserService.cs` activates DotNet skills before the edit executes.
+Agents can declare skill assignments in their frontmatter with a `skills:` array. Router subagent hooks inject those skill instructions when the agent starts; this is explicit agent configuration, not automatic matching.
 
 ### Configuration
 
-Skills, triggers, and agent mappings are defined in `.claude/grimoire.json` under the `router` key:
+Installed skills and agent mappings are tracked in `.claude/grimoire.json` under the `router` key:
 
 ```json
 {
   "version": "2.0.0",
-  "config": {
-    "weights": {
-      "keywords": 1.0,
-      "file_extensions": 1.5,
-      "patterns": 2.0,
-      "file_paths": 2.5
-    },
-    "activation_threshold": 3.0,
-    "pretooluse_threshold": 1.5
-  },
+  "config": {},
   "skills": [
     {
       "path": ".claude/skills/my-skill",
       "name": "My Skill",
-      "triggers": {
-        "keywords": ["test", "testing"],
-        "file_extensions": [".cs"],
-        "patterns": ["write.*test"],
-        "file_paths": ["tests/"]
-      }
+      "description": "Skill description"
     }
   ],
   "agents": {
@@ -287,35 +234,17 @@ Skills, triggers, and agent mappings are defined in `.claude/grimoire.json` unde
 
 ### Hook Registration
 
-Configure hooks in `.claude/settings.json`:
+Enforcement hooks are managed by `grimoire config`. They use `PreToolUse` with the `--enforce` flag:
 
 ```json
 {
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [{
-          "type": "command",
-          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\""
-        }]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "matcher": "grimoire.csharp-coder",
-        "hooks": [{
-          "type": "command",
-          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\" --agent=grimoire.csharp-coder"
-        }]
-      }
-    ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [{
           "type": "command",
-          "command": "npx tsx \"$CLAUDE_PROJECT_DIR/.claude/hooks/skill-router.ts\""
+          "command": "npx @grimoire-cc/router --enforce"
         }]
       }
     ]
@@ -325,16 +254,16 @@ Configure hooks in `.claude/settings.json`:
 
 ### Logs
 
-View activation history with the interactive real-time dashboard:
+View enforcement history with the interactive real-time dashboard:
 
 ```bash
 grimoire logs
 ```
 
-New entries stream live via SSE as skills activate. Or inspect raw log entries:
+New entries stream live via SSE as enforcement hooks run. Or inspect raw log entries:
 
 ```bash
-tail -20 .claude/logs/skill-router.log | jq .
+tail -20 .claude/logs/grimoire-router.log | jq .
 ```
 
 ## Agents

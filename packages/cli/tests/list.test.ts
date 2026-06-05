@@ -275,7 +275,7 @@ describe('runList', () => {
     expect(noteContent).toContain('Enforcement paths: (none)');
   });
 
-  it('shows skill detail via note with triggers', async () => {
+  it('shows skill detail via note without trigger metadata', async () => {
     writeSkill(projectDir, 'my-skill', 'TDD specialist');
     writeManifest(projectDir, {}, [
       {
@@ -283,9 +283,6 @@ describe('runList', () => {
         path: '.claude/skills/my-skill',
         triggers: {
           keywords: ['tdd', 'test'],
-          file_extensions: ['.ts'],
-          patterns: ['**/*.test.ts'],
-          file_paths: ['vitest.config.ts'],
         },
       },
     ]);
@@ -298,7 +295,8 @@ describe('runList', () => {
     expect(mockNote).toHaveBeenCalled();
     const noteContent = mockNote.mock.calls[0]![0] as string;
     expect(noteContent).toContain('TDD specialist');
-    expect(noteContent).toContain('tdd');
+    expect(noteContent).not.toContain('Keywords:');
+    expect(noteContent).not.toContain('tdd');
   });
 
   // ---------- Action menu — remove --------------------------------------------

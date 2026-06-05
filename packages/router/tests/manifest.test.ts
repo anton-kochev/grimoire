@@ -77,24 +77,28 @@ describe('loadManifest', () => {
     expect(() => loadManifest(testDir)).toThrow(/config/i);
   });
 
-  it('should throw for missing weights in router', () => {
+  it('should apply default weights when missing in router', () => {
     writeGrimoireJson({
       version: '1.0.0',
       config: { activation_threshold: 3.0 },
       skills: [],
     });
 
-    expect(() => loadManifest(testDir)).toThrow(/weights/i);
+    const manifest = loadManifest(testDir);
+
+    expect(manifest.config.weights).toEqual(validRouter.config.weights);
   });
 
-  it('should throw for missing activation_threshold in router', () => {
+  it('should apply default activation_threshold when missing in router', () => {
     writeGrimoireJson({
       version: '1.0.0',
       config: { weights: validRouter.config.weights },
       skills: [],
     });
 
-    expect(() => loadManifest(testDir)).toThrow(/threshold/i);
+    const manifest = loadManifest(testDir);
+
+    expect(manifest.config.activation_threshold).toBe(3.0);
   });
 
   it('should apply default log_path when not provided', () => {

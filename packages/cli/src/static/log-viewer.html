@@ -246,17 +246,6 @@
       transition: width 0.3s;
     }
 
-    .skill-card .triggers {
-      display: none;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 4px;
-    }
-
-    .skill-card:hover .triggers {
-      display: flex;
-    }
-
     /* Table */
     .table-wrap {
       overflow-x: auto;
@@ -690,7 +679,7 @@
         return;
       }
 
-      // Count activations per skill from filtered entries
+      // Count matched skills from historical entries (legacy logs may include these)
       const src = filteredEntries ?? entries;
       const skillCounts = {};
       for (const e of src) {
@@ -704,22 +693,14 @@
       const sorted = [...manifestSkills].sort((a, b) => (skillCounts[b.name] ?? 0) - (skillCounts[a.name] ?? 0));
 
       panel.innerHTML = sorted.map(s => {
-        const triggers = s.triggers ?? {};
         const count = skillCounts[s.name] ?? 0;
         const pct = (count / max * 100).toFixed(0);
-        const tags = [
-          ...(triggers.keywords ?? []).map(k => `<span class="signal-tag keyword">${esc(k)}</span>`),
-          ...(triggers.file_extensions ?? []).map(e => `<span class="signal-tag extension">${esc(e)}</span>`),
-          ...(triggers.patterns ?? []).map(p => `<span class="signal-tag pattern">${esc(p)}</span>`),
-          ...(triggers.file_paths ?? []).map(f => `<span class="signal-tag path">${esc(f)}</span>`),
-        ];
         return `<div class="skill-card">
       <div class="skill-header">
         <span class="name">${esc(s.name)}</span>
         <span class="count">${count}</span>
       </div>
       <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
-      <div class="triggers">${tags.join('')}</div>
     </div>`;
       }).join('');
     }
