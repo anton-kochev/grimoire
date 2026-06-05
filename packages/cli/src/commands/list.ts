@@ -6,7 +6,6 @@ import { parseAgentSkills } from '../frontmatter.js';
 import { removeSingleItem } from '../remove.js';
 import { checkUpdates, type UpdateCheckResult } from './update.js';
 import { copyItems } from '../copy.js';
-import { runConfig } from './config.js';
 import { runAgentSkillsFor } from './agent-skills.js';
 import { runAgentPathsFor } from './agent-paths.js';
 import { readGrimoireConfig } from '../grimoire-config.js';
@@ -60,8 +59,7 @@ function readSkillDescription(skillMdPath: string): string {
 
 type SelectedItem =
   | { readonly kind: 'agent'; readonly name: string }
-  | { readonly kind: 'skill'; readonly name: string }
-  | { readonly kind: 'settings' };
+  | { readonly kind: 'skill'; readonly name: string };
 
 type Action = 'remove' | 'update' | 'manage-skills' | 'manage-paths';
 
@@ -173,8 +171,7 @@ export async function runList(projectDir: string): Promise<void> {
 
     type SelectOption =
       | { value: { readonly kind: 'agent'; readonly name: string }; label: string; hint?: string }
-      | { value: { readonly kind: 'skill'; readonly name: string }; label: string; hint?: string }
-      | { value: { readonly kind: 'settings' }; label: string; hint?: string };
+      | { value: { readonly kind: 'skill'; readonly name: string }; label: string; hint?: string };
     const options: SelectOption[] = [];
 
     for (const f of agentFiles) {
@@ -200,25 +197,12 @@ export async function runList(projectDir: string): Promise<void> {
       });
     }
 
-    // Settings option at the bottom
-    options.push({
-      value: { kind: 'settings' },
-      label: '⚙ Settings',
-      hint: 'global configuration',
-    });
-
     const selected = await clack.select<SelectedItem>({
       message: 'Select an item to manage (Ctrl+C to exit)',
       options,
     });
 
     if (clack.isCancel(selected)) break;
-
-    // Handle settings
-    if (selected.kind === 'settings') {
-      await runConfig(projectDir, { quiet: true });
-      continue;
-    }
 
     // Show detail and action menu for agent/skill
     const itemName = selected.name;

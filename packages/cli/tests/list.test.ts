@@ -18,10 +18,6 @@ vi.mock('../src/commands/update.js', () => ({
   checkUpdates: vi.fn().mockReturnValue([]),
 }));
 
-vi.mock('../src/commands/config.js', () => ({
-  runConfig: vi.fn(),
-}));
-
 vi.mock('../src/commands/agent-skills.js', () => ({
   runAgentSkillsFor: vi.fn(),
 }));
@@ -62,7 +58,6 @@ vi.mock('../src/copy.js', () => ({
 import * as clack from '@clack/prompts';
 import { runList } from '../src/commands/list.js';
 import { checkUpdates } from '../src/commands/update.js';
-import { runConfig } from '../src/commands/config.js';
 import { runAgentSkillsFor } from '../src/commands/agent-skills.js';
 import { runAgentPathsFor } from '../src/commands/agent-paths.js';
 import { removeSingleItem } from '../src/remove.js';
@@ -183,7 +178,7 @@ describe('runList', () => {
 
   // ---------- Item list --------------------------------------------------------
 
-  it('shows select prompt with all installed items and settings option', async () => {
+  it('shows select prompt with all installed items', async () => {
     writeAgent(projectDir, 'my-agent', 'Agent desc');
     writeSkill(projectDir, 'my-skill', 'Skill desc');
     writeManifest(projectDir, { 'my-agent': {} }, [
@@ -200,7 +195,7 @@ describe('runList', () => {
     const labels = callArgs.options.map((o) => o.label);
     expect(labels).toContain('[agent] my-agent');
     expect(labels).toContain('[skill] my-skill');
-    expect(labels.some((l) => l.includes('Settings'))).toBe(true);
+    expect(labels.some((l) => l.includes('Settings'))).toBe(false);
   });
 
   // ---------- Action menu — detail display ------------------------------------
@@ -532,20 +527,6 @@ describe('runList', () => {
     await runList(projectDir);
 
     expect(vi.mocked(removeSubagentHooksFor)).not.toHaveBeenCalled();
-  });
-
-  // ---------- Settings option --------------------------------------------------
-
-  it('calls runConfig when settings selected', async () => {
-    writeAgent(projectDir, 'my-agent', 'Desc');
-    writeManifest(projectDir, { 'my-agent': {} });
-    mockSelect
-      .mockResolvedValueOnce({ kind: 'settings' } as never)
-      .mockResolvedValueOnce(CANCEL as never);
-
-    await runList(projectDir);
-
-    expect(vi.mocked(runConfig)).toHaveBeenCalledWith(projectDir, { quiet: true });
   });
 
   // ---------- Loop behavior ---------------------------------------------------
