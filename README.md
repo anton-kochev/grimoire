@@ -207,18 +207,19 @@ Installed skills and agent mappings are tracked in `.claude/grimoire.json` under
 
 ```json
 {
-  "version": "2.0.0",
-  "config": {},
-  "skills": [
-    {
-      "path": ".claude/skills/my-skill",
-      "name": "My Skill",
-      "description": "Skill description"
-    }
-  ],
-  "agents": {
-    "grimoire.csharp-coder": {
-      "file_patterns": ["*.cs"]
+  "router": {
+    "version": "2.0.0",
+    "skills": [
+      {
+        "path": ".claude/skills/my-skill",
+        "name": "My Skill",
+        "description": "Skill description"
+      }
+    ],
+    "agents": {
+      "grimoire.csharp-coder": {
+        "file_patterns": ["*.cs"]
+      }
     }
   }
 }

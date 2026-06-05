@@ -20,22 +20,23 @@ Collection of specialized agents and skills for Claude Code.
 - Agents: Single .md files in `.claude/agents/` with persona, tools, skills, model in frontmatter
 - Skills: Directories in `.claude/skills/<name>/` with SKILL.md + supporting files
 - CLI: `packages/cli/` - installs agents/skills from npm packs into projects
-  - `grimoire add` launches interactive wizard (pack selection → item selection → auto-activation)
+  - `grimoire add` launches interactive wizard (pack selection → item selection)
   - `grimoire list` unified management hub: detail view, remove, update, manage skills, manage enforcement paths
   - `grimoire remove` interactively removes grimoire-managed items (custom items are never shown)
   - `grimoire update` checks for and applies updates to grimoire-managed items
   - `grimoire config` toggles global settings (e.g. agent enforcement)
   - `grimoire agent-skills` manages skill assignments for agents (add/remove skills in frontmatter)
   - `grimoire logs` opens real-time log viewer in browser (`--file`, `--port`)
-- Router: `packages/router/` - hook runtime for skill auto-activation and agent enforcement
-  - UserPromptSubmit: Matches skills to user prompts (keywords: exact, stem, fuzzy)
-  - PreToolUse: Injects skill context before Edit/Write tools; blocks edits to files owned by agents (via file_patterns) when enforcement is enabled
+- Router: `packages/router/` - hook runtime for agent enforcement
+  - PreToolUse (`--enforce`): blocks edits to files owned by agents (via file_patterns) when enforcement is enabled
+  - SubagentStart/Stop (`--subagent-start`/`--subagent-stop`): session registry so subagents bypass enforcement for their own files
+  - Subagent skill injection is native Claude Code behavior (`skills:` array in agent frontmatter) — not a router concern
 - Config: `.claude/grimoire.json` unified config — global settings (`enforcement`, `installed`) and router config (`router` key: skill triggers, weights, agent mappings)
 
 ## Code Conventions
 - Skills use progressive disclosure (supporting files load on-demand)
 - Agent descriptions include usage examples
-- Skill descriptions contain trigger keywords for automatic activation
+- Skill descriptions contain trigger keywords (used by Claude Code's native skill matching)
 - SKILL.md max 500 lines; CLAUDE.md max 100 lines
 
 ## Skill Authoring
