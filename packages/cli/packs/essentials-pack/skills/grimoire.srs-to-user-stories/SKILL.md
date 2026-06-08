@@ -1,6 +1,6 @@
 ---
 name: grimoire.srs-to-user-stories
-description: "Analyze a Software Requirements Specification (SRS) document and generate well-crafted Scrum user stories grouped under Epics. Use when the user wants to extract user stories from an SRS, convert requirements into a product backlog, break down a spec into stories, or turn a requirements document into actionable Scrum artifacts."
+description: "Analyze a Software Requirements Specification (SRS) and generate well-crafted Scrum user stories grouped under Epics, ready for backlog grooming. A user-invoked command that turns a requirements spec into actionable Scrum artifacts."
 user-invocable: true
 disable-model-invocation: true
 ---

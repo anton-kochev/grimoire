@@ -1,6 +1,6 @@
 ---
 name: grimoire.srs-generator
-description: "Produce a Software Requirements Specification (SRS) conforming to ISO/IEC/IEEE 29148:2018, with requirements written in EARS notation and a traceability matrix. A user-executable command: elicit what the codebase can't tell you, draft and self-check the requirements, gate on explicit approval, then emit a tailored SRS document. Use this skill whenever the user asks to create, write, draft, author, or 'spec out' a software requirements specification, an SRS, a requirements document, or a formal requirements spec — for a brand-new (greenfield) product or for a change to an existing codebase. Also use it when the user mentions 'ISO 29148', 'IEEE 830', 'functional and non-functional requirements', or wants requirements captured before any user-stories or backlog work."
+description: "Produce a Software Requirements Specification (SRS) conforming to ISO/IEC/IEEE 29148:2018, with requirements written in EARS notation and a traceability matrix. A user-invoked command: it elicits what the codebase can't tell you, drafts and self-checks the requirements, gates on explicit approval, then emits a tailored SRS — for a greenfield product or a change to an existing codebase."
 user-invocable: true
 disable-model-invocation: true
 ---
