@@ -1,6 +1,6 @@
 ---
 name: grimoire.unit-testing-python
-description: "Python unit testing specialist. Framework selection, patterns, and best practices for pytest, unittest, and hypothesis. Use when writing tests for .py files, configuring pytest, or asking about Python testing patterns, fixtures, parametrize, mocking, async testing."
+description: "Framework selection, patterns, and best practices for Python unit testing with pytest, unittest, and hypothesis. Use when writing tests for .py files, configuring pytest, or asking about Python testing patterns, fixtures, parametrize, mocking, async testing."
 ---
 
 # Python Unit Testing

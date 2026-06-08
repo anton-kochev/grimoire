@@ -47,10 +47,16 @@
       "version": "1.0.1"
     },
     {
+      "name": "grimoire.dotnet-xml-docs",
+      "path": "skills/grimoire.dotnet-xml-docs",
+      "description": "Microsoft-recommended conventions for documenting C#/.NET code with XML doc comments — the right tag for each element, the modern intent-over-noise style, and inheritdoc to stay DRY. Use when documenting C# code, adding /// comments, writing summary/param/returns/exception/value tags, enabling GenerateDocumentationFile, resolving CS1591 warnings, or generating an API doc site with DocFX.",
+      "version": "1.0.0"
+    },
+    {
       "name": "grimoire.unit-testing-dotnet",
       "path": "skills/grimoire.unit-testing-dotnet",
-      "description": "C#/.NET unit testing specialist. Framework selection, patterns, and best practices for xUnit, TUnit, NUnit, Moq, and NSubstitute. Use when writing tests for .cs files, configuring test projects, or asking about .NET testing patterns, mocking, assertions, async testing, FluentAssertions alternatives.",
-      "version": "1.0.0"
+      "description": "Framework selection, patterns, and best practices for C#/.NET unit testing with xUnit, TUnit, NUnit, Moq, and NSubstitute. Use when writing tests for .cs files, configuring test projects, or asking about .NET testing patterns, mocking, assertions, async testing, FluentAssertions alternatives.",
+      "version": "1.0.1"
     }
   ]
 }

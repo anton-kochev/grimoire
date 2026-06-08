@@ -1,6 +1,6 @@
 ---
 name: grimoire.unit-testing-go
-description: "Go unit testing specialist. Patterns and best practices for the testing stdlib, testify, and gomock. Use when writing tests for .go files, table-driven tests, or asking about Go testing patterns, test helpers, mocking interfaces, benchmarks."
+description: "Patterns and best practices for Go unit testing with the testing stdlib, testify, and gomock. Use when writing tests for .go files, table-driven tests, or asking about Go testing patterns, test helpers, mocking interfaces, benchmarks."
 ---
 
 # Go Unit Testing

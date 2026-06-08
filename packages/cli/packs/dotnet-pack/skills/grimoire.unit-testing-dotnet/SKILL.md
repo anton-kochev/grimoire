@@ -1,6 +1,6 @@
 ---
 name: grimoire.unit-testing-dotnet
-description: "C#/.NET unit testing specialist. Framework selection, patterns, and best practices for xUnit, TUnit, NUnit, Moq, and NSubstitute. Use when writing tests for .cs files, configuring test projects, or asking about .NET testing patterns, mocking, assertions, async testing, FluentAssertions alternatives."
+description: "Framework selection, patterns, and best practices for C#/.NET unit testing with xUnit, TUnit, NUnit, Moq, and NSubstitute. Use when writing tests for .cs files, configuring test projects, or asking about .NET testing patterns, mocking, assertions, async testing, FluentAssertions alternatives."
 ---
 
 # .NET Unit Testing

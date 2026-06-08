@@ -1,6 +1,6 @@
 ---
 name: grimoire.unit-testing-typescript
-description: "TypeScript/JavaScript unit testing specialist. Framework selection, patterns, and best practices for Vitest, Jest, Mocha, and Node test runner. Use when writing tests for .ts/.tsx/.js files, configuring test frameworks, or asking about TypeScript testing patterns, mocking, assertions, async testing."
+description: "Framework selection, patterns, and best practices for TypeScript/JavaScript unit testing with Vitest, Jest, Mocha, and Node test runner. Use when writing tests for .ts/.tsx/.js files, configuring test frameworks, or asking about TypeScript testing patterns, mocking, assertions, async testing."
 ---
 
 # TypeScript Unit Testing

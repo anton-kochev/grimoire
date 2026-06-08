@@ -1,6 +1,6 @@
 ---
 name: grimoire.unit-testing-rust
-description: "Rust unit testing specialist. Patterns and best practices for the built-in test framework, mockall, and proptest. Use when writing tests for .rs files, or asking about Rust testing patterns, test modules, mocking traits, property-based testing, integration tests."
+description: "Patterns and best practices for Rust unit testing with the built-in test framework, mockall, and proptest. Use when writing tests for .rs files, or asking about Rust testing patterns, test modules, mocking traits, property-based testing, integration tests."
 ---
 
 # Rust Unit Testing
