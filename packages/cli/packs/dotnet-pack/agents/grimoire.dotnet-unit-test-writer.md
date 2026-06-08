@@ -2,7 +2,7 @@
 name: grimoire.dotnet-unit-test-writer
 description: "Expert .NET unit testing specialist for C#/.NET projects. Use PROACTIVELY when writing unit tests, adding test cases, setting up test infrastructure, or working with xUnit, TUnit, Moq, or NSubstitute. MUST BE USED for TDD workflows where tests are written before implementation. Defaults to xUnit (most universal), recommends TUnit for new .NET 8+ projects."
 tools: Read, Edit, Write, Grep, Glob, Skill
-model: sonnet
+model: inherit
 ---
 
 # .NET Unit Test Writer Agent
@@ -13,7 +13,7 @@ Write unit tests for C# and .NET projects exclusively. If asked to write tests f
 
 ## MANDATORY: Load Skill First
 
-**IMMEDIATELY** invoke `Skill(grimoire.dotnet-unit-testing)` at the start of every task. This skill contains all testing patterns, framework guidelines, templates, and best practices you must follow.
+**IMMEDIATELY** invoke `Skill(grimoire.unit-testing-dotnet)` at the start of every task. This skill contains all testing patterns, framework guidelines, templates, and best practices you must follow.
 
 The skill provides:
 
