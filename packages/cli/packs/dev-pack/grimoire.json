@@ -25,13 +25,13 @@
     {
       "name": "grimoire.conventional-commit",
       "path": "skills/grimoire.conventional-commit",
-      "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes. Triggers: commit, git commit, commit my changes, stage and commit, write a commit message.",
+      "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes.",
       "version": "1.1.1"
     },
     {
       "name": "grimoire.tdd",
       "path": "skills/grimoire.tdd",
-      "description": "A test-first workflow for writing or changing code: list the behaviors you want, drive each into existence through the red-green-refactor loop, and let the tests shape the design. Use when building a feature, fixing a bug, or changing behavior test-first in ANY language. Triggers: TDD, test-driven, test first, write tests first, red-green-refactor, drive this with tests.",
+      "description": "A test-first workflow for writing or changing code: list the behaviors you want, drive each one into existence through the red-green-refactor loop, and let the tests shape the design. Use whenever the user wants to build a feature, fix a bug, or change behavior test-first — triggers include TDD, test-driven, test first, write tests first, red-green-refactor, drive this with tests, or any request to implement well-tested logic (parsers, algorithms, business rules, state machines, API handlers) where jumping straight to implementation would risk untested or over-built code. Use it proactively for non-trivial logic even when the user doesn't say TDD, and apply it in ANY language — the loop is identical whether the runner is pytest, JUnit, Jest, RSpec, Go test, or anything else.",
       "version": "1.0.0"
     }
   ]
