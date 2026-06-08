@@ -6,7 +6,7 @@
     {
       "name": "grimoire.business-logic-docs",
       "path": "skills/grimoire.business-logic-docs",
-      "description": "Create and maintain structured business logic documentation for AI assistants and developers. Use when documenting business rules, domain knowledge, invariants, workflows, state machines, entity relationships, decision logs, or building a business logic knowledge base.",
+      "description": "Create, update, and audit structured business logic documentation for AI assistants and developers. Use when documenting business rules, domain knowledge, invariants, workflows, state machines, entity relationships, decision logs, building a business logic knowledge base, or reviewing docs for staleness.",
       "version": "1.0.0"
     }
   ]
