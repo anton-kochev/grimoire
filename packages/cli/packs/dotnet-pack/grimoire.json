@@ -47,6 +47,12 @@
       "version": "1.0.1"
     },
     {
+      "name": "grimoire.dotnet-web-api",
+      "path": "skills/grimoire.dotnet-web-api",
+      "description": "Microsoft's official best practices for building RESTful and HTTP APIs with ASP.NET Core on modern .NET (current: .NET 10 LTS). Use when creating or reviewing web APIs in C#/.NET — minimal APIs vs controllers, routing, model binding, validation, ProblemDetails error handling, OpenAPI docs, API versioning, async/performance rules, EF Core data access, DTOs, authentication, CORS, rate limiting, output caching. Triggers: web api, REST API, ASP.NET Core, minimal api, controller, endpoint, IExceptionHandler, ProblemDetails, OpenAPI, TypedResults, API versioning.",
+      "version": "1.0.0"
+    },
+    {
       "name": "grimoire.dotnet-xml-docs",
       "path": "skills/grimoire.dotnet-xml-docs",
       "description": "Microsoft-recommended conventions for documenting C#/.NET code with XML doc comments — the right tag for each element, the modern intent-over-noise style, and inheritdoc to stay DRY. Use when documenting C# code, adding /// comments, writing summary/param/returns/exception/value tags, enabling GenerateDocumentationFile, resolving CS1591 warnings, or generating an API doc site with DocFX.",
