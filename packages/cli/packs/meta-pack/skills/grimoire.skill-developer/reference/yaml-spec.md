@@ -9,6 +9,7 @@ Complete specification for skill YAML frontmatter requirements based on official
 - [Field Requirements](#field-requirements)
   - [name Field](#name-field)
   - [description Field](#description-field)
+- [Invocation Control](#invocation-control)
 - [Keyword Strategy](#keyword-strategy)
 - [Validation Checklist](#validation-checklist)
 - [Directory Naming](#directory-naming)
@@ -165,6 +166,38 @@ description: "Contains brand information"
 description: "ROE, ROA, P/E calculator"
 # Too technical without context, unclear when to activate
 ```
+
+## Invocation Control
+
+Beyond the required `name` and `description`, Claude Code supports optional frontmatter fields that control how and when a skill is invoked. **Every field uses hyphens, not underscores** — this is the single most common mistake.
+
+### `user-invocable`
+
+**Type:** Boolean · **Default:** `true`
+
+Controls whether the skill appears in the `/` slash-command menu. Set to `false` to hide it from the menu (the skill can still be model-invoked unless also disabled below).
+
+```yaml
+user-invocable: false
+```
+
+⚠️ **Exact spelling matters.** The valid key is `user-invocable` (hyphen + "invocable"). `user_invocable` (underscore) and `user-invokable` ("invoke") are **not recognized** — they are silently ignored, leaving the default in effect.
+
+### `disable-model-invocation`
+
+**Type:** Boolean · **Default:** `false`
+
+Set to `true` to stop Claude from automatically invoking the skill based on description matching. The skill then runs only when the user invokes it explicitly (e.g. as a `/` command). Use this for slash-command-style skills you don't want auto-triggering mid-conversation.
+
+```yaml
+disable-model-invocation: true
+```
+
+A skill meant purely as a user-run command typically sets `disable-model-invocation: true` and leaves `user-invocable` at its default `true`. For such a command-style skill, trigger keywords in the `description` add nothing — auto-matching is off — so keep the description focused on what the command does.
+
+### Other supported fields
+
+These optional fields are also recognized (hyphenated, lowercase); consult the [official skills documentation](https://code.claude.com/docs/en/skills.md) for full details: `allowed-tools`, `disallowed-tools`, `model`, `argument-hint`, `arguments`, `when_to_use`, `context`, `agent`, `hooks`, `paths`.
 
 ## Keyword Strategy
 

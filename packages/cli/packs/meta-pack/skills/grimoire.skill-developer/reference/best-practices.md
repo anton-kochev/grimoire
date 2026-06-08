@@ -2,6 +2,18 @@
 
 Comprehensive best practices for creating high-quality, discoverable, and maintainable skills.
 
+## Table of Contents
+
+- [Content Quality](#content-quality)
+- [Organization](#organization)
+- [Discoverability](#discoverability)
+- [Progressive Disclosure](#progressive-disclosure)
+- [Scripts and Automation](#scripts-and-automation)
+- [Testing and Validation](#testing-and-validation)
+- [Common Anti-Patterns](#common-anti-patterns)
+- [Maintenance](#maintenance)
+- [Resources](#resources)
+
 ## Content Quality
 
 ### Be Specific and Actionable
