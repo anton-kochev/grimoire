@@ -2,40 +2,29 @@
 
 A collection of specialized agents and skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns. Includes ready-to-use agents for code review, .NET development, and content verification, plus skills for TypeScript, git commits, and documentation.
+Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns — coders, reviewers, and architects for .NET, TypeScript, Angular, Vue, and Rust, plus skills for testing, git commits, requirements, documentation, and content.
 
-[![CI](https://github.com/anton-kochev/claudify/actions/workflows/ci.yml/badge.svg)](https://github.com/anton-kochev/claudify/actions/workflows/ci.yml)
+[![CI](https://github.com/anton-kochev/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/anton-kochev/grimoire/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
 - [CLI](#cli)
+  - [Add](#add)
   - [List](#list)
   - [Remove](#remove)
   - [Update](#update)
+  - [Config](#config)
+  - [Agent Skills](#agent-skills)
   - [Log Viewer](#log-viewer)
-- [Skill Router](#skill-router)
+  - [Pack Manifest](#pack-manifest)
+- [Router and Agent Enforcement](#router-and-agent-enforcement)
+- [Packs](#packs)
 - [Agents](#agents)
-  - [dotnet-architect](#dotnet-architect)
-  - [csharp-coder](#csharp-coder)
-  - [dotnet-unit-test-writer](#dotnet-unit-test-writer)
-  - [csharp-code-reviewer](#csharp-code-reviewer)
-  - [code-reviewer](#code-reviewer)
-  - [tdd-specialist](#tdd-specialist)
-  - [fact-checker](#fact-checker)
-  - [typescript-coder](#typescript-coder)
-  - [vue3-coder](#vue3-coder)
+  - [Coder Variants](#coder-variants-experimental)
 - [Skills](#skills)
-  - [dotnet-unit-testing](#dotnet-unit-testing)
-  - [dotnet-feature-workflow](#dotnet-feature-workflow)
-  - [conventional-commit](#conventional-commit)
-  - [context-file-guide](#context-file-guide)
-  - [skill-developer](#skill-developer)
-  - [readme-guide](#readme-guide)
-  - [grimoire.business-logic-docs](#grimoirebusiness-logic-docs)
-  - [grimoire.tdd-specialist](#grimoiretdd-specialist)
-  - [grimoire.modern-typescript](#grimoiremodern-typescript)
 - [Creating New Skills](#creating-new-skills)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
@@ -43,16 +32,16 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 ## Features
 
-- **CLI Tool** - Install, list, update, and remove agents and skills with `grimoire add/list/update/remove`, view logs with `grimoire logs`
-- **Pre-built Agents** - Domain experts for .NET architecture, unit testing, TDD, code review, and fact verification
-- **Reusable Skills** - Workflows for conventional commits, README generation, and skill development
-- **Validation Tooling** - Scripts to ensure skills meet Anthropic's requirements
-- **Templates & Examples** - Scaffolding for creating your own agents and skills
-- **Best Practices Documentation** - Comprehensive guides for quality skill development
+- **CLI tool** — install, list, update, and remove agents and skills with `grimoire add/list/update/remove`; view enforcement logs with `grimoire logs`
+- **Pre-built agents** — coders, reviewers, architects, and test writers for .NET, TypeScript, Angular, Vue, and Rust, plus language-agnostic review/TDD and content verification
+- **Reusable skills** — testing playbooks for six languages, conventional commits, SRS/user-story generation, business-logic docs, README and skill authoring, translation, and content craft
+- **Agent enforcement** — optional router hooks that keep edits to owned files flowing through the right specialist agent
+- **Validation tooling** — scripts to ensure skills meet Anthropic's requirements
+- **Templates & examples** — scaffolding for creating your own agents and skills
 
 ## Installation
 
-### Using the CLI (Recommended)
+### Using the CLI (recommended)
 
 Install agents and skills from npm packs using the `grimoire` CLI:
 
@@ -67,36 +56,37 @@ npx -p @grimoire-cc/cli grimoire add
 
 See the [CLI](#cli) section for full usage details.
 
-### Manual Installation
+### Manual installation
 
 #### Skills
 
-Copy a skill directory to your project's `.claude/skills/` folder:
+Copy a skill directory into your project's `.claude/skills/` folder:
 
 ```bash
-cp -r .claude/skills/grimoire.conventional-commit /path/to/your/project/.claude/skills/
+cp -r packages/cli/packs/dev-pack/skills/grimoire.conventional-commit /path/to/your/project/.claude/skills/
 ```
 
 #### Agents
 
-Copy agent markdown files from `.claude/agents/` to your project and reference them in your `.claude/settings.json`.
-
-### Agent Enforcement (Optional)
-
-Grimoire can use router hooks to enforce agent ownership of files. Enable it with `grimoire config` after installing agents with `file_patterns`.
+Copy an agent markdown file from a pack's `agents/` directory into your project's `.claude/agents/`.
 
 ## CLI
 
-The `grimoire` CLI installs agents and skills from npm packs into your project's `.claude/` directory.
+The `grimoire` CLI installs agents and skills from bundled npm packs into your project's `.claude/` directory and tracks them in `.claude/grimoire.json`.
 
-### Usage
+### Add
 
 ```bash
 # Launch the interactive installer wizard
 grimoire add
 ```
 
-The wizard lets you select individual agents and skills from all available packs. All items are pre-selected by default.
+The wizard walks pack selection → item selection. It:
+
+- Discovers all bundled packs and presents an interactive wizard (items pre-selected by default)
+- Copies agent `.md` files to `.claude/agents/` and skill directories to `.claude/skills/`
+- Registers installed items and enforcement metadata in `.claude/grimoire.json`
+- Creates `.claude/agents/` and `.claude/skills/` if they don't exist, overwriting conflicts with a warning
 
 ### List
 
@@ -105,9 +95,7 @@ The wizard lets you select individual agents and skills from all available packs
 grimoire list
 ```
 
-Only items tracked in `grimoire.json` (installed by `grimoire add`) are shown. Agents and skills you created manually are not listed.
-
-Selecting an item opens a detail view with description, model, assigned skills, and enforcement paths. From there you can:
+Only items tracked in `grimoire.json` (installed by `grimoire add`) are shown — agents and skills you created manually are never listed. `list` is the unified management hub: selecting an item opens a detail view with description, model, assigned skills, and enforcement paths, from which you can:
 
 - **Remove** — delete the item and clean up its manifest entry
 - **Update** — apply a newer version from the installed pack
@@ -121,7 +109,7 @@ Selecting an item opens a detail view with description, model, assigned skills, 
 grimoire remove
 ```
 
-Presents a checklist of items installed by grimoire. Selecting an item removes its files from `.claude/` and cleans up its entry in `grimoire.json`. Manually created items are never shown, so they cannot be accidentally removed.
+Presents a checklist of grimoire-installed items, removes the selected files from `.claude/`, and cleans up their entries in `grimoire.json`. Manually created items are never shown, so they can't be removed by accident.
 
 ### Update
 
@@ -130,31 +118,36 @@ Presents a checklist of items installed by grimoire. Selecting an item removes i
 grimoire update
 ```
 
-Compares installed item versions against the bundled pack versions and presents a selection of outdated items to update. Only grimoire-managed items are checked.
+Compares each installed item's version against the bundled pack version and offers to update the outdated ones. Only grimoire-managed items are checked.
+
+### Config
+
+```bash
+# Toggle global settings (e.g. agent enforcement)
+grimoire config
+```
+
+### Agent Skills
+
+```bash
+# Manage the skills assigned to an agent
+grimoire agent-skills
+```
+
+Adds or removes skills in an agent's frontmatter `skills:` array. Claude Code natively injects the full content of assigned skills into the subagent's context at startup.
 
 ### Log Viewer
 
 ```bash
-# Open the skill-router log viewer in your browser
+# Open the router log viewer in your browser
 grimoire logs
 
-# Use a custom log file
+# Use a custom log file or port
 grimoire logs --file path/to/custom.log
-
-# Specify a port
 grimoire logs --port 3000
 ```
 
-Starts a local server and opens an interactive dashboard with stats, filters, and a sortable table for analyzing skill-router activation history. The viewer streams new entries in real-time via SSE — a green "LIVE" badge indicates active streaming. Press `Ctrl+C` to stop.
-
-### What `add` does
-
-- Discovers all bundled packs and presents an interactive wizard
-- Copies agent `.md` files to `.claude/agents/`
-- Copies skill directories to `.claude/skills/`
-- Registers installed items and agent enforcement metadata in `.claude/grimoire.json`
-- Overwrites existing files with a warning if conflicts exist
-- Creates `.claude/agents/` and `.claude/skills/` directories if they don't exist
+Starts a local server and opens an interactive dashboard with stats, filters, and a sortable table for analyzing router activity. New entries stream in real time via SSE — a green "LIVE" badge indicates active streaming. Press `Ctrl+C` to stop.
 
 ### Pack Manifest
 
@@ -162,34 +155,36 @@ Each pack includes a `grimoire.json` manifest describing its contents:
 
 ```json
 {
-  "name": "@grimoire-cc/dotnet-pack",
+  "name": "dotnet-pack",
   "version": "1.0.0",
   "agents": [
     {
-      "name": "csharp-reviewer",
-      "path": "agents/csharp-reviewer.md",
-      "description": "Expert C#/.NET code review specialist"
+      "name": "grimoire.csharp-code-reviewer",
+      "path": "agents/grimoire.csharp-code-reviewer.md",
+      "description": "Expert C#/.NET code review specialist.",
+      "version": "1.1.0"
     }
   ],
   "skills": [
     {
-      "name": "dotnet-unit-testing",
-      "path": "skills/dotnet-unit-testing/",
-      "description": "Expert .NET unit testing specialist"
+      "name": "grimoire.unit-testing-dotnet",
+      "path": "skills/grimoire.unit-testing-dotnet",
+      "description": "C#/.NET unit testing specialist.",
+      "version": "1.0.0"
     }
   ]
 }
 ```
 
-Skills are installed as Claude Code skill directories. Automatic skill matching is not configured by Grimoire.
+Each item carries its own `version`; `grimoire update` compares these to detect updates.
 
 ## Router and Agent Enforcement
 
-The router supports agent enforcement. Automatic skill matching has been removed.
+The router (`@grimoire-cc/router`) is a hook runtime for agent enforcement. Automatic skill matching is handled natively by Claude Code, not the router.
 
-### Agent Enforcement (PreToolUse)
+### Agent enforcement (PreToolUse)
 
-When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched. SubagentStart/Stop hooks maintain a session registry so specialist agents can edit their own files.
+When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched. SubagentStart/Stop hooks maintain a session registry so a specialist agent can edit its own files.
 
 Enable or disable enforcement with:
 
@@ -197,25 +192,17 @@ Enable or disable enforcement with:
 grimoire config
 ```
 
-### Subagent Skills
+### Subagent skills
 
-Agents can declare skill assignments in their frontmatter with a `skills:` array (managed with `grimoire agent-skills`). Claude Code natively injects the full content of those skills into the subagent's context at startup — no router hooks involved.
+Agents declare skill assignments in their frontmatter with a `skills:` array (managed with `grimoire agent-skills`). Claude Code natively injects the full content of those skills into the subagent's context at startup — no router hooks involved.
 
 ### Configuration
 
-Installed skills and agent mappings are tracked in `.claude/grimoire.json` under the `router` key:
+Settings and router config live in `.claude/grimoire.json`. Enforcement paths are stored per agent under the `router` key:
 
 ```json
 {
   "router": {
-    "version": "2.0.0",
-    "skills": [
-      {
-        "path": ".claude/skills/my-skill",
-        "name": "My Skill",
-        "description": "Skill description"
-      }
-    ],
     "agents": {
       "grimoire.csharp-coder": {
         "file_patterns": ["*.cs"]
@@ -225,15 +212,13 @@ Installed skills and agent mappings are tracked in `.claude/grimoire.json` under
 }
 ```
 
-### Agent Configuration
-
 | Field | Description |
 |-------|-------------|
 | `file_patterns` | Glob patterns for enforcement delegation |
 
-> **Note:** Agent skill assignments are managed via frontmatter (`skills:` array in the agent `.md` file), not the manifest. Use `grimoire list → Manage skills` to manage them. Enforcement paths are managed via `grimoire list → Manage paths`.
+> **Note:** Agent skill assignments are managed via frontmatter (`skills:` array in the agent `.md` file), not the manifest. Use `grimoire list → Manage skills` to manage them, and `grimoire list → Manage paths` for enforcement paths.
 
-### Hook Registration
+### Hook registration
 
 Enforcement hooks are managed by `grimoire config`. They use `PreToolUse` with the `--enforce` flag:
 
@@ -255,325 +240,165 @@ Enforcement hooks are managed by `grimoire config`. They use `PreToolUse` with t
 
 ### Logs
 
-View enforcement history with the interactive real-time dashboard:
-
-```bash
-grimoire logs
-```
-
-New entries stream live via SSE as enforcement hooks run. Or inspect raw log entries:
+View enforcement history with the real-time dashboard (`grimoire logs`) or inspect raw entries:
 
 ```bash
 tail -20 .claude/logs/grimoire-router.log | jq .
 ```
 
+## Packs
+
+Grimoire ships ten packs. Install any subset with `grimoire add`.
+
+| Pack | Contents |
+|------|----------|
+| `dev-pack` | Language-agnostic code review and TDD — agents plus shared review/TDD skills |
+| `dotnet-pack` | C#/.NET architect, coder, test writer, reviewer, and feature workflow |
+| `ts-pack` | TypeScript coder plus modern-TypeScript and TS testing skills |
+| `frontend-pack` | Angular and Vue 3 coders |
+| `rust-pack` | Rust architect, coder, and Rust testing skill |
+| `go-pack` | Go unit testing skill |
+| `python-pack` | Python unit testing skill |
+| `essentials-pack` | Content crafting, fact checking, SRS/user-story generation, translation |
+| `docs-pack` | Business-logic documentation skill |
+| `meta-pack` | Authoring tools — skill developer, README guide, context-file guide |
+
 ## Agents
 
-All agents are located in `.claude/agents/`.
+Agents are installed into `.claude/agents/`. Each is a single markdown file with a persona, tool list, optional skill assignments, and model in its frontmatter.
 
-### dotnet-architect
+### dev-pack
 
-Expert guidance for .NET application architecture following modern best practices.
+| Agent | What it does |
+|-------|--------------|
+| `grimoire.code-reviewer` | Language-agnostic code review — detects the language and applies idiomatic conventions, severity-ranked findings, and a deterministic quality rating. Loads the `grimoire.code-review-standards` skill. |
+| `grimoire.tdd-specialist` | Language-agnostic TDD — auto-detects the test framework (pytest, Jest, Vitest, go test, cargo test, xUnit, …) and runs a 4-step analyze → plan → write → explain loop. Loads the `grimoire.tdd` skill. |
 
-**Expertise:**
+### dotnet-pack
 
-- Clean Architecture and Domain-Driven Design (DDD)
-- Test-Driven Development (TDD)
-- .NET 8+ and C# 12 features
-- Entity Framework Core patterns
-- SOLID principles and dependency injection
+| Agent | What it does |
+|-------|--------------|
+| `grimoire.dotnet-architect` | Designs and refactors .NET solutions with Clean Architecture, DDD, and TDD — entities, services, API endpoints, infrastructure. |
+| `grimoire.csharp-coder` | Implements C# from a design or plan: clean, production-ready code following SOLID and .NET conventions. |
+| `grimoire.dotnet-unit-test-writer` | Writes comprehensive .NET tests (xUnit/TUnit, Moq/NSubstitute), defaulting to xUnit and recommending TUnit for .NET 8+. |
+| `grimoire.csharp-code-reviewer` | C#/.NET-only code review across quality, security, performance, and best practices. |
 
-**When to use:** Designing new .NET services, reviewing architecture decisions, implementing domain models.
+### ts-pack
 
-### csharp-coder
+| Agent | What it does |
+|-------|--------------|
+| `grimoire.typescript-coder` | Writes, refactors, debugs, and reviews TypeScript in any environment — strict types, Result/discriminated-union error modeling, advanced generics. |
 
-Implements C# code based on architectural decisions and specifications.
+### frontend-pack
 
-**Capabilities:**
+| Agent | What it does |
+|-------|--------------|
+| `grimoire.angular-coder` | Writes and debugs Angular — components, services, directives, pipes, guards, resolvers — reading the codebase to match conventions. |
+| `grimoire.vue3-coder` | Builds Vue 3 with the Composition API and `<script setup>`, Pinia, Vue Router, and reactivity debugging. |
 
-- Translates designs into clean, production-ready code
-- Follows SOLID principles and .NET conventions
-- Repository patterns, services, controllers
-- Proper validation and error handling
+### rust-pack
 
-**When to use:** When you have a design/plan and need implementation.
+| Agent | What it does |
+|-------|--------------|
+| `grimoire.rust-architect` | High-level Rust architecture — module organization, trait design, ownership patterns, error-handling strategy, crate structure. |
+| `grimoire.rust-coder` | Writes, edits, and debugs Rust — features, bug fixes, tests, compiler errors, lifetimes, and borrow-checker issues. |
 
-### dotnet-unit-test-writer
+### essentials-pack
 
-Specialized agent for writing comprehensive unit tests in .NET projects.
+| Agent | What it does |
+|-------|--------------|
+| `grimoire.content-crafter` | Writes publication-ready content — blog posts, articles, stories, podcast/YouTube scripts, screenplays, narration. Loads the `grimoire.content-craft` skill. |
+| `grimoire.fact-checker` | Verifies factual claims in finished content against authoritative sources before publishing. |
 
-**Frameworks:** xUnit (default), TUnit (for .NET 8+), Moq, NSubstitute
+### Coder Variants (experimental)
 
-**Capabilities:**
+Five coders ship two extra A/B variants that differ only in how hard they push back on a conflicting instruction:
 
-- AAA (Arrange-Act-Assert) pattern implementation
-- Async testing patterns
-- `FakeLogger<T>` for logging verification
-- Edge case and boundary testing
+- **`-guided`** — treats explicit direction as binding: flags conflicts with best practice and recommends an alternative, but implements what was asked (refusing only genuinely harmful directions).
+- **`-opinionated`** — prioritizes engineering quality: implements the best-practice approach and documents every deviation from the given direction.
 
-**When to use:** Writing new test suites, adding test coverage, TDD workflows.
-
-### csharp-code-reviewer
-
-Expert C#/.NET code review specialist.
-
-**Capabilities:**
-
-- Code quality, security, and performance review
-- Best practices validation
-- SOLID principles compliance
-- .NET-specific patterns and anti-patterns
-
-**When to use:** After writing or modifying C# code, before merging PRs.
-
-### code-reviewer
-
-Language-agnostic code review specialist that works with any programming language.
-
-**Capabilities:**
-
-- Detects language from file extensions and applies idiomatic conventions
-- Security, performance, correctness, and maintainability review
-- Deterministic quality rating system (0-10 scale)
-- Severity-based checklist (Critical, High, Medium, Low)
-
-**When to use:** After writing or modifying code in any language, before merging PRs.
-
-### tdd-specialist
-
-Language-agnostic TDD and unit testing specialist that works with any programming language.
-
-**Capabilities:**
-
-- Auto-detects project language and test framework
-- Supports pytest, jest, vitest, mocha, JUnit, go test, cargo test, xUnit, RSpec, and more
-- 4-step workflow: Analyze, Plan (with approval gate), Write, Explain
-- Loads the [grimoire.tdd-specialist](#grimoiretdd-specialist) skill for TDD knowledge base
-
-**When to use:** Writing unit tests, adding test coverage, TDD workflows in any language.
-
-**Install via:** `grimoire add` and select `dev-pack`
-
-### fact-checker
-
-Verifies accuracy of written content before publishing.
-
-**Capabilities:**
-
-- Extract and categorize factual claims
-- Cross-reference with authoritative sources
-- Rate accuracy with confidence levels
-
-**When to use:** Reviewing blog posts, documentation, or content with verifiable claims.
-
-### typescript-coder
-
-Expert TypeScript developer for writing, refactoring, debugging, and reviewing TypeScript code across any environment.
-
-**Capabilities:**
-
-- Type-safe code under `strict: true` with no `any`
-- Result types and discriminated unions for error modeling
-- Utility types, generics, and advanced type transformations
-- Framework-specific TypeScript (Angular, React, Vue, Node.js, Svelte)
-
-**When to use:** Writing or reviewing TypeScript code, designing type-safe data models, refactoring JavaScript to TypeScript.
-
-**Install via:** `grimoire add` and select `ts-pack`
-
-### vue3-coder
-
-Senior Vue 3 developer for scaffolding, reviewing, and debugging Vue 3 applications.
-
-**Capabilities:**
-
-- Composition API with `<script setup>` and full TypeScript integration
-- Pinia stores (Setup Store syntax), Vue Router 4, VueUse composables
-- Typed props, emits, and `defineModel()` with no Options API
-- Performance optimization, reactivity debugging, lazy-loaded routes
-
-**When to use:** Building Vue 3 components, composables, Pinia stores, or diagnosing reactivity issues.
-
-**Install via:** `grimoire add` and select `frontend-pack`
+Available for `csharp-coder` (dotnet-pack), `typescript-coder` (ts-pack), `angular-coder` and `vue3-coder` (frontend-pack), and `rust-coder` (rust-pack). These are versioned `0.1.0` while the approach is evaluated — the base coders remain the stable default.
 
 ## Skills
 
-All skills are located in `.claude/skills/`.
+Skills are installed into `.claude/skills/`. Each is a directory with a `SKILL.md` plus optional reference, template, example, and script files loaded on demand.
 
-### dotnet-unit-testing
+### dev-pack
 
-Expert .NET unit testing patterns and best practices for C#/.NET projects.
+| Skill | Purpose |
+|-------|---------|
+| `grimoire.code-review-standards` | Shared review methodology — severity-prioritized criteria, a deterministic quality rating, and a standard report format. Backs the code reviewers. |
+| `grimoire.tdd` | Test-first workflow — list behaviors, drive each through red-green-refactor, let the tests shape the design. Any language. |
+| `grimoire.conventional-commit` | Generate git commits following [Conventional Commits 1.0.0](https://www.conventionalcommits.org/). Invoke with `/grimoire.conventional-commit`. |
 
-**Trigger:** When writing unit tests, TDD workflows, or working with xUnit/TUnit/Moq
+### dotnet-pack
 
-**Frameworks:** xUnit (default), TUnit (recommended for .NET 8+), Moq, NSubstitute
+| Skill | Purpose |
+|-------|---------|
+| `grimoire.unit-testing-dotnet` | C#/.NET testing — framework selection and patterns for xUnit, TUnit, NUnit, Moq, and NSubstitute. |
+| `grimoire.dotnet-feature-workflow` | User-invoked command orchestrating Explore → Plan → Code → Verify → Review with TDD and approval gates. |
 
-**Includes:**
+### ts-pack
 
-- Framework selection guide and decision flowchart
-- Core principles (AAA pattern, naming, isolation, async testing)
-- Parameterized testing patterns (InlineData, MemberData, Matrix)
-- Test organization (nested classes, traits, collections)
+| Skill | Purpose |
+|-------|---------|
+| `grimoire.modern-typescript` | Modern TypeScript (5.7+) — strict mode, `satisfies`, branded types, discriminated unions, Result-type error handling. |
+| `grimoire.unit-testing-typescript` | TS/JS testing — patterns for Vitest, Jest, Mocha, and the Node test runner. |
 
-**Reference files:** `framework-guidelines.md`, `parameterized-testing.md`, `test-organization.md`, `test-performance.md`, `anti-patterns.md`
+### Language testing skills
 
-**Install via:** `grimoire add` and select `dotnet-pack`
+| Skill | Pack | Purpose |
+|-------|------|---------|
+| `grimoire.unit-testing-go` | go-pack | Go testing — the `testing` stdlib, testify, gomock, and table-driven tests. |
+| `grimoire.unit-testing-python` | python-pack | Python testing — pytest, unittest, hypothesis, fixtures, and parametrization. |
+| `grimoire.unit-testing-rust` | rust-pack | Rust testing — the built-in framework, mockall, and proptest. |
 
-### dotnet-feature-workflow
+### essentials-pack
 
-Orchestrates end-to-end .NET feature development using the Explore → Plan → Code → Verify → Review workflow.
+| Skill | Purpose |
+|-------|---------|
+| `grimoire.content-craft` | Writing craft for long-form content — principles, per-format structure, formatting, and voice. Backs the content crafter. |
+| `grimoire.srs-generator` | User-invoked command producing an ISO/IEC/IEEE 29148:2018 SRS with EARS-notation requirements and a traceability matrix. |
+| `grimoire.srs-to-user-stories` | User-invoked command turning an SRS into Scrum user stories grouped under Epics. |
+| `grimoire.translate-ua` | Translate prose to Ukrainian, preserving technical terms and code in English. |
+| `grimoire.translate-es` | Translate prose to Spanish, preserving technical terms and code in English. |
 
-**Trigger:** "build feature", "implement feature", "create feature"
+### docs-pack
 
-**Capabilities:**
+| Skill | Purpose |
+|-------|---------|
+| `grimoire.business-logic-docs` | Create, update, and audit a structured business-logic knowledge base — rules, invariants, workflows, state machines, decision logs. |
 
-- Spawns specialized agents at each phase
-- TDD with tests written before implementation
-- User approval gates between phases
-- Automated code review before completion
+### meta-pack
 
-**When to use:** Building complete features with quality gates and minimal hand-holding.
-
-**Install via:** `grimoire add` and select `dotnet-pack`
-
-### conventional-commit
-
-Generates git commits following the [Conventional Commits 1.0.0](https://www.conventionalcommits.org/) specification.
-
-**Trigger:** `/commit`
-
-**Commit Types:**
-
-| Type | Description |
-| ------ | ------------- |
-| `feat` | New features |
-| `fix` | Bug fixes |
-| `docs` | Documentation changes |
-| `refactor` | Code refactoring |
-| `test` | Test additions/changes |
-| `perf` | Performance improvements |
-| `chore` | Maintenance tasks |
-
-### context-file-guide
-
-Best practices for writing CLAUDE.md project context files.
-
-**Trigger:** When creating, reviewing, or improving CLAUDE.md files
-
-**Includes:**
-
-- Battle-tested structure template
-- Section guidelines (Tech Stack, Commands, Conventions, Architecture, Workflow)
-- Advanced context management with `@` imports
-- `validate-context-file.sh` - Enforces 100-line limit
-
-### skill-developer
-
-Meta-skill for creating and maintaining Claude Code skills.
-
-**Trigger:** When creating or updating skills
-
-**Includes:**
-
-- `create-skill.sh` - Scaffolding script for new skills
-- `validate-skill.py` - Validation against Anthropic requirements
-- Templates for basic and domain-specific skills
-- Best practices documentation
-
-### readme-guide
-
-Creates professional README files following industry standards.
-
-**Trigger:** When creating or reviewing documentation
-
-**Based on:** Make a README, Standard Readme, Google Style Guide
-
-**Capabilities:**
-
-- Generate complete READMEs for any project type
-- Recommend sections based on project type
-- Suggest appropriate badges using Shields.io
-- Review existing READMEs against best practices
-
-### grimoire.business-logic-docs
-
-Guides Claude through creating, updating, and auditing a structured knowledge base of a project's business logic.
-
-**Trigger:** When documenting business rules, domain knowledge, invariants, workflows, or reviewing docs for staleness
-
-**Capabilities:**
-
-- Discover domain areas from codebase structure and interview developers
-- Generate three-tier documentation: overview, per-domain-area files, decision log
-- Update existing docs from user stories, change requests, or discussion summaries (5-step structured workflow)
-- Audit knowledge base for staleness, terminology inconsistencies, and documentation gaps
-- Integrate with CLAUDE.md for automatic context loading
-
-**Output:** Markdown files in `docs/business-logic/` with glossary, business rules, constraints, state diagrams, decision trees, and decision log.
-
-**Reference files:** `tier2-template.md`, `audit-checklist.md`
-
-### grimoire.tdd-specialist
-
-Language-agnostic TDD and unit testing patterns for any programming language.
-
-**Trigger:** When writing unit tests, TDD workflows, or working with any test framework
-
-**Frameworks:** pytest, Vitest, Jest, Mocha, JUnit 5, Go testing, Rust #[test], xUnit, RSpec
-
-**Includes:**
-
-- Language and framework auto-detection
-- Universal testing principles (AAA pattern, naming, isolation, mocking)
-- 4-step workflow with mandatory approval gate
-- Anti-patterns guide (The Liar, The Giant, Excessive Setup, and more)
-- TDD workflow patterns (Red-Green-Refactor, Transformation Priority Premise)
-
-**Reference files:** `language-frameworks.md`, `anti-patterns.md`, `tdd-workflow-patterns.md`
-
-**Install via:** `grimoire add` and select `dev-pack`
-
-### grimoire.modern-typescript
-
-Modern TypeScript best practices, patterns, and type system mastery for TS 5.7+.
-
-**Trigger:** When writing TypeScript, reviewing TS code, designing types, or configuring tsconfig
-
-**Includes:**
-
-- Core principles: strict mode, `satisfies`, branded types, discriminated unions
-- Strict `tsconfig.json` configuration with key flags explained
-- Error handling with Result types and type-safe narrowing
-- Module patterns, anti-patterns table, annotation guidelines
-
-**Reference files:** `type-system.md`, `patterns-and-idioms.md`, `modern-features.md`
-
-**Install via:** `grimoire add` and select `ts-pack`
+| Skill | Purpose |
+|-------|---------|
+| `grimoire.skill-developer` | Create and maintain Claude Code skills following Anthropic patterns — scaffolding, validation, templates, and best practices. |
+| `grimoire.readme-guide` | Create and review README files against industry best practices, with badge and section guidance. |
+| `grimoire.context-file-guide` | Best practices for writing `CLAUDE.md` project context files. |
 
 ## Creating New Skills
 
-### Quick Start
+### Quick start
 
 ```bash
-# Create a new skill from template
-.claude/skills/grimoire.skill-developer/scripts/create-skill.sh my-new-skill
+# Scaffold a new skill from a template
+packages/cli/packs/meta-pack/skills/grimoire.skill-developer/scripts/create-skill.sh my-new-skill
 
-# Validate your skill
-python3 .claude/skills/grimoire.skill-developer/scripts/validate-skill.py .claude/skills/my-new-skill
+# Validate it against Anthropic's requirements
+python3 packages/cli/packs/meta-pack/skills/grimoire.skill-developer/scripts/validate-skill.py path/to/my-new-skill
 ```
 
 ### Requirements
 
-Skills must meet Anthropic's requirements:
-
 | Requirement | Limit |
-| ------------- | ------- |
+|-------------|-------|
 | SKILL.md body | 500 lines max |
 | Total bundle size | 8 MB max |
 | Skills per request | 8 max |
 | Reference file nesting | 1 level deep |
 
-### YAML Frontmatter
+### YAML frontmatter
 
 Every SKILL.md requires valid frontmatter:
 
@@ -584,35 +409,21 @@ description: "What it does and when to use it"
 ---
 ```
 
-**Name requirements:**
+**Name rules:** lowercase letters, numbers, and hyphens only; max 64 characters; cannot start or end with a hyphen; cannot contain "anthropic" or "claude".
 
-- Lowercase letters, numbers, and hyphens only
-- Maximum 64 characters
-- Cannot start/end with hyphen
-- Cannot contain "anthropic" or "claude"
+Optional invocation fields (note the hyphens — `user_invocable` and `user-invokable` are silently ignored):
 
-### Documentation
+- `user-invocable: false` — hide from the `/` slash-command menu
+- `disable-model-invocation: true` — stop automatic, description-based invocation (for pure slash-command skills)
+
+### Authoring docs
 
 | Document | Purpose |
-| ---------- | --------- |
-| [best-practices.md](.claude/skills/grimoire.skill-developer/reference/best-practices.md) | Content quality and organization |
-| [patterns.md](.claude/skills/grimoire.skill-developer/reference/patterns.md) | Common skill patterns |
-| [file-organization.md](.claude/skills/grimoire.skill-developer/reference/file-organization.md) | Directory structure |
-| [yaml-spec.md](.claude/skills/grimoire.skill-developer/reference/yaml-spec.md) | Frontmatter requirements |
-
-### Templates
-
-| Template | Use Case |
-| ---------- | ---------- |
-| [basic-skill.md](.claude/skills/grimoire.skill-developer/templates/basic-skill.md) | Single-purpose skills |
-| [domain-skill.md](.claude/skills/grimoire.skill-developer/templates/domain-skill.md) | Specialized expertise |
-
-### Examples
-
-| Example | Pattern |
-| --------- | --------- |
-| [financial-analysis.md](.claude/skills/grimoire.skill-developer/examples/financial-analysis.md) | Structured data processing |
-| [brand-guidelines.md](.claude/skills/grimoire.skill-developer/examples/brand-guidelines.md) | Standards enforcement |
+|----------|---------|
+| [best-practices.md](packages/cli/packs/meta-pack/skills/grimoire.skill-developer/reference/best-practices.md) | Content quality and organization |
+| [patterns.md](packages/cli/packs/meta-pack/skills/grimoire.skill-developer/reference/patterns.md) | Common skill patterns |
+| [file-organization.md](packages/cli/packs/meta-pack/skills/grimoire.skill-developer/reference/file-organization.md) | Directory structure |
+| [yaml-spec.md](packages/cli/packs/meta-pack/skills/grimoire.skill-developer/reference/yaml-spec.md) | Frontmatter requirements |
 
 ## Project Structure
 
@@ -622,65 +433,32 @@ grimoire/
 ├── CLAUDE.md                          # Project context for Claude Code
 ├── package.json                       # pnpm workspace root
 ├── packages/
-│   ├── cli/                           # grimoire CLI tool
+│   ├── cli/                           # grimoire CLI tool (@grimoire-cc/cli)
 │   │   ├── src/                       # TypeScript source
-│   │   └── tests/                     # Vitest tests
-│   └── skill-router/                  # Auto-activation hook
+│   │   ├── tests/                     # Vitest tests
+│   │   └── packs/                     # Bundled packs (source of truth)
+│   │       ├── dev-pack/
+│   │       │   ├── grimoire.json      # Pack manifest
+│   │       │   ├── agents/            # Agent .md files
+│   │       │   └── skills/            # Skill directories
+│   │       ├── dotnet-pack/
+│   │       ├── ts-pack/
+│   │       ├── frontend-pack/
+│   │       ├── rust-pack/
+│   │       ├── go-pack/
+│   │       ├── python-pack/
+│   │       ├── essentials-pack/
+│   │       ├── docs-pack/
+│   │       └── meta-pack/
+│   └── router/                        # Agent-enforcement hook runtime (@grimoire-cc/router)
 │       ├── src/                       # TypeScript source
 │       └── tests/                     # Vitest tests
 └── .claude/
     ├── settings.json                  # Hook registration
-    ├── grimoire.json                  # Unified config (settings + router)
-    ├── hooks/
-    │   └── skill-router.ts            # Hook entry point
-    ├── agents/
-    │   ├── grimoire.dotnet-architect.md
-    │   ├── grimoire.csharp-coder.md
-    │   ├── grimoire.dotnet-unit-test-writer.md
-    │   ├── grimoire.csharp-code-reviewer.md
-    │   ├── grimoire.code-reviewer.md
-    │   ├── grimoire.tdd-specialist.md
-    │   ├── grimoire.fact-checker.md
-    │   ├── grimoire.typescript-coder.md
-    │   └── grimoire.vue3-coder.md
-    └── skills/
-        ├── grimoire.dotnet-unit-testing/
-        │   ├── SKILL.md
-        │   ├── reference/
-        │   └── templates/
-        ├── grimoire.dotnet-feature-workflow/
-        │   └── SKILL.md
-        ├── grimoire.conventional-commit/
-        │   └── SKILL.md
-        ├── grimoire.context-file-guide/
-        │   ├── SKILL.md
-        │   └── scripts/
-        ├── grimoire.skill-developer/
-        │   ├── SKILL.md
-        │   ├── scripts/
-        │   ├── templates/
-        │   ├── examples/
-        │   └── reference/
-        ├── grimoire.readme-guide/
-        │   └── SKILL.md
-        ├── grimoire.tdd-specialist/
-        │   ├── SKILL.md
-        │   └── reference/
-        │       ├── language-frameworks.md
-        │       ├── anti-patterns.md
-        │       └── tdd-workflow-patterns.md
-        ├── grimoire.business-logic-docs/
-        │   ├── SKILL.md
-        │   └── references/
-        │       ├── tier2-template.md
-        │       └── audit-checklist.md
-        └── grimoire.modern-typescript/
-            ├── SKILL.md
-            └── reference/
-                ├── type-system.md
-                ├── patterns-and-idioms.md
-                └── modern-features.md
+    └── grimoire.json                  # Unified config (settings + router)
 ```
+
+Agents and skills live under `packages/cli/packs/<pack>/`; that is the canonical source the CLI installs from. A project's own `.claude/agents/` and `.claude/skills/` hold the installed copies.
 
 ## Contributing
 
@@ -696,22 +474,22 @@ grimoire/
    # Run CLI tests
    pnpm --filter @grimoire-cc/cli test
 
-   # Run skill-router tests
-   pnpm --filter @grimoire-cc/skill-router test
+   # Run router tests
+   pnpm --filter @grimoire-cc/router test
 
    # Validate any new skills
-   python3 .claude/skills/grimoire.skill-developer/scripts/validate-skill.py .claude/skills/your-skill
+   python3 packages/cli/packs/meta-pack/skills/grimoire.skill-developer/scripts/validate-skill.py path/to/your-skill
    ```
 
 5. Submit a pull request
 
 ### Guidelines
 
-- Follow existing naming conventions
-- Include comprehensive documentation
-- Add examples where appropriate
-- Ensure validation passes for all skills
+- Follow existing naming conventions (`grimoire.<name>` for agents and skills)
+- Use conventional commits
+- Keep SKILL.md under 500 lines and CLAUDE.md under 100 lines
+- Ensure validation passes for any new skills
 
 ## License
 
-MIT
+[MIT](LICENSE)
