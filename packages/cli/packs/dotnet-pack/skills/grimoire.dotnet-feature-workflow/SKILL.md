@@ -1,6 +1,6 @@
 ---
 name: grimoire.dotnet-feature-workflow
-description: "Orchestrates end-to-end .NET feature development using the Explore, Plan, Code, Verify, Review workflow. Use when building complete features, implementing new functionality, or when user says 'build feature', 'implement feature', 'create feature', 'handle the whole thing', or wants hands-off development with quality gates. Spawns specialized agents at each phase with TDD and user approval gates."
+description: "Orchestrate end-to-end .NET feature development through the Explore, Plan, Code, Verify, Review workflow. A user-invoked command that drives hands-off, TDD-based delivery — spawning a specialized agent at each phase and gating on user approval before implementation."
 user-invocable: true
 disable-model-invocation: true
 ---
