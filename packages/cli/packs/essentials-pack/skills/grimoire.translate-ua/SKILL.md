@@ -1,7 +1,7 @@
 ---
 name: grimoire.translate-ua
 description: "Use when asked to translate text into Ukrainian. Converts English prose to Ukrainian while preserving all technical terms, code snippets, file paths, and technical language in English."
-user_invocable: true
+user-invocable: true
 disable-model-invocation: true
 ---
 

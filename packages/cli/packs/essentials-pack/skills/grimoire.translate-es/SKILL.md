@@ -1,7 +1,7 @@
 ---
 name: grimoire.translate-es
 description: "Use when asked to translate text into Spanish. Converts English prose to Spanish while preserving all technical terms, code snippets, file paths, and technical language in English."
-user_invocable: true
+user-invocable: true
 disable-model-invocation: true
 ---
 
