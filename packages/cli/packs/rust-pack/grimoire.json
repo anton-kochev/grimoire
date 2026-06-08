@@ -13,6 +13,18 @@
       "path": "agents/grimoire.rust-coder.md",
       "description": "Use this agent when the user needs to write, edit, debug, or refactor Rust code. This includes implementing new features, fixing bugs, writing tests, resolving compiler errors, dealing with lifetimes and borrow checker issues, and applying refactors to Rust codebases.",
       "version": "1.1.0"
+    },
+    {
+      "name": "grimoire.rust-coder-guided",
+      "path": "agents/grimoire.rust-coder-guided.md",
+      "description": "Writes, edits, debugs, and refactors Rust code — features, bug fixes, tests, compiler errors, lifetimes and borrow checker issues. Guided variant: treats explicit direction as binding — flags conflicts with best practice and recommends alternatives, but implements what was asked (refusing only genuinely harmful directions).",
+      "version": "0.1.0"
+    },
+    {
+      "name": "grimoire.rust-coder-opinionated",
+      "path": "agents/grimoire.rust-coder-opinionated.md",
+      "description": "Writes, edits, debugs, and refactors Rust code — features, bug fixes, tests, compiler errors, lifetimes and borrow checker issues. Opinionated variant: prioritizes engineering quality over instructions — implements the best-practice approach and documents every deviation with its rationale.",
+      "version": "0.1.0"
     }
   ],
   "skills": [
