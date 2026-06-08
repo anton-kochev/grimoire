@@ -12,7 +12,7 @@
       "name": "grimoire.content-crafter",
       "path": "agents/grimoire.content-crafter.md",
       "description": "Use this agent when the user asks to write, create, draft, or compose blog posts, articles, creative stories, podcast scripts, YouTube video scripts, screenplays, or documentary narration.",
-      "version": "1.0.0"
+      "version": "1.1.0"
     }
   ],
   "skills": [
@@ -26,25 +26,25 @@
       "name": "grimoire.translate-ua",
       "path": "skills/grimoire.translate-ua",
       "description": "Use when asked to translate text into Ukrainian. Converts English prose to Ukrainian while preserving all technical terms, code snippets, file paths, and technical language in English.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "grimoire.translate-es",
       "path": "skills/grimoire.translate-es",
       "description": "Use when asked to translate text into Spanish. Converts English prose to Spanish while preserving all technical terms, code snippets, file paths, and technical language in English.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "grimoire.srs-generator",
       "path": "skills/grimoire.srs-generator",
-      "description": "Produce a Software Requirements Specification (SRS) conforming to ISO/IEC/IEEE 29148:2018, with requirements written in EARS notation and a traceability matrix. A user-invoked command: it elicits what the codebase can't tell you, drafts and self-checks the requirements, gates on explicit approval, then emits a tailored SRS \u2014 for a greenfield product or a change to an existing codebase.",
-      "version": "1.0.0"
+      "description": "Produce a Software Requirements Specification (SRS) conforming to ISO/IEC/IEEE 29148:2018, with requirements written in EARS notation and a traceability matrix. A user-invoked command: it elicits what the codebase can't tell you, drafts and self-checks the requirements, gates on explicit approval, then emits a tailored SRS — for a greenfield product or a change to an existing codebase.",
+      "version": "1.0.1"
     },
     {
       "name": "grimoire.srs-to-user-stories",
       "path": "skills/grimoire.srs-to-user-stories",
       "description": "Analyze a Software Requirements Specification (SRS) and generate well-crafted Scrum user stories grouped under Epics, ready for backlog grooming. A user-invoked command that turns a requirements spec into actionable Scrum artifacts.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     }
   ]
 }
