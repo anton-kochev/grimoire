@@ -272,7 +272,7 @@ Agents are installed into `.claude/agents/`. Each is a single markdown file with
 | Agent | What it does |
 |-------|--------------|
 | `grimoire.code-reviewer` | Language-agnostic code review — detects the language and applies idiomatic conventions, severity-ranked findings, and a deterministic quality rating. Loads the `grimoire.code-review-standards` skill. |
-| `grimoire.tdd-specialist` | Language-agnostic TDD — auto-detects the test framework (pytest, Jest, Vitest, go test, cargo test, xUnit, …) and runs a 4-step analyze → plan → write → explain loop. Loads the `grimoire.tdd` skill. |
+| `grimoire.unit-test-writer` | Language-agnostic unit-test authoring — auto-detects the test framework (pytest, Jest, Vitest, go test, cargo test, xUnit, …) and runs a 4-step analyze → plan → approve → write loop. Writes test files only, never production code. |
 
 ### dotnet-pack
 
