@@ -17,6 +17,12 @@
   ],
   "skills": [
     {
+      "name": "grimoire.content-craft",
+      "path": "skills/grimoire.content-craft",
+      "description": "Craft guidance for writing publication-ready content — blog posts, articles, creative stories, podcast and YouTube scripts, screenplays, and documentary narration. Covers writing principles, per-format structure and formatting, and voice. Use when drafting or composing long-form prose or scripts. Triggers: blog post, article, story, screenplay, podcast script, video script, narration, write content.",
+      "version": "1.0.0"
+    },
+    {
       "name": "grimoire.translate-ua",
       "path": "skills/grimoire.translate-ua",
       "description": "Use when asked to translate text into Ukrainian. Converts English prose to Ukrainian while preserving all technical terms, code snippets, file paths, and technical language in English.",

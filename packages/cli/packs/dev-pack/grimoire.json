@@ -17,6 +17,12 @@
   ],
   "skills": [
     {
+      "name": "grimoire.code-review-standards",
+      "path": "skills/grimoire.code-review-standards",
+      "description": "Shared methodology for systematic code review — a severity-prioritized criteria framework, a deterministic quality rating system, and a standard report format. Use when reviewing code changes for quality, security, performance, and maintainability. Triggers: code review, review my code, review changes, quality rating, review report, severity, critical issue.",
+      "version": "1.0.0"
+    },
+    {
       "name": "grimoire.conventional-commit",
       "path": "skills/grimoire.conventional-commit",
       "description": "Generate git commits following Conventional Commits 1.0.0. Use for /conventional-commit, git commit, or when committing changes. Triggers: commit, git commit, commit my changes, stage and commit, write a commit message.",
