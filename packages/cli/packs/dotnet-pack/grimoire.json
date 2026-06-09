@@ -59,6 +59,12 @@
       "version": "1.0.0"
     },
     {
+      "name": "grimoire.modern-csharp",
+      "path": "skills/grimoire.modern-csharp",
+      "description": "Microsoft's current best practices for writing performant and robust C# on modern .NET (C# 12/13/14, .NET 8/9/10). Use when writing or reviewing C# for correctness and speed — nullable reference types, records and immutability, pattern matching, async/await correctness (ConfigureAwait, ValueTask, cancellation, IAsyncEnumerable), deterministic disposal, and high-performance code with Span, ArrayPool, frozen collections, SearchValues, and source-generated JSON. Includes compile-time logging via the LoggerMessage source generator and the other zero-cost source generators. Triggers: modern C#, C# 12, C# 13, C# 14, .NET 8, .NET 9, .NET 10, performance, allocations, nullable reference types, records, pattern matching, async await, ConfigureAwait, ValueTask, cancellation token, IAsyncEnumerable, IDisposable, Span, Memory, stackalloc, ArrayPool, FrozenDictionary, SearchValues, compile-time logging, LoggerMessage, source generator, GeneratedRegex, BenchmarkDotNet.",
+      "version": "1.0.0"
+    },
+    {
       "name": "grimoire.unit-testing-dotnet",
       "path": "skills/grimoire.unit-testing-dotnet",
       "description": "Framework selection, patterns, and best practices for C#/.NET unit testing with xUnit, TUnit, NUnit, Moq, and NSubstitute. Use when writing tests for .cs files, configuring test projects, or asking about .NET testing patterns, mocking, assertions, async testing, FluentAssertions alternatives.",
