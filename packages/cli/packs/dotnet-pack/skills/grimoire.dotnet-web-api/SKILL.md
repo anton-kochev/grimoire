@@ -255,7 +255,7 @@ Never store `HttpContext` (or anything resolved from it) in a field, share it ac
 - **CORS**: define a named policy with explicit origins — never `AllowAnyOrigin()` together with credentials.
 - **Rate limiting**: built-in middleware (`AddRateLimiter` + `UseRateLimiter`, .NET 7+) — fixed/sliding window, token bucket, concurrency.
 - Don't trust `HttpRequest.ContentLength` (it's null when the header is absent — comparisons against null silently return false).
-- Return `ProblemDetails` for auth failures too; don't echo back why authز failed in detail.
+- Return `ProblemDetails` for auth failures too; don't echo back why auth failed in detail.
 
 ## DTOs & serialization
 
