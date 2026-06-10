@@ -3,10 +3,7 @@
 /packages/cli/node_modules
 /packages/skill-router/dist
 /packages/skill-router/node_modules
-/.claude/logs
-/.claude/skills/
-/.claude/agents/
-/.claude/grimoire.json
+/.claude/
 /.playwright-mcp
 /packages/cli/packs/.claude
 /packages/router/dist
