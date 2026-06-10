@@ -34,7 +34,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 - **CLI tool** — install, list, update, and remove agents and skills with `grimoire add/list/update/remove`; view enforcement logs with `grimoire logs`
 - **Pre-built agents** — coders, reviewers, architects, and test writers for .NET, TypeScript, Angular, Vue, and Rust, plus language-agnostic review/TDD and content verification
-- **Reusable skills** — testing playbooks for six languages, conventional commits, SRS/user-story generation, business-logic docs, README and skill authoring, translation, and content craft
+- **Reusable skills** — language and framework best-practice guides (modern C#, ASP.NET Core APIs, modern TypeScript), testing playbooks for six languages, conventional commits, SRS/user-story generation, business-logic docs, README and skill authoring, translation, and content craft
 - **Agent enforcement** — optional router hooks that keep edits to owned files flowing through the right specialist agent
 - **Validation tooling** — scripts to ensure skills meet Anthropic's requirements
 - **Templates & examples** — scaffolding for creating your own agents and skills
@@ -253,7 +253,7 @@ Grimoire ships ten packs. Install any subset with `grimoire add`.
 | Pack | Contents |
 |------|----------|
 | `dev-pack` | Language-agnostic code review and TDD — agents plus shared review/TDD skills |
-| `dotnet-pack` | C#/.NET architect, coder, test writer, reviewer, and feature workflow |
+| `dotnet-pack` | C#/.NET architect, coder, test writer, and reviewer agents, plus skills for modern C#, ASP.NET Core APIs, XML docs, testing, and the feature workflow |
 | `ts-pack` | TypeScript coder plus modern-TypeScript and TS testing skills |
 | `frontend-pack` | Angular and Vue 3 coders |
 | `rust-pack` | Rust architect, coder, and Rust testing skill |
@@ -335,6 +335,9 @@ Skills are installed into `.claude/skills/`. Each is a directory with a `SKILL.m
 
 | Skill | Purpose |
 |-------|---------|
+| `grimoire.modern-csharp` | Performant, robust modern C# (C# 12–14, .NET 8/9/10) — nullable refs, records, pattern matching, async correctness, allocation-aware performance, and compile-time logging. |
+| `grimoire.dotnet-web-api` | Microsoft's best practices for ASP.NET Core REST/HTTP APIs — minimal APIs vs controllers, validation, ProblemDetails, OpenAPI, versioning, and EF Core. |
+| `grimoire.dotnet-xml-docs` | XML doc-comment conventions — the right tag per element, an intent-over-noise style, and `inheritdoc` to stay DRY. |
 | `grimoire.unit-testing-dotnet` | C#/.NET testing — framework selection and patterns for xUnit, TUnit, NUnit, Moq, and NSubstitute. |
 | `grimoire.dotnet-feature-workflow` | User-invoked command orchestrating Explore → Plan → Code → Verify → Review with TDD and approval gates. |
 
