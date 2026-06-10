@@ -48,7 +48,7 @@ Collection of specialized agents and skills for Claude Code.
 - CLI: git tag `cli/vX.Y.Z` (e.g. `cli/v0.3.0`)
 - Router: git tag `router/vX.Y.Z` (e.g. `router/v1.0.0`)
 - Any other tag format will not trigger the npm publish workflow
-- Changed a skill/agent's content? Bump its `version` in the pack manifest (`packages/cli/packs/<pack>/grimoire.json`) AND keep the `.claude/skills` source and pack copy identical — otherwise `grimoire update` never ships the fix
+- Changed a skill/agent's content? Edit the pack copy under `packages/cli/packs/<pack>/` — that's the version-controlled source of truth — and bump its `version` in the pack manifest (`packages/cli/packs/<pack>/grimoire.json`), otherwise `grimoire update` never ships the fix. The `.claude/skills` and `.claude/agents` copies are local-only (gitignored); mirror changes there if you want this repo's own Claude Code to pick them up.
 
 ## Workflow
 - Run tests before committing: `pnpm test`

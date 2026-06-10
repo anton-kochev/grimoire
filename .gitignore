@@ -4,6 +4,8 @@
 /packages/skill-router/dist
 /packages/skill-router/node_modules
 /.claude/logs
+/.claude/skills/
+/.claude/agents/
 /.playwright-mcp
 /packages/cli/packs/.claude
 /packages/router/dist
