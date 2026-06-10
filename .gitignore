@@ -6,6 +6,7 @@
 /.claude/logs
 /.claude/skills/
 /.claude/agents/
+/.claude/grimoire.json
 /.playwright-mcp
 /packages/cli/packs/.claude
 /packages/router/dist
