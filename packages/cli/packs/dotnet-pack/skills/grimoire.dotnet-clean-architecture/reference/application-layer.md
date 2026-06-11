@@ -108,7 +108,7 @@ public sealed class GetOrderByIdHandler : IQueryHandler<GetOrderByIdQuery, Order
 }
 ```
 
-Separate read/write databases, event sourcing, etc. are optional extensions — don't let "full CQRS" ambitions complicate a system that needs only the handler split.
+Separate read/write databases, event sourcing, etc. are optional extensions — don't let "full CQRS" ambitions complicate a system that needs only the handler split. When those extensions are genuinely on the table (dedicated read models, separate stores, outbox, Marten), the `grimoire.dotnet-cqrs` skill covers them in depth.
 
 ---
 
@@ -123,7 +123,7 @@ MediatR announced it was going commercial in April 2025; v13+ requires a paid li
 | **Pin MediatR 12.x** | Existing codebase deeply invested; 12.x stays free (Apache 2.0) but unmaintained |
 | **Pay for MediatR v13+** | Existing investment + budget; smooth upgrade path |
 
-Most solutions use a mediator for exactly two things — decoupled dispatch and pipeline behaviors — and both are trivial to own.
+Most solutions use a mediator for exactly two things — decoupled dispatch and pipeline behaviors — and both are trivial to own. A fuller trade-off table covering the wider field (Cortex.Mediator, Brighter, FastEndpoints) is in the `grimoire.dotnet-cqrs` skill.
 
 ---
 

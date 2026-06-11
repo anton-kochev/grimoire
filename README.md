@@ -336,6 +336,8 @@ Skills are installed into `.claude/skills/`. Each is a directory with a `SKILL.m
 | Skill | Purpose |
 |-------|---------|
 | `grimoire.modern-csharp` | Performant, robust modern C# (C# 12–14, .NET 8/9/10) — nullable refs, records, pattern matching, async correctness, allocation-aware performance, and compile-time logging. |
+| `grimoire.dotnet-clean-architecture` | Clean Architecture for modern .NET — the Dependency Rule, layer responsibilities, rich domain models, CQRS with or without MediatR, and when NOT to use it (vertical slice / hybrid). |
+| `grimoire.dotnet-cqrs` | Tactical CQRS for .NET — the maturity ladder (handler split → read models → separate stores → event sourcing with Marten), 2025+ dispatch options beyond MediatR, outbox, idempotency, and eventual-consistency UX. |
 | `grimoire.dotnet-web-api` | Microsoft's best practices for ASP.NET Core REST/HTTP APIs — minimal APIs vs controllers, validation, ProblemDetails, OpenAPI, versioning, and EF Core. |
 | `grimoire.dotnet-xml-docs` | XML doc-comment conventions — the right tag per element, an intent-over-noise style, and `inheritdoc` to stay DRY. |
 | `grimoire.unit-testing-dotnet` | C#/.NET testing — framework selection and patterns for xUnit, TUnit, NUnit, Moq, and NSubstitute. |

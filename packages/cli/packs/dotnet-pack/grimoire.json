@@ -44,6 +44,12 @@
       "name": "grimoire.dotnet-clean-architecture",
       "path": "skills/grimoire.dotnet-clean-architecture",
       "description": "Clean Architecture best practices for modern .NET (current: .NET 10) — the Dependency Rule, layer responsibilities (Domain, Application, Infrastructure, Presentation), and the 4-project solution layout, with rich domain models, value objects, domain events, the result pattern, and CQRS with or without MediatR (commercial since v13 — covers Wolverine and plain handler alternatives). Includes architecture tests with ArchUnitNET, when NOT to use Clean Architecture (vertical slice and hybrid approaches), and avoiding over-abstraction: generic repositories over EF Core, interface-for-everything, anemic domains, leaky IQueryable boundaries. Use when structuring a .NET solution, designing or reviewing layers, or deciding where business logic belongs. Triggers: clean architecture, onion architecture, hexagonal, ports and adapters, dependency rule, domain layer, application layer, use case, CQRS, MediatR, Wolverine, value object, domain event, anemic model, repository pattern, vertical slice, ArchUnitNET.",
+      "version": "1.0.1"
+    },
+    {
+      "name": "grimoire.dotnet-cqrs",
+      "path": "skills/grimoire.dotnet-cqrs",
+      "description": "Tactical CQRS for modern .NET (current: .NET 10) — the maturity ladder from in-process command/query handler split to separate read/write models, separate stores, and event sourcing with Marten, with a decision framework for when each level pays off and when CQRS is overkill. Covers the 2025+ dispatch landscape (Wolverine, Cortex.Mediator, Brighter, FastEndpoints, plain handlers as MediatR alternatives), read model and projection design, the transactional outbox with EF Core, idempotency keys, eventual consistency as a UX problem (read-your-own-writes, optimistic UI), event versioning, returning data from commands, and vertical slice pairing. Use when designing command handlers, query handlers, read models, projections, or async consistency between write and read sides. Triggers: CQRS, command query separation, command handler, query handler, read model, write model, projection, event sourcing, Marten, Wolverine, MediatR alternative, outbox, eventual consistency, idempotency, vertical slice, critter stack.",
       "version": "1.0.0"
     },
     {

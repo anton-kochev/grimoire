@@ -103,6 +103,8 @@ public sealed class Order
 
 > **MediatR is commercial since v13** (April 2025). Options, in order of preference for new projects: **plain handler interfaces + DI** (no dependency, shown below), **Wolverine** (source-generated, adds retries/sagas/outbox), or **pin MediatR 12.x** (last free version). Don't pick a mediator library by habit — most solutions only use 10% of it.
 
+For CQRS beyond the handler split — the maturity ladder, read models and projections, the outbox pattern, idempotency, and event sourcing with Marten — defer to the `grimoire.dotnet-cqrs` skill.
+
 ```csharp
 public interface ICommandHandler<in TCommand, TResult>
 {
