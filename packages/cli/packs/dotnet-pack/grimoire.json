@@ -41,6 +41,12 @@
   ],
   "skills": [
     {
+      "name": "grimoire.dotnet-clean-architecture",
+      "path": "skills/grimoire.dotnet-clean-architecture",
+      "description": "Clean Architecture best practices for modern .NET (current: .NET 10) — the Dependency Rule, layer responsibilities (Domain, Application, Infrastructure, Presentation), and the 4-project solution layout, with rich domain models, value objects, domain events, the result pattern, and CQRS with or without MediatR (commercial since v13 — covers Wolverine and plain handler alternatives). Includes architecture tests with ArchUnitNET, when NOT to use Clean Architecture (vertical slice and hybrid approaches), and avoiding over-abstraction: generic repositories over EF Core, interface-for-everything, anemic domains, leaky IQueryable boundaries. Use when structuring a .NET solution, designing or reviewing layers, or deciding where business logic belongs. Triggers: clean architecture, onion architecture, hexagonal, ports and adapters, dependency rule, domain layer, application layer, use case, CQRS, MediatR, Wolverine, value object, domain event, anemic model, repository pattern, vertical slice, ArchUnitNET.",
+      "version": "1.0.0"
+    },
+    {
       "name": "grimoire.dotnet-feature-workflow",
       "path": "skills/grimoire.dotnet-feature-workflow",
       "description": "Orchestrate end-to-end .NET feature development through the Explore, Plan, Code, Verify, Review workflow. A user-invoked command that drives hands-off, TDD-based delivery — spawning a specialized agent at each phase and gating on user approval before implementation.",
