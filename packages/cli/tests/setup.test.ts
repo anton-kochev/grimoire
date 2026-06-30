@@ -42,14 +42,14 @@ describe('mergeSettings', () => {
   it('should no-op on a fresh project', () => {
     mergeSettings(projectDir);
 
-    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
+    expect(existsSync(join(projectDir, '.claude', 'settings.local.json'))).toBe(false);
   });
 
   it('should remove legacy bare matching hooks and preserve other hooks', () => {
     const settingsDir = join(projectDir, '.claude');
     mkdirSync(settingsDir, { recursive: true });
     writeFileSync(
-      join(settingsDir, 'settings.json'),
+      join(settingsDir, 'settings.local.json'),
       JSON.stringify({
         hooks: {
           UserPromptSubmit: [
@@ -66,7 +66,7 @@ describe('mergeSettings', () => {
 
     mergeSettings(projectDir);
 
-    const settings = readJson(join(settingsDir, 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(settingsDir, 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, Array<{ hooks: Array<{ command: string }> }>>;
 
     expect(hooks['UserPromptSubmit']).toHaveLength(1);
@@ -79,13 +79,13 @@ describe('mergeSettings', () => {
     const settingsDir = join(projectDir, '.claude');
     mkdirSync(settingsDir, { recursive: true });
     writeFileSync(
-      join(settingsDir, 'settings.json'),
+      join(settingsDir, 'settings.local.json'),
       JSON.stringify({ permissions: { allow: ['Read'] }, hooks: {} }),
     );
 
     mergeSettings(projectDir);
 
-    const settings = readJson(join(settingsDir, 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(settingsDir, 'settings.local.json')) as Record<string, unknown>;
     expect(settings['permissions']).toEqual({ allow: ['Read'] });
     expect(settings['hooks']).toBeUndefined();
   });
@@ -249,21 +249,21 @@ describe('setupRouter', () => {
 
     expect(existsSync(join(projectDir, '.claude', 'grimoire.json'))).toBe(true);
     // Skill injection is native (skills: frontmatter) — install writes no hooks,
-    // so settings.json is not created on a fresh project
-    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
+    // so settings.local.json is not created on a fresh project
+    expect(existsSync(join(projectDir, '.claude', 'settings.local.json'))).toBe(false);
   });
 
-  it('should not add subagent hooks to existing settings.json', () => {
+  it('should not add subagent hooks to existing settings.local.json', () => {
     const claudeDir = join(projectDir, '.claude');
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
-      join(claudeDir, 'settings.json'),
+      join(claudeDir, 'settings.local.json'),
       JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] }] } }),
     );
 
     setupRouter(projectDir, sampleManifest);
 
-    const settings = readJson(join(claudeDir, 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(claudeDir, 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
     expect(hooks['SubagentStart']).toBeUndefined();
     expect(hooks['SubagentStop']).toBeUndefined();

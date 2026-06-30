@@ -8,11 +8,11 @@ interface HookEntry {
 }
 
 /**
- * Removes legacy bare matching hooks from `.claude/settings.json`.
+ * Removes legacy bare matching hooks from `.claude/settings.local.json`.
  * Enforcement hooks (`--enforce`) and subagent hooks are preserved.
  */
 export function mergeSettings(projectDir: string): void {
-  const settingsPath = join(projectDir, '.claude', 'settings.json');
+  const settingsPath = join(projectDir, '.claude', 'settings.local.json');
   if (!existsSync(settingsPath)) return;
 
   const settings = JSON.parse(readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;

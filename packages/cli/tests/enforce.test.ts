@@ -49,7 +49,7 @@ function makeManifest(projectDir: string, agents: Record<string, { file_patterns
 function makeSettings(projectDir: string, settings: Record<string, unknown>): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
-  writeFileSync(join(claudeDir, 'settings.json'), JSON.stringify(settings, null, 2));
+  writeFileSync(join(claudeDir, 'settings.local.json'), JSON.stringify(settings, null, 2));
 }
 
 // =============================================================================
@@ -272,14 +272,14 @@ describe('ensureEnforceHooks', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should create settings.json with enforce hooks on fresh project', () => {
-    // Arrange — fresh projectDir with no settings.json
+  it('should create settings.local.json with enforce hooks on fresh project', () => {
+    // Arrange — fresh projectDir with no settings.local.json
 
     // Act
     ensureEnforceHooks(projectDir, ['grimoire.typescript-coder']);
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
 
     expect(hooks['PreToolUse']).toHaveLength(1);
@@ -322,7 +322,7 @@ describe('ensureEnforceHooks', () => {
     ensureEnforceHooks(projectDir, ['grimoire.typescript-coder']);
 
     // Assert — exactly one entry per event, no --agent= anywhere
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, Array<{ matcher: string; hooks: Array<{ command: string }> }>>;
 
     expect(hooks['SubagentStart']).toHaveLength(1);
@@ -356,7 +356,7 @@ describe('ensureEnforceHooks', () => {
     ensureEnforceHooks(projectDir, ['grimoire.typescript-coder', 'grimoire.vue3-coder']);
 
     // Assert — combined entry replaced with one entry per agent
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
 
     const startMatchers = hooks['SubagentStart']!.map((e) => e.matcher);
@@ -372,7 +372,7 @@ describe('ensureEnforceHooks', () => {
     ensureEnforceHooks(projectDir, []);
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
 
     expect(hooks['PreToolUse']).toHaveLength(1);
@@ -390,7 +390,7 @@ describe('ensureEnforceHooks', () => {
     ensureEnforceHooks(projectDir, ['grimoire.typescript-coder', 'grimoire.vue3-coder']);
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
 
     const startMatchers = hooks['SubagentStart']!.map((e) => e.matcher);
@@ -406,7 +406,7 @@ describe('ensureEnforceHooks', () => {
     ensureEnforceHooks(projectDir, ['grimoire.typescript-coder', 'grimoire.vue3-coder']);
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
 
     expect(hooks['PreToolUse']).toHaveLength(1);
@@ -420,7 +420,7 @@ describe('ensureEnforceHooks', () => {
     ensureEnforceHooks(projectDir, ['grimoire.typescript-coder']);
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
 
     const tsEntries = hooks['SubagentStart']!.filter((e) => e.matcher === 'grimoire.typescript-coder');
@@ -439,7 +439,7 @@ describe('ensureEnforceHooks', () => {
     ensureEnforceHooks(projectDir, ['grimoire.typescript-coder']);
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
 
     expect(hooks['UserPromptSubmit']).toHaveLength(1);
@@ -469,7 +469,7 @@ describe('removeEnforceHooks', () => {
     removeEnforceHooks(projectDir);
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = (settings['hooks'] ?? {}) as Record<string, unknown>;
 
     expect(hooks['PreToolUse']).toBeUndefined();
@@ -494,7 +494,7 @@ describe('removeEnforceHooks', () => {
     removeEnforceHooks(projectDir);
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, Array<{ hooks: Array<{ command: string }> }>>;
 
     expect(hooks['PreToolUse']).toHaveLength(1);
@@ -503,8 +503,8 @@ describe('removeEnforceHooks', () => {
     expect(hooks['SubagentStart']).toBeUndefined();
   });
 
-  it('should be a no-op when settings.json does not exist', () => {
-    // Arrange — fresh projectDir with no settings.json
+  it('should be a no-op when settings.local.json does not exist', () => {
+    // Arrange — fresh projectDir with no settings.local.json
 
     // Act + Assert
     expect(() => removeEnforceHooks(projectDir)).not.toThrow();
@@ -521,7 +521,7 @@ describe('removeEnforceHooks', () => {
     // Act + Assert
     expect(() => removeEnforceHooks(projectDir)).not.toThrow();
 
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
     expect(hooks['UserPromptSubmit']).toHaveLength(1);
   });
@@ -550,7 +550,7 @@ describe('removeSubagentHooksFor', () => {
     removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder');
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
 
     expect(hooks['SubagentStart']).toBeUndefined();
@@ -565,7 +565,7 @@ describe('removeSubagentHooksFor', () => {
     removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder');
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
 
     expect(hooks['SubagentStart']).toHaveLength(1);
@@ -589,7 +589,7 @@ describe('removeSubagentHooksFor', () => {
     removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder');
 
     // Assert
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, unknown[]>;
 
     expect(hooks['UserPromptSubmit']).toHaveLength(1);
@@ -605,14 +605,14 @@ describe('removeSubagentHooksFor', () => {
     // Act + Assert
     expect(() => removeSubagentHooksFor(projectDir, 'grimoire.csharp-coder')).not.toThrow();
 
-    const settings = readJson(join(projectDir, '.claude', 'settings.json')) as Record<string, unknown>;
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
     const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
 
     expect(hooks['SubagentStart']).toHaveLength(1);
     expect(hooks['SubagentStart']![0]!.matcher).toBe('grimoire.typescript-coder');
   });
 
-  it('should be a no-op when settings.json does not exist', () => {
+  it('should be a no-op when settings.local.json does not exist', () => {
     // Arrange — fresh projectDir
 
     // Act + Assert

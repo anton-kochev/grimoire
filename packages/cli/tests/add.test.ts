@@ -188,8 +188,8 @@ describe('runAdd', () => {
     await runAdd(projectDir);
 
     // No hooks are written at install time — skill injection is native
-    // (skills: frontmatter), so settings.json is not created
-    expect(existsSync(join(projectDir, '.claude', 'settings.json'))).toBe(false);
+    // (skills: frontmatter), so settings.local.json is not created
+    expect(existsSync(join(projectDir, '.claude', 'settings.local.json'))).toBe(false);
 
     // Manifest IS written with installed items registered
     const configPath = join(projectDir, '.claude', 'grimoire.json');

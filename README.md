@@ -220,7 +220,7 @@ Settings and router config live in `.claude/grimoire.json`. Enforcement paths ar
 
 ### Hook registration
 
-Enforcement hooks are managed by `grimoire config`. They use `PreToolUse` with the `--enforce` flag:
+Enforcement hooks are managed by `grimoire config` and written to the local (gitignored) `.claude/settings.local.json`. They use `PreToolUse` with the `--enforce` flag:
 
 ```json
 {
@@ -459,7 +459,7 @@ grimoire/
 │       ├── src/                       # TypeScript source
 │       └── tests/                     # Vitest tests
 └── .claude/
-    ├── settings.json                  # Hook registration
+    ├── settings.local.json            # Hook registration (local, gitignored)
     └── grimoire.json                  # Unified config (settings + router)
 ```
 

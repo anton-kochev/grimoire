@@ -1,10 +1,14 @@
 /**
  * Utilities for agent enforcement.
- * Manages enforcement hook entries in settings.json and reads the skills manifest.
+ * Manages enforcement hook entries in settings.local.json and reads the skills manifest.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+
+// Hook registration is written to the local (gitignored) settings file so it
+// stays out of the user's committed repo.
+const SETTINGS_FILE = 'settings.local.json';
 
 // =============================================================================
 // Manifest types (local, minimal — parallel to setup.ts)
@@ -122,7 +126,7 @@ const SUBAGENT_START_COMMAND = 'npx @grimoire-cc/router --subagent-start';
 const SUBAGENT_STOP_COMMAND = 'npx @grimoire-cc/router --subagent-stop';
 
 function readSettings(projectDir: string): ClaudeSettings {
-  const path = join(projectDir, '.claude', 'settings.json');
+  const path = join(projectDir, '.claude', SETTINGS_FILE);
   if (!existsSync(path)) return {};
   return JSON.parse(readFileSync(path, 'utf-8')) as ClaudeSettings;
 }
@@ -130,7 +134,7 @@ function readSettings(projectDir: string): ClaudeSettings {
 function writeSettings(projectDir: string, settings: ClaudeSettings): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
-  writeFileSync(join(claudeDir, 'settings.json'), JSON.stringify(settings, null, 2) + '\n');
+  writeFileSync(join(claudeDir, SETTINGS_FILE), JSON.stringify(settings, null, 2) + '\n');
 }
 
 /**
@@ -256,7 +260,7 @@ export function removeSubagentHooksFor(projectDir: string, agentName: string): v
 }
 
 /**
- * Removes all enforcement-related hook entries from settings.json.
+ * Removes all enforcement-related hook entries from settings.local.json.
  * No-op if the file or hooks don't exist.
  */
 export function removeEnforceHooks(projectDir: string): void {
