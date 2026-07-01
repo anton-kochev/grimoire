@@ -25,6 +25,15 @@ export interface InvocationTokens {
   total: number;
 }
 
+/** One tool call with its target and (when correlated via tool_use_id) its error. */
+export interface ToolEvent {
+  name: string;
+  /** file_path / first line of command / pattern / url — whichever the input carries */
+  target?: string | undefined;
+  isError: boolean;
+  errorText?: string | undefined;
+}
+
 export interface InvocationProfile {
   agentId: string;
   agentType: string;
@@ -33,6 +42,8 @@ export interface InvocationProfile {
   model: string | null;
   toolCounts: Record<string, number>;
   toolSequence: string[];
+  /** toolSequence enriched with targets and correlated errors */
+  toolEvents: ToolEvent[];
   toolCalls: number;
   turns: number;
   tokens: InvocationTokens;
@@ -44,6 +55,8 @@ export interface InvocationProfile {
   filesTouched: string[];
   /** max number of edits to any single file (thrash signal) */
   maxFileEdits: number;
+  /** intermediate assistant reasoning: the initial plan + text preceding errored calls */
+  reasoningSnippets: string[];
   /** the task the sub-agent was given (its first user message), truncated */
   taskPrompt: string;
   finalText: string;
@@ -83,6 +96,21 @@ function asNum(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
+const MAX_TARGET_CHARS = 120;
+const MAX_ERROR_CHARS = 200;
+const MAX_SNIPPET_CHARS = 300;
+const MAX_SNIPPETS = 3;
+
+/** Best-effort human-readable target of a tool call from its input object. */
+function toolTarget(input: unknown): string | undefined {
+  const obj = asObj(input);
+  if (!obj) return undefined;
+  const cmd = asStr(obj['command']);
+  const raw = asStr(obj['file_path']) ?? (cmd ? cmd.split('\n', 1)[0] : undefined)
+    ?? asStr(obj['pattern']) ?? asStr(obj['url']) ?? asStr(obj['path']);
+  return raw ? raw.slice(0, MAX_TARGET_CHARS) : undefined;
+}
+
 // =============================================================================
 // Pure parse of one sub-agent transcript
 // =============================================================================
@@ -95,6 +123,10 @@ export function parseInvocation(
 ): InvocationProfile {
   const toolCounts: Record<string, number> = {};
   const toolSequence: string[] = [];
+  const toolEvents: ToolEvent[] = [];
+  const eventById = new Map<string, ToolEvent>();
+  const precedingTextIdx = new Map<ToolEvent, number>();
+  const texts: string[] = [];
   const filesTouched: string[] = [];
   const tokens: InvocationTokens = { output: 0, input: 0, cacheRead: 0, cacheCreation: 0, total: 0 };
 
@@ -104,7 +136,6 @@ export function parseInvocation(
   let model: string | null = null;
   let firstTs: string | null = null;
   let lastTs: string | null = null;
-  let finalText = '';
   let taskPrompt = '';
   let parseErrors = 0;
 
@@ -127,13 +158,36 @@ export function parseInvocation(
       if (lastTs === null || ts > lastTs) lastTs = ts;
     }
 
-    // Tool results carry error signals (object form; string form = success)
-    const tur = obj['toolUseResult'];
-    const turObj = asObj(tur);
-    if (turObj) {
-      const interrupted = turObj['interrupted'] === true;
-      const stderr = asStr(turObj['stderr']);
-      if (interrupted || (stderr && stderr.trim())) toolErrors++;
+    // Errors: prefer tool_result blocks (`is_error` + text, correlated by
+    // tool_use_id); fall back to the coarser toolUseResult heuristic.
+    if (obj['type'] === 'user') {
+      let lineErrors = 0;
+      for (const rawBlock of asArr(asObj(obj['message'])?.['content'])) {
+        const block = asObj(rawBlock);
+        if (block?.['type'] !== 'tool_result' || block['is_error'] !== true) continue;
+        lineErrors++;
+        const id = asStr(block['tool_use_id']);
+        const event = id ? eventById.get(id) : undefined;
+        if (event) {
+          event.isError = true;
+          const text = contentText(block['content']);
+          if (text.trim()) event.errorText = text.trim().slice(0, MAX_ERROR_CHARS);
+        }
+      }
+      const turObj = asObj(obj['toolUseResult']);
+      if (!lineErrors && turObj) {
+        const interrupted = turObj['interrupted'] === true;
+        const stderr = asStr(turObj['stderr']);
+        if (interrupted || (stderr && stderr.trim())) {
+          lineErrors = 1;
+          const last = toolEvents[toolEvents.length - 1];
+          if (last && !last.isError) {
+            last.isError = true;
+            if (stderr?.trim()) last.errorText = stderr.trim().slice(0, MAX_ERROR_CHARS);
+          }
+        }
+      }
+      toolErrors += lineErrors;
     }
 
     // First user message = the task the sub-agent was handed
@@ -168,13 +222,20 @@ export function parseInvocation(
         toolCalls++;
         toolCounts[name] = (toolCounts[name] ?? 0) + 1;
         toolSequence.push(name);
+        const event: ToolEvent = { name, isError: false };
+        const target = toolTarget(block['input']);
+        if (target) event.target = target;
+        toolEvents.push(event);
+        precedingTextIdx.set(event, texts.length - 1);
+        const id = asStr(block['id']);
+        if (id) eventById.set(id, event);
         if (EDIT_TOOLS.has(name)) {
           const fp = asStr(asObj(block['input'])?.['file_path']);
           if (fp) filesTouched.push(fp);
         }
       } else if (btype === 'text') {
         const t = asStr(block['text']);
-        if (t && t.trim()) finalText = t.trim();
+        if (t && t.trim()) texts.push(t.trim());
       }
     }
   }
@@ -189,6 +250,23 @@ export function parseInvocation(
   for (const f of filesTouched) perFile[f] = (perFile[f] ?? 0) + 1;
   const maxFileEdits = filesTouched.length ? Math.max(...Object.values(perFile)) : 0;
 
+  // The last assistant text is the outcome; intermediate texts are reasoning.
+  // Keep the initial plan + the text preceding each errored call (the "why").
+  const finalText = texts[texts.length - 1] ?? '';
+  const intermediate = texts.slice(0, -1);
+  const reasoningSnippets: string[] = [];
+  const addSnippet = (t: string | undefined) => {
+    if (!t || reasoningSnippets.length >= MAX_SNIPPETS) return;
+    const s = t.slice(0, MAX_SNIPPET_CHARS);
+    if (!reasoningSnippets.includes(s)) reasoningSnippets.push(s);
+  };
+  addSnippet(intermediate[0]);
+  for (const event of toolEvents) {
+    if (!event.isError) continue;
+    const idx = precedingTextIdx.get(event) ?? -1;
+    if (idx >= 0 && idx < intermediate.length) addSnippet(intermediate[idx]);
+  }
+
   return {
     agentId,
     agentType: meta.agentType ?? 'unknown',
@@ -197,6 +275,7 @@ export function parseInvocation(
     model,
     toolCounts,
     toolSequence,
+    toolEvents,
     toolCalls,
     turns,
     tokens,
@@ -206,6 +285,7 @@ export function parseInvocation(
     toolErrors,
     filesTouched,
     maxFileEdits,
+    reasoningSnippets,
     taskPrompt: taskPrompt.slice(0, 1000),
     finalText: finalText.slice(0, 600),
     completed: finalText.length > 0,

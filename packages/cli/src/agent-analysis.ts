@@ -15,9 +15,18 @@ import { parseGrantedTools, enforceContextFromLog, type AgentContext } from './i
 
 const MAX_RUNS = 6;
 const MAX_DEF_CHARS = 5000;
-const MAX_TASK_CHARS = 500;
+const MAX_TASK_CHARS = 1000;
 const MAX_OUTCOME_CHARS = 400;
 const MAX_SEQUENCE = 60;
+
+/** Formats a wall-clock span as `4m10s` / `38s` / `1h02m`. */
+function fmtSpan(ms: number): string {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`;
+}
 
 export interface AnalysisResult {
   ok: boolean;
@@ -59,18 +68,31 @@ export function buildEvidencePrompt(
   }
   lines.push('');
 
-  lines.push(`## Observed runs (${recent.length} of ${invocations.length})`);
+  lines.push(`## Observed runs (the ${recent.length} most recent of ${invocations.length} recorded)`);
   recent.forEach((v, i) => {
     const toolCounts = Object.entries(v.toolCounts).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}×${n}`).join(', ') || 'none';
     const files = [...new Set(v.filesTouched)];
+    const events = v.toolEvents.length ? v.toolEvents : v.toolSequence.map((name) => ({ name, target: undefined, isError: false, errorText: undefined }));
+    const order = events.slice(0, MAX_SEQUENCE)
+      .map((e) => `${e.name}${e.target ? `(${e.target})` : ''}${e.isError ? '⚠' : ''}`)
+      .join(' → ');
     lines.push(
       '',
-      `### Run ${i + 1} — ${v.turns} turns, ${v.toolCalls} tool calls, ${v.tokens.output} output tokens${v.toolErrors ? `, ${v.toolErrors} tool errors` : ''}${v.completed ? '' : ', DID NOT finish'}`,
+      `### Run ${i + 1} — ${v.turns} turns, ${v.toolCalls} tool calls, ${v.tokens.output} output tokens, ${fmtSpan(v.spanMs)} wall-clock (includes idle)${v.toolErrors ? `, ${v.toolErrors} tool errors` : ''}${v.completed ? '' : ', DID NOT finish'}`,
       `Model: ${v.model ?? 'unknown'}`,
       `Task: ${v.taskPrompt.slice(0, MAX_TASK_CHARS) || '(unknown)'}`,
       `Tool counts: ${toolCounts}`,
-      `Tool order: ${v.toolSequence.slice(0, MAX_SEQUENCE).join(' → ')}${v.toolSequence.length > MAX_SEQUENCE ? ' → …' : ''}`,
+      `Tool order: ${order}${events.length > MAX_SEQUENCE ? ' → …' : ''}`,
     );
+    const errored = v.toolEvents.filter((e) => e.isError);
+    if (errored.length) {
+      lines.push('Errors:');
+      for (const e of errored) lines.push(`- ${e.name}${e.target ? `(${e.target})` : ''}: ${e.errorText ?? '(no error text)'}`);
+    }
+    if (v.reasoningSnippets.length) {
+      lines.push('Reasoning excerpts (the agent\'s own intermediate thoughts):');
+      for (const s of v.reasoningSnippets) lines.push(`- "${s}"`);
+    }
     if (files.length) lines.push(`Files edited: ${files.join(', ')}${v.maxFileEdits > 1 ? ` (one file edited up to ${v.maxFileEdits}×)` : ''}`);
     lines.push(`Outcome: ${v.finalText.slice(0, MAX_OUTCOME_CHARS) || '(no final text)'}`);
   });
@@ -78,11 +100,21 @@ export function buildEvidencePrompt(
   lines.push(
     '',
     '## Your task',
-    'Find where the agent\'s actual behavior diverges from its purpose, and where it is inefficient (wasted tool calls, re-reading, excess tokens/turns) or unreliable. Output 2–5 concrete improvements. For each, on its own line:',
-    '- **[lever]** — a change, citing specific evidence from the runs above (e.g. "Run 2 read the same file 4×").',
-    'Valid levers: prompt, tools, file_patterns, skills, model. If the agent looks healthy and efficient, say so plainly instead of inventing issues.',
+    'Write a review with exactly these three markdown sections:',
     '',
-    'Reason ONLY from the evidence above — you have no tools and cannot browse or verify externally. Respond with just the review in concise markdown; do not attempt any actions.',
+    '## How this agent behaves',
+    '2–4 sentences reconstructing the agent\'s working style from the runs above: how it approaches a task, its characteristic tool rhythm, where it spends its effort. Descriptive, no judgment.',
+    '',
+    '## Working well',
+    'Patterns worth keeping, each with evidence. If little stands out, one line is fine.',
+    '',
+    '## Suggestions (highest impact first)',
+    'Up to 4, numbered. Each: **[lever]** — the change, the evidence (cite runs and pattern frequency, e.g. "re-read the same file in 4/6 runs"), confidence (high/medium/low), and the expected effect on the numbers above. Valid levers: prompt, tools, file_patterns, skills, model. If the agent looks healthy and efficient, say so plainly and keep this section minimal instead of inventing issues.',
+    '',
+    'Rules:',
+    `- Cite ONLY evidence shown above (tool order with targets, errors, reasoning excerpts, counts). Never invent file names, line numbers, or events.`,
+    `- ${recent.length} runs is a small sample — distinguish systemic patterns ("4/6 runs") from one-offs, and label one-offs as such.`,
+    '- You have no tools and cannot browse or verify externally. Respond with just the review in concise markdown; do not attempt any actions.',
   );
 
   return lines.join('\n');

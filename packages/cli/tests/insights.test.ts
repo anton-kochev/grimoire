@@ -82,6 +82,80 @@ describe('parseInvocation', () => {
     expect(empty.turns).toBe(0);
     expect(empty.agentType).toBe('unknown');
   });
+
+  it('captures tool targets and marks the fallback-heuristic error on the last event', () => {
+    expect(inv.toolEvents.map((e) => ({ name: e.name, target: e.target }))).toEqual([
+      { name: 'Read', target: 'a.ts' },
+      { name: 'Edit', target: 'a.ts' },
+      { name: 'Edit', target: 'a.ts' },
+    ]);
+    // the interrupted/stderr result follows the last Edit
+    expect(inv.toolEvents[2]!.isError).toBe(true);
+    expect(inv.toolEvents[0]!.isError).toBe(false);
+  });
+});
+
+// =============================================================================
+// parseInvocation — is_error correlation + reasoning snippets
+// =============================================================================
+
+describe('parseInvocation error correlation', () => {
+  const jsonl = [
+    line({ type: 'user', timestamp: '2026-07-01T10:00:00.000Z', message: { role: 'user', content: [{ type: 'text', text: 'fix the config' }] } }),
+    line({
+      type: 'assistant',
+      timestamp: '2026-07-01T10:00:01.000Z',
+      message: {
+        model: 'claude-haiku-4-5',
+        content: [
+          { type: 'text', text: 'Let me start by reading the config' },
+          { type: 'tool_use', id: 'tu1', name: 'Read', input: { file_path: 'cfg.json' } },
+        ],
+      },
+    }),
+    line({
+      type: 'user',
+      timestamp: '2026-07-01T10:00:02.000Z',
+      message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu1', is_error: true, content: 'File does not exist. Did you mean config.json?' }] },
+    }),
+    line({
+      type: 'assistant',
+      timestamp: '2026-07-01T10:00:03.000Z',
+      message: {
+        content: [
+          { type: 'text', text: 'Read failed, listing the directory instead' },
+          { type: 'tool_use', id: 'tu2', name: 'Bash', input: { command: 'ls -la\necho done' } },
+        ],
+      },
+    }),
+    line({
+      type: 'user',
+      timestamp: '2026-07-01T10:00:04.000Z',
+      message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu2', content: [{ type: 'text', text: 'config.json' }] }] },
+    }),
+    line({ type: 'assistant', timestamp: '2026-07-01T10:00:05.000Z', message: { content: [{ type: 'text', text: 'Fixed it, all done' }] } }),
+  ].join('\n');
+
+  const inv = parseInvocation('ag-2', 'sess-1', jsonl, { agentType: 'X' });
+
+  it('correlates is_error results to the exact tool call and keeps the error text', () => {
+    expect(inv.toolEvents).toHaveLength(2);
+    expect(inv.toolEvents[0]).toMatchObject({ name: 'Read', target: 'cfg.json', isError: true });
+    expect(inv.toolEvents[0]!.errorText).toContain('File does not exist');
+    expect(inv.toolEvents[1]!.isError).toBe(false);
+    expect(inv.toolErrors).toBe(1);
+  });
+
+  it('uses the first line of a Bash command as the target', () => {
+    expect(inv.toolEvents[1]!.target).toBe('ls -la');
+  });
+
+  it('keeps intermediate reasoning snippets, not the final text', () => {
+    expect(inv.reasoningSnippets).toContain('Let me start by reading the config');
+    expect(inv.reasoningSnippets).not.toContain('Fixed it, all done');
+    expect(inv.reasoningSnippets.length).toBeLessThanOrEqual(3);
+    expect(inv.finalText).toBe('Fixed it, all done');
+  });
 });
 
 // =============================================================================
@@ -94,6 +168,7 @@ function mkInv(over: Partial<InvocationProfile>): InvocationProfile {
     toolCounts: {}, toolSequence: [], toolCalls: 0, turns: 0,
     tokens: { output: 0, input: 0, cacheRead: 0, cacheCreation: 0, total: 0 },
     firstTs: null, lastTs: null, spanMs: 0, toolErrors: 0, filesTouched: [], maxFileEdits: 0,
+    toolEvents: [], reasoningSnippets: [],
     taskPrompt: '', finalText: '', completed: true, parseErrors: 0, ...over,
   };
 }
@@ -169,7 +244,14 @@ describe('buildEvidencePrompt', () => {
     taskPrompt: `task number ${i}`,
     toolCounts: { Read: 3, Edit: 1 },
     toolSequence: ['Read', 'Read', 'Read', 'Edit'],
-    toolCalls: 4, turns: 6, filesTouched: ['a.ts'],
+    toolEvents: [
+      { name: 'Read', target: 'a.ts', isError: false },
+      { name: 'Read', target: 'a.ts', isError: false },
+      { name: 'Read', target: 'b.ts', isError: true, errorText: 'File does not exist.' },
+      { name: 'Edit', target: 'a.ts', isError: false },
+    ],
+    reasoningSnippets: ['I will read the file first'],
+    toolCalls: 4, turns: 6, toolErrors: 1, filesTouched: ['a.ts'], spanMs: 250_000,
     firstTs: `2026-07-0${i + 1}T10:00:00.000Z`,
   }));
 
@@ -184,10 +266,29 @@ describe('buildEvidencePrompt', () => {
     expect(prompt).toMatch(/lever/i);
   });
 
-  it('caps the number of runs and notes built-in agents', () => {
+  it('renders tool targets, error marks and reasoning excerpts in the run trace', () => {
+    const prompt = buildEvidencePrompt('grimoire.typescript-coder', null, invs);
+    expect(prompt).toContain('Read(a.ts)');
+    expect(prompt).toContain('Read(b.ts)⚠');
+    expect(prompt).toContain('File does not exist.');
+    expect(prompt).toContain('I will read the file first');
+    expect(prompt).toMatch(/4m1\ds wall-clock/);
+  });
+
+  it('asks for the three-section review with frequency and confidence discipline', () => {
+    const prompt = buildEvidencePrompt('grimoire.typescript-coder', null, invs);
+    expect(prompt).toContain('## How this agent behaves');
+    expect(prompt).toContain('## Working well');
+    expect(prompt).toContain('## Suggestions');
+    expect(prompt).toMatch(/confidence/i);
+    expect(prompt).toMatch(/\d\/6 runs/);
+    expect(prompt).toMatch(/small sample/i);
+  });
+
+  it('caps the number of runs, states the selection window and notes built-in agents', () => {
     const prompt = buildEvidencePrompt('Explore', null, invs);
     expect(prompt).toContain('Built-in agent');
-    // 9 invocations but capped at 6
-    expect(prompt).toContain('Observed runs (6 of 9)');
+    // 9 invocations but capped at 6, most recent first
+    expect(prompt).toContain('Observed runs (the 6 most recent of 9 recorded)');
   });
 });
