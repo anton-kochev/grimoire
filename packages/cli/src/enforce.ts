@@ -119,9 +119,10 @@ export function readAgentMeta(agentPath: string): AgentMeta {
 
 const ENFORCE_COMMAND = 'npx @grimoire-cc/router --enforce';
 
-// Subagent hooks only maintain the session registry (enforcement bypass).
-// Skill injection is handled natively by Claude Code via the `skills:` field
-// in agent frontmatter, so no --agent= flag is needed.
+// Subagent hooks emit lifecycle telemetry only. Enforcement decides ownership
+// statelessly from the PreToolUse `agent_type` field, so these hooks no longer
+// gate edits. Skill injection is handled natively by Claude Code via the
+// `skills:` field in agent frontmatter, so no --agent= flag is needed.
 const SUBAGENT_START_COMMAND = 'npx @grimoire-cc/router --subagent-start';
 const SUBAGENT_STOP_COMMAND = 'npx @grimoire-cc/router --subagent-stop';
 

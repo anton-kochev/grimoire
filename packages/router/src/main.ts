@@ -236,28 +236,37 @@ export async function main(): Promise<void> {
       const obj = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
       const sessionId = typeof obj['session_id'] === 'string' ? obj['session_id'] : 'unknown';
 
+      // Resolve the configured log path once for all enforce/subagent modes.
+      const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
+      let logPath = '.claude/logs/grimoire-router.log';
+      try {
+        const manifest = loadManifest(projectDir);
+        logPath = manifest.config.log_path ?? logPath;
+      } catch { /* use default */ }
+
       if (args.enforce) {
         // Parse as PreToolUseInput for enforcement check
         const stdinInput = parseStdinInput(stdinContent);
         if (stdinInput.kind === 'tooluse') {
-          const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-          let logPath = '.claude/logs/grimoire-router.log';
-          try {
-            const manifest = loadManifest(projectDir);
-            logPath = manifest.config.log_path ?? logPath;
-          } catch { /* use default */ }
           runEnforce(stdinInput.input, logPath);
         }
         process.exit(0);
       }
 
+      const subagentInput = {
+        session_id: sessionId,
+        ...(typeof obj['agent_id'] === 'string' ? { agent_id: obj['agent_id'] } : {}),
+        ...(typeof obj['agent_type'] === 'string' ? { agent_type: obj['agent_type'] } : {}),
+        ...(typeof obj['stop_reason'] === 'string' ? { stop_reason: obj['stop_reason'] } : {}),
+      };
+
       if (args.subagentStart) {
-        runSubagentStart({ session_id: sessionId });
+        runSubagentStart(subagentInput, logPath);
         // runSubagentStart calls process.exit internally
       }
 
       if (args.subagentStop) {
-        runSubagentStop({ session_id: sessionId });
+        runSubagentStop(subagentInput, logPath);
         // runSubagentStop calls process.exit internally
       }
 

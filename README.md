@@ -184,7 +184,7 @@ The router (`@grimoire-cc/router`) is a hook runtime for agent enforcement. Auto
 
 ### Agent enforcement (PreToolUse)
 
-When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched. SubagentStart/Stop hooks maintain a session registry so a specialist agent can edit its own files.
+When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched. Ownership is resolved statelessly from the PreToolUse `agent_type` field: a specialist may edit the files it owns, while the main thread and non-owner agents are blocked. SubagentStart/Stop hooks emit lifecycle telemetry only.
 
 Enable or disable enforcement with:
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -9,10 +9,6 @@ function makeTmpDir(prefix: string): string {
   const raw = join(tmpdir(), `enforce-test-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(raw, { recursive: true });
   return realpathSync(raw);
-}
-
-function readJson(filePath: string): unknown {
-  return JSON.parse(readFileSync(filePath, 'utf-8'));
 }
 
 function makeManifest(
@@ -50,15 +46,12 @@ function writeGrimoireConfig(projectDir: string, config: { enforcement?: boolean
   writeFileSync(join(claudeDir, 'grimoire.json'), JSON.stringify(config));
 }
 
-function makeRegistry(registryPath: string, sessions: string[]): void {
-  mkdirSync(join(registryPath, '..'), { recursive: true });
-  writeFileSync(registryPath, JSON.stringify({ sessions }, null, 2) + '\n');
-}
-
 function makePreToolUseInput(
   toolName: 'Edit' | 'Write' | 'MultiEdit' | 'Read',
   filePath: string,
   sessionId = 'test-session',
+  /** Set to simulate an edit originating inside a subagent of this type. */
+  agentType?: string,
 ): PreToolUseInput {
   return {
     session_id: sessionId,
@@ -66,6 +59,7 @@ function makePreToolUseInput(
     tool_name: toolName as 'Edit' | 'Write' | 'MultiEdit',
     tool_use_id: 'tool-123',
     tool_input: { file_path: filePath },
+    ...(agentType ? { agent_id: 'agent-instance-1', agent_type: agentType } : {}),
   };
 }
 
@@ -75,11 +69,9 @@ function makePreToolUseInput(
 
 describe('evaluateEnforce', () => {
   let projectDir: string;
-  let registryPath: string;
 
   beforeEach(() => {
     projectDir = makeTmpDir('eval');
-    registryPath = join(projectDir, '.claude', 'hooks', '.grimoire-subagents.json');
   });
 
   afterEach(() => {
@@ -95,7 +87,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Read', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -107,7 +99,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -122,7 +114,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -136,7 +128,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -163,30 +155,32 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
   });
 
-  it('should allow when session_id is in registry (subagent bypass)', () => {
-    // Arrange
+  it('should allow when the owning agent edits its own file (owner bypass)', () => {
+    // Arrange — edit originates inside the owning subagent
     writeGrimoireConfig(projectDir, { enforcement: true });
     makeManifest(projectDir, {
       'grimoire.typescript-coder': { file_patterns: ['*.ts'] },
     });
-    makeRegistry(registryPath, ['test-session']);
-    const input = makePreToolUseInput('Edit', 'src/index.ts', 'test-session');
+    const input = makePreToolUseInput('Edit', 'src/index.ts', 'test-session', 'grimoire.typescript-coder');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
+    if (result.action === 'allow') {
+      expect(result.ownerAgent).toBe('grimoire.typescript-coder');
+    }
   });
 
-  it('should block when file matches agent pattern and enforcement is enabled', () => {
-    // Arrange
+  it('should block when the main thread (no agent_type) edits an owned file', () => {
+    // Arrange — no agent_type => edit came from the main thread
     writeGrimoireConfig(projectDir, { enforcement: true });
     makeManifest(projectDir, {
       'grimoire.typescript-coder': { file_patterns: ['*.ts'] },
@@ -194,13 +188,31 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/utils.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
     if (result.action === 'block') {
       expect(result.agents).toContain('grimoire.typescript-coder');
       expect(result.filePath).toBe('src/utils.ts');
+    }
+  });
+
+  it('should block when a non-owner subagent edits a file owned by another agent', () => {
+    // Arrange — a different specialist edits a TS file it does not own
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'] },
+    });
+    const input = makePreToolUseInput('Edit', 'src/index.ts', 'test-session', 'grimoire.csharp-coder');
+
+    // Act
+    const result = evaluateEnforce(input, projectDir);
+
+    // Assert
+    expect(result.action).toBe('block');
+    if (result.action === 'block') {
+      expect(result.agents).toContain('grimoire.typescript-coder');
     }
   });
 
@@ -213,7 +225,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Write', 'new-file.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -228,7 +240,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('MultiEdit', 'src/api.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -243,7 +255,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'README.md');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -259,7 +271,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/MyService.cs');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -267,6 +279,25 @@ describe('evaluateEnforce', () => {
       expect(result.agents).toHaveLength(2);
       expect(result.agents).toContain('grimoire.csharp-coder');
       expect(result.agents).toContain('grimoire.dotnet-architect');
+    }
+  });
+
+  it('should allow the owner even when multiple agents match the file', () => {
+    // Arrange — file owned by two agents; the edit comes from one of them
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { file_patterns: ['*.cs'] },
+      'grimoire.dotnet-architect': { file_patterns: ['*.cs', '*.csproj'] },
+    });
+    const input = makePreToolUseInput('Edit', 'src/MyService.cs', 'test-session', 'grimoire.dotnet-architect');
+
+    // Act
+    const result = evaluateEnforce(input, projectDir);
+
+    // Assert
+    expect(result.action).toBe('allow');
+    if (result.action === 'allow') {
+      expect(result.ownerAgent).toBe('grimoire.dotnet-architect');
     }
   });
 
@@ -279,7 +310,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'src/index.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -294,7 +325,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', 'packages/core/src/deep/util.ts');
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -310,7 +341,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', absFilePath);
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -329,7 +360,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', absFilePath);
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -348,7 +379,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', absFilePath);
 
     // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
+    const result = evaluateEnforce(input, projectDir);
 
     // Assert
     expect(result.action).toBe('allow');
@@ -364,7 +395,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', winPath);
 
     // Act — configDir points to real temp dir for grimoire.json lookup
-    const result = evaluateEnforce(input, registryPath, 'C:\\Users\\AKochev\\project', projectDir);
+    const result = evaluateEnforce(input, 'C:\\Users\\AKochev\\project', projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -383,7 +414,7 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Write', winPath);
 
     // Act
-    const result = evaluateEnforce(input, registryPath, 'C:\\Projects', projectDir);
+    const result = evaluateEnforce(input, 'C:\\Projects', projectDir);
 
     // Assert
     expect(result.action).toBe('block');
@@ -402,29 +433,13 @@ describe('evaluateEnforce', () => {
     const input = makePreToolUseInput('Edit', winPath);
 
     // Act
-    const result = evaluateEnforce(input, registryPath, 'C:\\Users\\Dev\\project', projectDir);
+    const result = evaluateEnforce(input, 'C:\\Users\\Dev\\project', projectDir);
 
     // Assert
     expect(result.action).toBe('block');
     if (result.action === 'block') {
       expect(result.agents).toContain('grimoire.typescript-coder');
     }
-  });
-
-  it('should block when registry contains a different session', () => {
-    // Arrange
-    writeGrimoireConfig(projectDir, { enforcement: true });
-    makeManifest(projectDir, {
-      'grimoire.typescript-coder': { file_patterns: ['*.ts'] },
-    });
-    makeRegistry(registryPath, ['other-session']);
-    const input = makePreToolUseInput('Edit', 'src/index.ts', 'my-session');
-
-    // Act
-    const result = evaluateEnforce(input, registryPath, projectDir);
-
-    // Assert
-    expect(result.action).toBe('block');
   });
 });
 
@@ -470,9 +485,37 @@ describe('runEnforce logging', () => {
     expect(entry['hook_event']).toBe('PreToolUse');
     expect(entry['tool_name']).toBe('Edit');
     expect(entry['session_id']).toBe('session-xyz');
+    expect(entry['agent_type']).toBe(null);
     expect(entry['file_basename']).toBe('utils.ts');
     expect(entry['blocking_agents']).toContain('grimoire.typescript-coder');
     expect(typeof entry['timestamp']).toBe('string');
+  });
+
+  it('should write an owner-bypass allow log entry with agent_type', () => {
+    // Arrange — the owning subagent edits its own file
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'] },
+    });
+    const input = makePreToolUseInput('Edit', 'src/utils.ts', 'session-xyz', 'grimoire.typescript-coder');
+    const origEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+
+    // Act
+    try {
+      runEnforce(input, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    process.env['CLAUDE_PROJECT_DIR'] = origEnv;
+
+    // Assert
+    expect(existsSync(logPath)).toBe(true);
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['outcome']).toBe('allow');
+    expect(entry['enforce_block']).toBe(false);
+    expect(entry['owner_bypass']).toBe(true);
+    expect(entry['agent_type']).toBe('grimoire.typescript-coder');
+    expect(entry['file_basename']).toBe('utils.ts');
   });
 
   it('should write an allow log entry with debug info when file does not match', () => {
@@ -576,170 +619,106 @@ describe('runEnforce logging', () => {
 });
 
 // =============================================================================
-// runSubagentStart
+// runSubagentStart — telemetry only (no registry)
 // =============================================================================
 
 describe('runSubagentStart', () => {
   let projectDir: string;
+  let logPath: string;
 
   beforeEach(() => {
     projectDir = makeTmpDir('subagent-start');
+    logPath = join(projectDir, 'test-router.log');
   });
 
   afterEach(() => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should create registry with session_id when file does not exist', () => {
-    // Arrange
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-
+  it('should write a SubagentStart telemetry log entry', () => {
     // Act
     try {
-      runSubagentStart({ session_id: 'session-abc' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
+      runSubagentStart({ session_id: 'session-abc', agent_id: 'agent-1', agent_type: 'grimoire.csharp-coder' }, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
 
     // Assert
-    expect(existsSync(registryPath)).toBe(true);
-    const data = readJson(registryPath) as { sessions: string[] };
-    expect(data.sessions).toContain('session-abc');
+    expect(existsSync(logPath)).toBe(true);
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['hook_event']).toBe('SubagentStart');
+    expect(entry['session_id']).toBe('session-abc');
+    expect(entry['agent_id']).toBe('agent-1');
+    expect(entry['agent_type']).toBe('grimoire.csharp-coder');
+    expect(typeof entry['timestamp']).toBe('string');
   });
 
-  it('should append session_id to existing registry', () => {
-    // Arrange
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    writeFileSync(registryPath, JSON.stringify({ sessions: ['existing-session'] }));
-
+  it('should record null agent fields when absent', () => {
     // Act
     try {
-      runSubagentStart({ session_id: 'new-session' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
+      runSubagentStart({ session_id: 'session-abc' }, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
 
     // Assert
-    const data = readJson(registryPath) as { sessions: string[] };
-    expect(data.sessions).toContain('existing-session');
-    expect(data.sessions).toContain('new-session');
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['agent_id']).toBe(null);
+    expect(entry['agent_type']).toBe(null);
   });
 
-  it('should not duplicate session_id when called twice (idempotent)', () => {
-    // Arrange
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    writeFileSync(registryPath, JSON.stringify({ sessions: ['session-abc'] }));
-
+  it('should not create a subagent registry file', () => {
     // Act
     try {
-      runSubagentStart({ session_id: 'session-abc' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
+      runSubagentStart({ session_id: 'session-abc', agent_id: 'agent-1' }, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
 
-    // Assert
-    const data = readJson(registryPath) as { sessions: string[] };
-    expect(data.sessions.filter((s) => s === 'session-abc')).toHaveLength(1);
-  });
-
-  it('should only register the session and never write to stdout (skill injection is native via skills frontmatter)', () => {
-    // Arrange — agent with skills in frontmatter; injection must NOT happen anyway
-    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    const agentsDir = join(projectDir, '.claude', 'agents');
-    mkdirSync(agentsDir, { recursive: true });
-    writeFileSync(join(agentsDir, 'grimoire.csharp-coder.md'), [
-      '---',
-      'name: grimoire.csharp-coder',
-      'skills:',
-      '  - skill-a',
-      '---',
-      '',
-      'Agent body.',
-    ].join('\n'));
-    const skillDir = join(projectDir, '.claude', 'skills', 'skill-a');
-    mkdirSync(skillDir, { recursive: true });
-    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: skill-a\ndescription: test\n---\nSkill A content.');
-
-    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-
-    // Act
-    try {
-      runSubagentStart({ session_id: 'session-abc' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
-
-    // Assert — session registered, no stdout output
-    const data = readJson(registryPath) as { sessions: string[] };
-    expect(data.sessions).toContain('session-abc');
-    expect(writeSpy).not.toHaveBeenCalled();
-    writeSpy.mockRestore();
-    delete process.env['CLAUDE_PROJECT_DIR'];
+    // Assert — the old registry mechanism is gone
+    expect(existsSync(join(projectDir, '.claude', 'hooks', '.grimoire-subagents.json'))).toBe(false);
   });
 });
 
 // =============================================================================
-// runSubagentStop
+// runSubagentStop — telemetry only (no registry)
 // =============================================================================
 
 describe('runSubagentStop', () => {
   let projectDir: string;
+  let logPath: string;
 
   beforeEach(() => {
     projectDir = makeTmpDir('subagent-stop');
+    logPath = join(projectDir, 'test-router.log');
   });
 
   afterEach(() => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('should remove session_id from registry', () => {
-    // Arrange
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    writeFileSync(registryPath, JSON.stringify({ sessions: ['session-abc', 'session-xyz'] }));
-
+  it('should write a SubagentStop telemetry log entry with stop_reason', () => {
     // Act
     try {
-      runSubagentStop({ session_id: 'session-abc' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
+      runSubagentStop(
+        { session_id: 'session-abc', agent_id: 'agent-1', agent_type: 'grimoire.csharp-coder', stop_reason: 'success' },
+        logPath,
+      );
+    } catch { /* process.exit(0) throws in vitest */ }
 
     // Assert
-    const data = readJson(registryPath) as { sessions: string[] };
-    expect(data.sessions).not.toContain('session-abc');
-    expect(data.sessions).toContain('session-xyz');
+    expect(existsSync(logPath)).toBe(true);
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['hook_event']).toBe('SubagentStop');
+    expect(entry['session_id']).toBe('session-abc');
+    expect(entry['agent_id']).toBe('agent-1');
+    expect(entry['agent_type']).toBe('grimoire.csharp-coder');
+    expect(entry['stop_reason']).toBe('success');
   });
 
-  it('should be a no-op when session_id is not in registry', () => {
-    // Arrange
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-    writeFileSync(registryPath, JSON.stringify({ sessions: ['other-session'] }));
-
+  it('should record a null stop_reason when absent', () => {
     // Act
     try {
-      runSubagentStop({ session_id: 'nonexistent' }, registryPath);
-    } catch {
-      // process.exit(0) throws in vitest
-    }
+      runSubagentStop({ session_id: 'session-abc' }, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
 
     // Assert
-    const data = readJson(registryPath) as { sessions: string[] };
-    expect(data.sessions).toContain('other-session');
-  });
-
-  it('should be a no-op when registry file does not exist', () => {
-    // Arrange
-    const registryPath = join(projectDir, '.grimoire-subagents.json');
-
-    // Act + Assert
-    expect(() => {
-      try {
-        runSubagentStop({ session_id: 'session-abc' }, registryPath);
-      } catch {
-        // process.exit(0) throws in vitest
-      }
-    }).not.toThrow();
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['hook_event']).toBe('SubagentStop');
+    expect(entry['stop_reason']).toBe(null);
   });
 });

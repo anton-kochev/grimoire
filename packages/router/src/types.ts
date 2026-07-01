@@ -99,6 +99,10 @@ export interface PreToolUseInput {
   tool_name: ToolName;
   tool_use_id: string;
   tool_input: Record<string, unknown>;
+  /** Unique subagent invocation id — present only when the edit originates inside a subagent. */
+  agent_id?: string;
+  /** Editing agent's name (e.g. `grimoire.typescript-coder`) — present inside a subagent. */
+  agent_type?: string;
 }
 
 /**
@@ -187,9 +191,9 @@ export interface SkillScoreResult {
 export interface ParsedArgs {
   /** Run enforcement check (PreToolUse) */
   enforce?: boolean;
-  /** Register session as a subagent (SubagentStart) */
+  /** Emit subagent-spawned telemetry (SubagentStart) */
   subagentStart?: boolean;
-  /** Remove session from subagent registry (SubagentStop) */
+  /** Emit subagent-finished telemetry (SubagentStop) */
   subagentStop?: boolean;
 }
 
@@ -204,14 +208,20 @@ export interface EnforceDebugInfo {
 }
 
 export type EnforceResult =
-  | { action: 'allow'; debugInfo?: EnforceDebugInfo }
+  | { action: 'allow'; debugInfo?: EnforceDebugInfo; ownerAgent?: string }
   | { action: 'block'; agents: string[]; filePath: string };
 
 /**
- * Minimal input for SubagentStart/Stop hooks
+ * Input for SubagentStart/Stop hooks — used for telemetry logging only.
  */
 export interface SubagentHookInput {
   session_id: string;
+  /** Unique subagent invocation id. */
+  agent_id?: string;
+  /** Subagent's name (e.g. `grimoire.typescript-coder`). */
+  agent_type?: string;
+  /** SubagentStop only: `success` | `cancelled` | `error`. */
+  stop_reason?: string;
 }
 
 // =============================================================================

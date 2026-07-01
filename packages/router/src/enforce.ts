@@ -1,43 +1,22 @@
 /**
- * Agent enforcement logic for PreToolUse blocking and subagent session registry.
+ * Agent enforcement logic for PreToolUse blocking.
+ *
+ * Ownership is decided statelessly from the PreToolUse payload: Claude Code
+ * supplies `agent_type` (the editing agent's name) when an edit originates
+ * inside a subagent, and omits it for the main thread. A specialist may edit
+ * only the files it owns; anyone else is blocked from owned files.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, join } from 'node:path';
 import picomatch from 'picomatch';
 import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
-
-/** Normalize Windows backslashes to forward slashes for consistent glob matching. */
-function normalizeSeparators(p: string): string {
-  return p.replaceAll('\\', '/');
-}
 import { loadManifest } from './manifest.js';
 import { loadGrimoireConfig } from './grimoire-config.js';
 import { writeLog } from './logging.js';
 
-const DEFAULT_REGISTRY_PATH = '.claude/hooks/.grimoire-subagents.json';
-
-// =============================================================================
-// Registry helpers
-// =============================================================================
-
-function readRegistry(registryPath: string): string[] {
-  if (!existsSync(registryPath)) return [];
-  try {
-    const data = JSON.parse(readFileSync(registryPath, 'utf-8')) as unknown;
-    if (data && typeof data === 'object' && 'sessions' in data && Array.isArray((data as { sessions: unknown }).sessions)) {
-      return (data as { sessions: string[] }).sessions.filter((s) => typeof s === 'string');
-    }
-  } catch {
-    // Ignore parse errors — treat as empty
-  }
-  return [];
-}
-
-function writeRegistry(registryPath: string, sessions: string[]): void {
-  const dir = dirname(registryPath);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(registryPath, JSON.stringify({ sessions }, null, 2) + '\n');
+/** Normalize Windows backslashes to forward slashes for consistent glob matching. */
+function normalizeSeparators(p: string): string {
+  return p.replaceAll('\\', '/');
 }
 
 // =============================================================================
@@ -50,19 +29,12 @@ function writeRegistry(registryPath: string, sessions: string[]): void {
  */
 export function evaluateEnforce(
   input: PreToolUseInput,
-  registryPath: string,
   projectDir?: string,
   /** Override for grimoire.json lookup directory (defaults to projectDir). */
   configDir?: string,
 ): EnforceResult {
   // Only block file-editing tools
   if (!['Edit', 'Write', 'MultiEdit'].includes(input.tool_name)) {
-    return { action: 'allow' };
-  }
-
-  // Subagent bypass: specialist agents are allowed to edit their own files
-  const sessions = readRegistry(registryPath);
-  if (sessions.includes(input.session_id)) {
     return { action: 'allow' };
   }
 
@@ -139,6 +111,13 @@ export function evaluateEnforce(
     return { action: 'allow', debugInfo };
   }
 
+  // Owner bypass: the specialist that owns the file may edit it. `agent_type`
+  // is set only when the edit originates inside a subagent; the main thread
+  // (undefined) and any non-owner subagent fall through to a block.
+  if (input.agent_type && matchingAgents.includes(input.agent_type)) {
+    return { action: 'allow', ownerAgent: input.agent_type };
+  }
+
   return { action: 'block', agents: matchingAgents, filePath };
 }
 
@@ -148,14 +127,15 @@ export function evaluateEnforce(
  */
 export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimoire-router.log'): void {
   const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-  const registryPath = join(projectDir, DEFAULT_REGISTRY_PATH);
 
-  const result = evaluateEnforce(input, registryPath, projectDir);
+  const result = evaluateEnforce(input, projectDir);
 
   if (result.action === 'allow' && result.debugInfo) {
     writeLog({
       timestamp: new Date().toISOString(),
       session_id: input.session_id,
+      agent_id: input.agent_id ?? null,
+      agent_type: input.agent_type ?? null,
       hook_event: 'PreToolUse',
       tool_name: input.tool_name,
       outcome: 'allow',
@@ -167,10 +147,30 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
     }, logPath);
   }
 
+  if (result.action === 'allow' && result.ownerAgent) {
+    writeLog({
+      timestamp: new Date().toISOString(),
+      session_id: input.session_id,
+      agent_id: input.agent_id ?? null,
+      agent_type: input.agent_type ?? null,
+      hook_event: 'PreToolUse',
+      tool_name: input.tool_name,
+      outcome: 'allow',
+      enforce_block: false,
+      owner_bypass: true,
+      file_basename:
+        typeof input.tool_input['file_path'] === 'string'
+          ? basename(input.tool_input['file_path'])
+          : '',
+    }, logPath);
+  }
+
   if (result.action === 'block') {
     writeLog({
       timestamp: new Date().toISOString(),
       session_id: input.session_id,
+      agent_id: input.agent_id ?? null,
+      agent_type: input.agent_type ?? null,
       hook_event: 'PreToolUse',
       tool_name: input.tool_name,
       outcome: 'blocked',
@@ -200,42 +200,43 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
 }
 
 // =============================================================================
-// Subagent session registry
+// Subagent telemetry
 // =============================================================================
+//
+// Enforcement no longer keeps a session registry — ownership is resolved
+// statelessly in evaluateEnforce from the PreToolUse `agent_type`. These hooks
+// remain wired up purely to emit lifecycle telemetry.
 
 /**
- * Registers the current session as a subagent (SubagentStart hook).
- * Used only for the enforcement bypass — skill injection is handled natively
- * by Claude Code via the `skills:` field in agent frontmatter.
- * Idempotent — will not add duplicate session IDs.
+ * Logs a subagent lifecycle event (SubagentStart / SubagentStop hooks).
  */
-export function runSubagentStart(input: SubagentHookInput, registryPath?: string): void {
-  const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-  const resolvedPath = registryPath ?? join(projectDir, DEFAULT_REGISTRY_PATH);
+function logSubagentEvent(
+  hookEvent: 'SubagentStart' | 'SubagentStop',
+  input: SubagentHookInput,
+  logPath: string,
+): void {
+  writeLog({
+    timestamp: new Date().toISOString(),
+    hook_event: hookEvent,
+    session_id: input.session_id,
+    agent_id: input.agent_id ?? null,
+    agent_type: input.agent_type ?? null,
+    ...(hookEvent === 'SubagentStop' ? { stop_reason: input.stop_reason ?? null } : {}),
+  }, logPath);
+}
 
-  const sessions = readRegistry(resolvedPath);
-  if (!sessions.includes(input.session_id)) {
-    sessions.push(input.session_id);
-    writeRegistry(resolvedPath, sessions);
-  }
-
+/**
+ * Emits telemetry when a subagent is spawned (SubagentStart hook).
+ */
+export function runSubagentStart(input: SubagentHookInput, logPath = '.claude/logs/grimoire-router.log'): void {
+  logSubagentEvent('SubagentStart', input, logPath);
   process.exit(0);
 }
 
 /**
- * Removes the current session from the subagent registry (SubagentStop hook).
- * No-op if the session ID or registry file is absent.
+ * Emits telemetry when a subagent finishes (SubagentStop hook).
  */
-export function runSubagentStop(input: SubagentHookInput, registryPath?: string): void {
-  const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-  const resolvedPath = registryPath ?? join(projectDir, DEFAULT_REGISTRY_PATH);
-
-  const sessions = readRegistry(resolvedPath);
-  const updated = sessions.filter((s) => s !== input.session_id);
-
-  if (updated.length !== sessions.length) {
-    writeRegistry(resolvedPath, updated);
-  }
-
+export function runSubagentStop(input: SubagentHookInput, logPath = '.claude/logs/grimoire-router.log'): void {
+  logSubagentEvent('SubagentStop', input, logPath);
   process.exit(0);
 }

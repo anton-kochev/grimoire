@@ -71,6 +71,8 @@ export function parsePreToolUseInput(jsonString: string): PreToolUseInput {
       input['tool_input'] && typeof input['tool_input'] === 'object'
         ? (input['tool_input'] as Record<string, unknown>)
         : {},
+    ...(typeof input['agent_id'] === 'string' ? { agent_id: input['agent_id'] } : {}),
+    ...(typeof input['agent_type'] === 'string' ? { agent_type: input['agent_type'] } : {}),
   };
 }
 
