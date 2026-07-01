@@ -7,7 +7,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0"
   >
-  <title>Skill Router — Log Viewer</title>
+  <title>Grimoire — Agent Insights</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -95,7 +95,7 @@
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
       margin-bottom: 24px;
     }
@@ -118,11 +118,19 @@
       margin-top: 2px;
     }
 
-    .stat-card.activated .value {
+    .stat-card.block .value {
+      color: var(--red);
+    }
+
+    .stat-card.block {
+      border-color: var(--red);
+    }
+
+    .stat-card.allow .value {
       color: var(--green);
     }
 
-    .stat-card.no-match .value {
+    .stat-card.muted .value {
       color: var(--text-muted);
     }
 
@@ -158,7 +166,7 @@
     }
 
     input[type="text"] {
-      width: 220px;
+      width: 240px;
     }
 
     .filter-group {
@@ -183,26 +191,26 @@
       color: var(--text);
     }
 
-    .btn.active {
-      background: rgba(88, 166, 255, 0.15);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    /* Top skills */
-    .top-skills {
+    /* Side panels (ownership + subagents) */
+    .panel {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 16px;
-      margin-bottom: 24px;
+      max-height: 280px;
+      overflow-y: auto;
     }
 
-    .skill-card {
-      padding: 6px 0;
+    .own-card {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
     }
 
-    .skill-card .skill-header {
+    .own-card:last-child {
+      border-bottom: none;
+    }
+
+    .own-card .own-header {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -210,27 +218,41 @@
       min-width: 0;
     }
 
-    .skill-card .skill-header .name {
+    .own-card .own-header .name {
       font-weight: 600;
-      white-space: nowrap;
-    }
-
-    .skill-card .skill-header .desc {
-      font-size: 12px;
-      color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .skill-card .count {
+    .own-card .count {
       color: var(--text-muted);
       font-size: 12px;
       white-space: nowrap;
       margin-left: auto;
     }
 
-    .skill-card .bar-bg {
+    .own-card .patterns {
+      margin: 4px 0;
+    }
+
+    .pattern-tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin: 1px 2px 1px 0;
+      background: rgba(88, 166, 255, 0.1);
+      color: var(--accent);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    }
+
+    .muted {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .own-card .bar-bg {
       width: 100%;
       height: 2px;
       background: var(--border);
@@ -239,9 +261,8 @@
       margin-top: 4px;
     }
 
-    .skill-card .bar-fill {
+    .own-card .bar-fill {
       height: 100%;
-      background: var(--accent);
       border-radius: 1px;
       transition: width 0.3s;
     }
@@ -309,126 +330,72 @@
       border-radius: 12px;
       font-size: 11px;
       font-weight: 600;
+      white-space: nowrap;
     }
 
-    .badge.activated {
+    .badge.green {
       background: rgba(63, 185, 80, 0.15);
       color: var(--green);
     }
 
-    .badge.no-match {
+    .badge.grey {
       background: rgba(139, 148, 158, 0.15);
       color: var(--text-muted);
     }
 
-    .badge.hook-prompt {
-      background: rgba(188, 140, 255, 0.15);
-      color: var(--purple);
-    }
-
-    .badge.hook-tool {
-      background: rgba(57, 210, 192, 0.15);
-      color: var(--cyan);
-    }
-
-    .badge.blocked {
+    .badge.red {
       background: rgba(248, 81, 73, 0.15);
       color: var(--red);
     }
 
-    .prompt-text {
-      max-width: 400px;
+    .badge.orange {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--orange);
+    }
+
+    .badge.purple {
+      background: rgba(188, 140, 255, 0.15);
+      color: var(--purple);
+    }
+
+    .badge.cyan {
+      background: rgba(57, 210, 192, 0.15);
+      color: var(--cyan);
+    }
+
+    .cell-clip {
+      max-width: 320px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      cursor: pointer;
+      cursor: default;
     }
 
-    .prompt-text:hover {
+    .cell-clip:hover {
       white-space: normal;
       word-break: break-word;
     }
 
-    .signal-tag {
-      display: inline-block;
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 11px;
-      margin: 1px 2px;
-      background: rgba(88, 166, 255, 0.1);
-      color: var(--accent);
-    }
-
-    .signal-tag.keyword {
-      background: rgba(63, 185, 80, 0.1);
-      color: var(--green);
-    }
-
-    .signal-tag.pattern {
-      background: rgba(210, 153, 34, 0.1);
-      color: var(--orange);
-    }
-
-    .signal-tag.extension {
-      background: rgba(188, 140, 255, 0.1);
-      color: var(--purple);
-    }
-
-    .signal-tag.path {
-      background: rgba(57, 210, 192, 0.1);
-      color: var(--cyan);
-    }
-
-    .skills-cell {
-      min-width: 200px;
-    }
-
-    .skill-match {
-      margin-bottom: 4px;
-      padding: 4px 0;
-    }
-
-    .skill-match .skill-name {
-      font-weight: 600;
+    .mono {
+      font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
       font-size: 12px;
     }
 
-    .skill-match .skill-score {
-      color: var(--orange);
-      font-size: 11px;
-      margin-left: 4px;
+    .editor-main {
+      color: var(--text-muted);
+      font-style: italic;
     }
 
     .session-id {
       font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
       font-size: 11px;
       color: var(--text-muted);
-      max-width: 100px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .time-ms {
-      color: var(--text-muted);
-      font-size: 12px;
-    }
-
-    .time-ms.slow {
-      color: var(--orange);
     }
 
     .empty-state {
       text-align: center;
       padding: 40px;
       color: var(--text-muted);
-    }
-
-    .count-badge {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-left: 8px;
-      font-weight: 400;
     }
 
     /* Sections layout */
@@ -445,38 +412,34 @@
       }
     }
 
-    /* Session timeline */
-    .session-list {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      max-height: 240px;
-      overflow-y: auto;
-    }
-
-    .session-item {
+    .sub-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 4px 0;
+      gap: 8px;
+      padding: 5px 0;
       font-size: 13px;
-      cursor: pointer;
-      transition: color 0.1s;
+      border-bottom: 1px solid var(--border);
     }
 
-    .session-item:hover {
-      color: var(--accent);
+    .sub-item:last-child {
+      border-bottom: none;
     }
 
-    .session-item .id {
-      font-family: monospace;
-      font-size: 11px;
+    .sub-item .name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .session-item .meta {
+    .sub-item .meta {
       color: var(--text-muted);
       font-size: 11px;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     /* Live badge */
@@ -515,16 +478,256 @@
         opacity: 0.4;
       }
     }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .insights-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    /* Agent roster */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 12px;
+    }
+
+    .agent-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.05s;
+    }
+
+    .agent-card:hover {
+      border-color: var(--accent);
+    }
+
+    .agent-card:active {
+      transform: translateY(1px);
+    }
+
+    .agent-card .ac-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .agent-card .ac-name {
+      font-weight: 700;
+      font-size: 15px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .attn-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .attn-dot.high { background: var(--red); }
+    .attn-dot.warn { background: var(--orange); }
+    .attn-dot.ok { background: var(--green); }
+
+    .agent-card .ac-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .ac-metric .m-val {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .ac-metric .m-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .ac-teaser {
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      margin-top: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Tool-mix bar */
+    .mixbar {
+      display: flex;
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      background: var(--border);
+      margin: 6px 0;
+    }
+
+    .mixbar > span {
+      height: 100%;
+    }
+
+    .mix-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .mix-legend .swatch {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    /* Detail view */
+    .back-link {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 0;
+      margin-bottom: 12px;
+    }
+
+    .rec {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .rec:last-child { border-bottom: none; }
+
+    .rec .lever {
+      flex-shrink: 0;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+
+    .rec .lever.high { background: rgba(248,81,73,0.15); color: var(--red); }
+    .rec .lever.warn { background: rgba(210,153,34,0.15); color: var(--orange); }
+    .rec .lever.info { background: rgba(88,166,255,0.12); color: var(--accent); }
+
+    .rec .rec-body .msg { font-size: 13px; }
+    .rec .rec-body .ev { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .timeline-step {
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      padding: 3px 0;
+      font-size: 13px;
+    }
+
+    .timeline-step .idx {
+      color: var(--text-muted);
+      font-size: 11px;
+      width: 28px;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .timeline-step .mono { color: var(--text); }
+
+    .kv {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .kv .k { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+    .kv .v { font-size: 20px; font-weight: 700; }
+
+    .md { font-size: 13px; line-height: 1.55; }
+    .md code { background: rgba(110,118,129,0.2); padding: 1px 5px; border-radius: 4px; font-size: 12px; font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }
+    .md strong { color: var(--text); }
+
+    #analyzeModel { padding: 5px 8px; }
   </style>
 </head>
 
 <body>
 
-  <h1>Skill Router — Log Viewer <span
+  <h1>Grimoire — Agent Insights <span
         class="live-badge"
         id="liveBadge"
     >LIVE</span></h1>
 
+  <div class="tabs">
+    <button class="tab active" data-tab="insights">Agent Insights</button>
+    <button class="tab" data-tab="events">Events</button>
+  </div>
+
+  <!-- ===================== INSIGHTS TAB ===================== -->
+  <div id="tab-insights" class="tabpane">
+    <div class="insights-toolbar">
+      <button class="btn" id="btnRefresh">↻ Refresh</button>
+      <span class="muted" id="insightsMeta"></span>
+    </div>
+    <div id="insightsRoster"></div>
+    <div id="insightsDetail" style="display:none"></div>
+    <div id="insightsInvocation" style="display:none"></div>
+  </div>
+
+  <!-- ===================== EVENTS TAB ===================== -->
+  <div
+      id="tab-events"
+      class="tabpane"
+      style="display:none"
+  >
   <div
       class="drop-zone"
       id="dropZone"
@@ -548,20 +751,20 @@
         id="statsGrid"
     ></div>
 
-    <!-- Top skills + Sessions -->
+    <!-- Agent ownership + Subagents -->
     <div class="section-row">
       <div>
-        <h2>Skills</h2>
+        <h2>Agent Ownership</h2>
         <div
-            class="top-skills"
-            id="skillsPanel"
+            class="panel"
+            id="ownershipPanel"
         ></div>
       </div>
       <div>
-        <h2>Sessions</h2>
+        <h2>Subagents</h2>
         <div
-            class="session-list"
-            id="sessionList"
+            class="panel"
+            id="subagentsPanel"
         ></div>
       </div>
     </div>
@@ -572,20 +775,21 @@
         id="filters"
     >
       <div class="filter-group">
-        <label>Outcome:</label>
-        <select id="filterOutcome">
+        <label>Event:</label>
+        <select id="filterKind">
           <option value="">All</option>
-          <option value="activated">Activated</option>
-          <option value="no_match">No Match</option>
-          <option value="blocked">Blocked</option>
+          <option value="enforce">Enforcement</option>
+          <option value="subagent">Subagent</option>
+          <option value="error">Error</option>
+          <option value="legacy">Legacy</option>
         </select>
       </div>
       <div class="filter-group">
-        <label>Hook:</label>
-        <select id="filterHook">
+        <label>Decision:</label>
+        <select id="filterDecision">
           <option value="">All</option>
-          <option value="prompt">UserPromptSubmit</option>
-          <option value="tool">PreToolUse</option>
+          <option value="blocked">Blocked</option>
+          <option value="allowed">Allowed</option>
         </select>
       </div>
       <div class="filter-group">
@@ -599,7 +803,7 @@
         <input
             type="text"
             id="filterSearch"
-            placeholder="Filter by prompt or skill..."
+            placeholder="Filter by file, agent, session..."
         >
       </div>
       <button
@@ -615,25 +819,311 @@
           <tr>
             <th data-sort="index"># <span class="sort-arrow"></span></th>
             <th data-sort="timestamp">Time <span class="sort-arrow"></span></th>
-            <th data-sort="hook">Hook <span class="sort-arrow"></span></th>
-            <th data-sort="prompt">Prompt <span class="sort-arrow"></span></th>
-            <th data-sort="outcome">Outcome <span class="sort-arrow"></span></th>
-            <th data-sort="skills">Skills Matched <span class="sort-arrow"></span></th>
-            <th data-sort="signals">Signals <span class="sort-arrow"></span></th>
-            <th data-sort="score">Score <span class="sort-arrow"></span></th>
-            <th data-sort="threshold">Thr <span class="sort-arrow"></span></th>
-            <th data-sort="time_ms">ms <span class="sort-arrow"></span></th>
+            <th data-sort="event">Event <span class="sort-arrow"></span></th>
+            <th data-sort="tool">Tool <span class="sort-arrow"></span></th>
+            <th data-sort="file">File <span class="sort-arrow"></span></th>
+            <th data-sort="editor">Editor <span class="sort-arrow"></span></th>
+            <th data-sort="decision">Decision <span class="sort-arrow"></span></th>
+            <th data-sort="owners">Owners <span class="sort-arrow"></span></th>
+            <th data-sort="session">Session <span class="sort-arrow"></span></th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
     </div>
   </div>
+  </div>
+  <!-- /tab-events -->
 
   <script>
+    // =========================================================================
+    // Agent Insights (primary tab) — profiles + recommendations from /api/insights
+    // =========================================================================
+    let insightsData = null;
+    let insightsLoaded = false;
+    let analysisCache = {};
+
+    const TOOL_COLORS = {
+      Read: '#58a6ff', Edit: '#3fb950', Write: '#2ea043', MultiEdit: '#238636',
+      Bash: '#d29922', Grep: '#bc8cff', Glob: '#a371f7', Agent: '#39d2c0', Task: '#39d2c0',
+      WebSearch: '#f778ba', WebFetch: '#db61a2', Skill: '#e3b341', ToolSearch: '#8b949e',
+      AskUserQuestion: '#ff7b72',
+    };
+    function toolColor(name) {
+      if (TOOL_COLORS[name]) return TOOL_COLORS[name];
+      let h = 0;
+      for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+      return `hsl(${h % 360} 45% 55%)`;
+    }
+    function fmtTok(n) {
+      n = Math.round(n || 0);
+      return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+    }
+    function mixbar(toolMix) {
+      const es2 = Object.entries(toolMix || {}).sort((a, b) => b[1] - a[1]);
+      const total = es2.reduce((s, [, n]) => s + n, 0);
+      if (!total) return '<div class="mixbar"></div>';
+      return '<div class="mixbar">' + es2.map(([k, n]) =>
+        `<span style="width:${(n / total * 100).toFixed(1)}%;background:${toolColor(k)}" title="${esc(k)}: ${n}"></span>`).join('') + '</div>';
+    }
+    function mixLegend(toolMix) {
+      const es2 = Object.entries(toolMix || {}).sort((a, b) => b[1] - a[1]);
+      if (!es2.length) return '';
+      return '<div class="mix-legend">' + es2.map(([k, n]) =>
+        `<span><span class="swatch" style="background:${toolColor(k)}"></span>${esc(k)} ${n}</span>`).join('') + '</div>';
+    }
+    function agentSeverity(a) {
+      if (a.incompleteRate > 0 || a.toolErrorRate > 0) return 'high';
+      if (a.avgTurns >= 30) return 'warn';
+      return 'ok';
+    }
+
+    async function loadInsights(force) {
+      const roster = document.getElementById('insightsRoster');
+      if (location.protocol === 'file:') {
+        roster.innerHTML = '<div class="empty-state">Agent Insights needs the local server — run <code>grimoire logs</code>. (Drag-and-drop only powers the Events tab.)</div>';
+        return;
+      }
+      if (insightsLoaded && !force) { showRoster(); return; }
+      roster.innerHTML = '<div class="empty-state">Analyzing sub-agent transcripts…</div>';
+      try {
+        const res = await fetch('/api/insights');
+        insightsData = await res.json();
+        insightsLoaded = true;
+        showRoster();
+      } catch {
+        roster.innerHTML = '<div class="empty-state">Failed to load insights.</div>';
+      }
+    }
+
+    function showRoster() {
+      document.getElementById('insightsDetail').style.display = 'none';
+      document.getElementById('insightsInvocation').style.display = 'none';
+      const roster = document.getElementById('insightsRoster');
+      roster.style.display = 'block';
+      const d = insightsData;
+      const meta = document.getElementById('insightsMeta');
+      meta.textContent = d && d.agents ? `${(d.invocations || []).length} invocations · ${d.agents.length} agent types` : '';
+      if (!d || !d.agents || !d.agents.length) {
+        roster.innerHTML = `<div class="empty-state">${esc((d && d.note) || 'No sub-agent activity found for this project yet.')}</div>`;
+        return;
+      }
+      roster.innerHTML = '<div class="agent-grid">' + d.agents.map((a, i) => {
+        const sev = agentSeverity(a);
+        const flags = [];
+        if (a.incompleteRate > 0) flags.push(`${Math.round(a.incompleteRate * 100)}% incomplete`);
+        if (a.toolErrorRate > 0) flags.push(`${Math.round(a.toolErrorRate * 100)}% tool errors`);
+        const teaser = flags.length ? '⚠ ' + flags.join(' · ') : (a.models.join(', ') || '—');
+        return `<div class="agent-card" onclick="showAgent(${i})">
+      <div class="ac-head"><span class="attn-dot ${sev}"></span><span class="ac-name" title="${esc(a.agentType)}">${esc(a.agentType)}</span></div>
+      <div class="ac-metrics">
+        <div class="ac-metric"><div class="m-val">${a.invocations}</div><div class="m-lbl">runs</div></div>
+        <div class="ac-metric"><div class="m-val">${a.avgToolCalls.toFixed(1)}</div><div class="m-lbl">tools/run</div></div>
+        <div class="ac-metric"><div class="m-val">${fmtTok(a.avgOutputTokens)}</div><div class="m-lbl">out tok/run</div></div>
+      </div>
+      ${mixbar(a.toolMix)}
+      <div class="ac-teaser">${esc(teaser)}</div>
+    </div>`;
+      }).join('') + '</div>';
+    }
+
+    let currentAgentIndex = 0;
+    function showAgent(i) {
+      currentAgentIndex = i;
+      const a = insightsData.agents[i];
+      document.getElementById('insightsRoster').style.display = 'none';
+      document.getElementById('insightsInvocation').style.display = 'none';
+      const el = document.getElementById('insightsDetail');
+      el.style.display = 'block';
+      const invs = insightsData.invocations.filter(v => v.agentType === a.agentType)
+        .sort((x, y) => (y.firstTs || '') < (x.firstTs || '') ? -1 : 1);
+      const cached = analysisCache[a.agentType];
+      el.innerHTML = `
+    <button class="back-link" onclick="showRoster()">← All agents</button>
+    <h1 style="font-size:18px">${esc(a.agentType)}</h1>
+    <div class="muted" style="margin-bottom:16px">${esc((invs[0] && invs[0].description) || '')} · models: ${a.models.map(esc).join(', ') || '—'}</div>
+    <div class="kv">
+      <div><div class="k">Runs</div><div class="v">${a.invocations}</div></div>
+      <div><div class="k">Avg tools</div><div class="v">${a.avgToolCalls.toFixed(1)}</div></div>
+      <div><div class="k">Avg turns</div><div class="v">${a.avgTurns.toFixed(1)}</div></div>
+      <div><div class="k">Avg out tokens</div><div class="v">${fmtTok(a.avgOutputTokens)}</div></div>
+      <div><div class="k">Tool errors</div><div class="v">${Math.round(a.toolErrorRate * 100)}%</div></div>
+      <div><div class="k">Incomplete</div><div class="v">${Math.round(a.incompleteRate * 100)}%</div></div>
+      <div><div class="k">Files touched</div><div class="v">${a.distinctFiles}</div></div>
+    </div>
+    <h2>Tool mix</h2>
+    ${mixbar(a.toolMix)}
+    ${mixLegend(a.toolMix)}
+    <div style="display:flex;align-items:center;gap:10px;margin-top:20px">
+      <h2 style="margin:0">Review</h2>
+      <select id="analyzeModel">
+        <option value="haiku">Haiku (cheap)</option>
+        <option value="sonnet">Sonnet</option>
+        <option value="opus">Opus (thorough)</option>
+      </select>
+      <button class="btn" id="btnAnalyze" onclick="runAnalysis('${esc(a.agentType)}')">🔎 Analyze with Claude</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin:4px 0 10px">Reads this agent's definition + real run traces and reasons over them with your local Claude. Costs a model call.</div>
+    <div id="analysisPanel" class="panel">${cached ? renderAnalysis(cached) : '<div class="muted">No review yet — click Analyze.</div>'}</div>
+    <h2 style="margin-top:20px">Invocations <span class="count-badge">${invs.length}</span></h2>
+    <div class="table-wrap"><table><thead><tr>
+      <th>Time</th><th>Session</th><th>Tools</th><th>Turns</th><th>Out tok</th><th>Span</th><th>Files</th><th>Status</th>
+    </tr></thead><tbody>${invs.map(v => `
+      <tr style="cursor:pointer" onclick="showInvocation('${esc(v.agentId)}')">
+        <td style="white-space:nowrap;font-size:12px">${formatTime(v.firstTs)}</td>
+        <td class="session-id" title="${esc(v.sessionId)}">${String(v.sessionId).slice(0, 8)}</td>
+        <td>${v.toolCalls}</td><td>${v.turns}</td><td>${fmtTok(v.tokens.output)}</td>
+        <td>${v.spanMs ? fmtDur(v.spanMs) : '—'}</td><td>${new Set(v.filesTouched).size}</td>
+        <td>${v.completed ? '<span class="badge green">done</span>' : '<span class="badge orange">incomplete</span>'}${v.toolErrors ? ` <span class="badge red">${v.toolErrors} err</span>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+    }
+
+    function showInvocation(agentId) {
+      const v = insightsData.invocations.find(x => x.agentId === agentId);
+      if (!v) return;
+      document.getElementById('insightsRoster').style.display = 'none';
+      document.getElementById('insightsDetail').style.display = 'none';
+      const el = document.getElementById('insightsInvocation');
+      el.style.display = 'block';
+      const steps = v.toolSequence.length
+        ? v.toolSequence.map((t, i) => `<div class="timeline-step"><span class="idx">${i + 1}</span><span class="mono">${esc(t)}</span></div>`).join('')
+        : '<div class="muted">No tool calls recorded.</div>';
+      el.innerHTML = `
+    <button class="back-link" onclick="showAgent(currentAgentIndex)">← ${esc(v.agentType)}</button>
+    <h1 style="font-size:18px">${esc(v.agentType)} <span class="muted" style="font-size:12px">${esc(v.agentId)}</span></h1>
+    <div class="muted" style="margin-bottom:16px">${esc(v.description || '')}</div>
+    <div class="kv">
+      <div><div class="k">Model</div><div class="v" style="font-size:14px">${esc(v.model || '—')}</div></div>
+      <div><div class="k">Tool calls</div><div class="v">${v.toolCalls}</div></div>
+      <div><div class="k">Turns</div><div class="v">${v.turns}</div></div>
+      <div><div class="k">Out tokens</div><div class="v">${fmtTok(v.tokens.output)}</div></div>
+      <div><div class="k">Total tokens</div><div class="v">${fmtTok(v.tokens.total)}</div></div>
+      <div><div class="k">Span</div><div class="v" style="font-size:14px">${v.spanMs ? fmtDur(v.spanMs) : '—'}</div></div>
+      <div><div class="k">Status</div><div class="v" style="font-size:14px">${v.completed ? 'done' : 'incomplete'}${v.toolErrors ? ` · ${v.toolErrors} err` : ''}</div></div>
+    </div>
+    <h2>Tool mix</h2>
+    ${mixbar(v.toolCounts)}${mixLegend(v.toolCounts)}
+    <h2 style="margin-top:20px">Tool sequence</h2>
+    <div class="panel">${steps}</div>
+    ${v.finalText ? `<h2 style="margin-top:20px">Outcome</h2><div class="panel" style="white-space:pre-wrap;font-size:13px">${esc(v.finalText)}</div>` : ''}`;
+    }
+
+    // --- LLM analysis (on demand) ---
+    async function runAnalysis(agentType) {
+      const panel = document.getElementById('analysisPanel');
+      const btn = document.getElementById('btnAnalyze');
+      const model = (document.getElementById('analyzeModel') || {}).value || 'haiku';
+      panel.innerHTML = `<div class="muted">Analyzing with Claude (${esc(model)})… reading the agent definition and real run traces — this can take ~10–40s.</div>`;
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentType, model }),
+        });
+        const data = await res.json();
+        analysisCache[agentType] = data;
+        panel.innerHTML = renderAnalysis(data);
+      } catch (e) {
+        panel.innerHTML = `<div class="muted">Analysis request failed: ${esc(String(e))}</div>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function renderAnalysis(data) {
+      if (!data || !data.ok) {
+        return `<div class="muted">Analysis failed: ${esc((data && data.error) || 'unknown error')}</div>`;
+      }
+      const bits = [`${data.runsAnalyzed || 0} runs`, `model ${esc(data.model || '?')}`];
+      if (data.costUsd != null) bits.push(`$${data.costUsd.toFixed(4)}`);
+      if (data.durationMs != null) bits.push(`${(data.durationMs / 1000).toFixed(1)}s`);
+      const footer = `<div class="muted" style="font-size:11px;border-top:1px solid var(--border);margin-top:12px;padding-top:8px">${bits.join(' · ')}</div>`;
+      return `<div class="md">${mdToHtml(data.result || '')}</div>${footer}`;
+    }
+
+    // Minimal, safe markdown → HTML (escape first, then structure).
+    function mdToHtml(md) {
+      const inline = s => s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
+      let html = '', inList = false;
+      for (const raw of esc(md).split('\n')) {
+        const line = raw.trimEnd();
+        let m;
+        if ((m = line.match(/^#{1,6}\s+(.*)$/))) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h3 style="font-size:14px;margin:12px 0 4px">${inline(m[1])}</h3>`;
+        } else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+          if (!inList) { html += '<ul style="margin:4px 0 4px 18px">'; inList = true; }
+          html += `<li style="margin:3px 0">${inline(m[1])}</li>`;
+        } else if (!line.trim()) {
+          if (inList) { html += '</ul>'; inList = false; }
+        } else {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<p style="margin:6px 0">${inline(line)}</p>`;
+        }
+      }
+      if (inList) html += '</ul>';
+      return html;
+    }
+
+    // --- Tabs ---
+    document.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        const tab = t.dataset.tab;
+        document.getElementById('tab-insights').style.display = tab === 'insights' ? 'block' : 'none';
+        document.getElementById('tab-events').style.display = tab === 'events' ? 'block' : 'none';
+        if (tab === 'events') autoFetch();
+        if (tab === 'insights') loadInsights(false);
+      });
+    });
+    document.getElementById('btnRefresh').addEventListener('click', () => loadInsights(true));
+
+    // =========================================================================
+    // Events (secondary tab) — enforcement audit
+    // =========================================================================
     let entries = [];
     let sortCol = 'timestamp';
     let sortAsc = false;
+
+    // --- Classify a log entry into a kind ---
+    // The router emits: enforcement decisions (PreToolUse), subagent lifecycle
+    // telemetry (SubagentStart/Stop) and error entries. Anything else (old
+    // skill-routing logs) degrades to 'legacy'.
+    function classify(e) {
+      if (e.hook_event === 'SubagentStart' || e.hook_event === 'SubagentStop') return 'subagent';
+      if (e.error_type || e.level === 'error') return 'error';
+      if (e.enforce_block === true) return 'enforce-blocked';
+      if (e.owner_bypass === true) return 'enforce-allow-owner';
+      if (e.hook_event === 'PreToolUse' && e.outcome === 'allow') return 'enforce-allow';
+      return 'legacy';
+    }
+
+    function isEnforce(kind) { return kind.startsWith('enforce'); }
+
+    function fileOf(e) {
+      if (e.file_basename) return e.file_basename;
+      if (typeof e.file_path === 'string') return e.file_path.split('/').pop();
+      if (e.relative_path) return e.relative_path;
+      return '';
+    }
+
+    function editorOf(e, kind) {
+      if (e.agent_type) return e.agent_type;
+      if (isEnforce(kind)) return 'main thread';
+      return '';
+    }
+
+    function ownersOf(e, kind) {
+      if (kind === 'enforce-blocked') return (e.blocking_agents ?? []).join(', ');
+      if (kind === 'enforce-allow-owner') return e.agent_type ?? '';
+      return '';
+    }
+
+    function reasonBadgeClass(reason) {
+      return reason === 'success' ? 'green' : reason === 'error' ? 'red' : 'orange';
+    }
 
     // --- Append new log entries without clearing existing ones ---
     function appendLog(text) {
@@ -645,6 +1135,7 @@
         try {
           const obj = JSON.parse(trimmed);
           obj._index = entries.length;
+          obj._kind = classify(obj);
           entries.push(obj);
           added++;
         } catch { /* skip malformed */ }
@@ -659,57 +1150,112 @@
       renderTable();
     }
 
-    // --- Load skills from manifest ---
-    let manifestSkills = [];
+    // --- Load agent ownership from the manifest (router.agents) ---
+    let ownershipAgents = {};
 
-    async function loadManifestSkills() {
+    async function loadOwnership() {
       try {
         const res = await fetch('/api/manifest');
         if (!res.ok) return;
         const manifest = await res.json();
-        manifestSkills = manifest.skills ?? [];
-        renderSkillsPanel();
+        ownershipAgents = (manifest.router && manifest.router.agents) ? manifest.router.agents : {};
+        renderOwnership();
       } catch { /* manifest not available in file: mode */ }
     }
 
-    function renderSkillsPanel(filteredEntries) {
-      const panel = document.getElementById('skillsPanel');
-      if (!manifestSkills.length) {
-        panel.innerHTML = '<div class="empty-state">No skills configured</div>';
+    function renderOwnership() {
+      const panel = document.getElementById('ownershipPanel');
+      const names = Object.keys(ownershipAgents);
+      if (!names.length) {
+        panel.innerHTML = '<div class="empty-state">No agent ownership configured</div>';
         return;
       }
 
-      // Count matched skills from historical entries (legacy logs may include these)
-      const src = filteredEntries ?? entries;
-      const skillCounts = {};
-      for (const e of src) {
-        for (const s of (e.skills_matched ?? [])) {
-          skillCounts[s.name] = (skillCounts[s.name] ?? 0) + 1;
+      const stats = {};
+      for (const n of names) stats[n] = { blocked: 0, allowed: 0 };
+      for (const e of entries) {
+        if (e._kind === 'enforce-blocked') {
+          for (const a of (e.blocking_agents ?? [])) if (stats[a]) stats[a].blocked++;
+        } else if (e._kind === 'enforce-allow-owner' && e.agent_type && stats[e.agent_type]) {
+          stats[e.agent_type].allowed++;
         }
       }
 
-      const max = Math.max(1, ...manifestSkills.map(s => skillCounts[s.name] ?? 0));
+      const max = Math.max(1, ...names.map(n => stats[n].blocked));
+      const sorted = [...names].sort((a, b) => stats[b].blocked - stats[a].blocked);
 
-      const sorted = [...manifestSkills].sort((a, b) => (skillCounts[b.name] ?? 0) - (skillCounts[a.name] ?? 0));
-
-      panel.innerHTML = sorted.map(s => {
-        const count = skillCounts[s.name] ?? 0;
-        const pct = (count / max * 100).toFixed(0);
-        return `<div class="skill-card">
-      <div class="skill-header">
-        <span class="name">${esc(s.name)}</span>
-        <span class="count">${count}</span>
+      panel.innerHTML = sorted.map(n => {
+        const patterns = ownershipAgents[n].file_patterns ?? [];
+        const pct = (stats[n].blocked / max * 100).toFixed(0);
+        const patternsHtml = patterns.length
+          ? patterns.map(p => `<span class="pattern-tag">${esc(p)}</span>`).join('')
+          : '<span class="muted">no patterns — not enforced</span>';
+        return `<div class="own-card">
+      <div class="own-header">
+        <span class="name">${esc(n)}</span>
+        <span class="count">${stats[n].blocked} blocked · ${stats[n].allowed} allowed</span>
       </div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="patterns">${patternsHtml}</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:var(--red)"></div></div>
     </div>`;
       }).join('');
     }
 
-    // --- Auto-fetch from API when served via HTTP ---
-    (function autoFetch() {
+    // --- Subagent lifecycle: pair Start/Stop by agent_id ---
+    function renderSubagents() {
+      const panel = document.getElementById('subagentsPanel');
+      const subs = entries.filter(e => e._kind === 'subagent');
+      if (!subs.length) {
+        panel.innerHTML = '<div class="empty-state">No subagent activity</div>';
+        return;
+      }
+
+      const map = {};
+      for (const e of subs) {
+        const id = e.agent_id ?? ('session:' + (e.session_id ?? 'unknown'));
+        if (!map[id]) map[id] = { id, type: e.agent_type ?? 'unknown', start: null, stop: null, reason: null };
+        if (e.hook_event === 'SubagentStart') map[id].start = e.timestamp;
+        if (e.hook_event === 'SubagentStop') { map[id].stop = e.timestamp; map[id].reason = e.stop_reason ?? null; }
+      }
+
+      const list = Object.values(map).sort((a, b) => {
+        const ka = a.start ?? a.stop ?? '';
+        const kb = b.start ?? b.stop ?? '';
+        return kb < ka ? -1 : kb > ka ? 1 : 0;
+      });
+
+      panel.innerHTML = list.map(s => {
+        let dur = '<span class="badge cyan">running</span>';
+        if (s.start && s.stop) {
+          const d = new Date(s.stop) - new Date(s.start);
+          dur = `<span class="muted">${d >= 0 ? fmtDur(d) : '—'}</span>`;
+        } else if (!s.start && s.stop) {
+          dur = '<span class="muted">—</span>';
+        }
+        const reason = s.reason ? `<span class="badge ${reasonBadgeClass(s.reason)}">${esc(s.reason)}</span>` : '';
+        return `<div class="sub-item">
+      <span class="name" title="${esc(s.id)}">${esc(s.type)}</span>
+      <span class="meta">${dur} ${reason}</span>
+    </div>`;
+      }).join('');
+    }
+
+    function fmtDur(ms) {
+      if (ms < 1000) return ms + 'ms';
+      const s = ms / 1000;
+      if (s < 60) return s.toFixed(1) + 's';
+      const m = Math.floor(s / 60);
+      return m + 'm ' + Math.round(s % 60) + 's';
+    }
+
+    // --- Auto-fetch from API when served via HTTP (lazy: only when Events tab opens) ---
+    let eventsInited = false;
+    function autoFetch() {
+      if (eventsInited) return;
+      eventsInited = true;
       if (location.protocol === 'file:') return;
 
-      loadManifestSkills();
+      loadOwnership();
 
       const es = new EventSource('/api/logs/stream');
 
@@ -733,7 +1279,7 @@
           if (text.trim()) parseLog(text);
         } catch { /* fall back to drag-and-drop */ }
       };
-    })();
+    }
 
     // --- File loading ---
     const dropZone = document.getElementById('dropZone');
@@ -767,6 +1313,7 @@
         try {
           const obj = JSON.parse(trimmed);
           obj._index = entries.length;
+          obj._kind = classify(obj);
           entries.push(obj);
         } catch { /* skip malformed */ }
       }
@@ -786,63 +1333,47 @@
     // --- Dashboard ---
     function buildDashboard() {
       const total = entries.length;
-      const activated = entries.filter(e => e.outcome === 'activated').length;
-      const noMatch = entries.filter(e => e.outcome === 'no_match').length;
-      const blocked = entries.filter(e => e.outcome === 'blocked').length;
-      const promptHooks = entries.filter(e => !e.hook_event).length;
-      const toolHooks = entries.filter(e => e.hook_event === 'PreToolUse').length;
-      const avgMs = (entries.reduce((s, e) => s + (e.execution_time_ms ?? 0), 0) / total).toFixed(1);
+      const decisions = entries.filter(e => isEnforce(e._kind)).length;
+      const blocks = entries.filter(e => e._kind === 'enforce-blocked').length;
+      const ownerAllows = entries.filter(e => e._kind === 'enforce-allow-owner').length;
+      const unownedAllows = entries.filter(e => e._kind === 'enforce-allow').length;
+      const spawns = entries.filter(e => e.hook_event === 'SubagentStart').length;
+      const errors = entries.filter(e => e._kind === 'error').length;
       const sessions = new Set(entries.map(e => e.session_id)).size;
+      const blockRate = decisions ? (blocks / decisions * 100).toFixed(0) : '0';
 
       document.getElementById('statsGrid').innerHTML = `
     <div class="stat-card"><div class="value">${total}</div><div class="label">Total Events</div></div>
-    <div class="stat-card activated"><div class="value">${activated}</div><div class="label">Activated (${(activated / total * 100).toFixed(0)}%)</div></div>
-    <div class="stat-card no-match"><div class="value">${noMatch}</div><div class="label">No Match</div></div>
-    <div class="stat-card" style="border-color:var(--red)"><div class="value" style="color:var(--red)">${blocked}</div><div class="label">Enforce Blocks</div></div>
-    <div class="stat-card"><div class="value">${promptHooks}</div><div class="label">Prompt Hooks</div></div>
-    <div class="stat-card"><div class="value">${toolHooks}</div><div class="label">Tool Hooks</div></div>
-    <div class="stat-card"><div class="value">${avgMs}ms</div><div class="label">Avg Exec Time</div></div>
+    <div class="stat-card"><div class="value">${decisions}</div><div class="label">Enforce Decisions</div></div>
+    <div class="stat-card block"><div class="value">${blocks}</div><div class="label">Blocks (${blockRate}%)</div></div>
+    <div class="stat-card allow"><div class="value">${ownerAllows}</div><div class="label">Owner Allows</div></div>
+    <div class="stat-card muted"><div class="value">${unownedAllows}</div><div class="label">Unowned Allows</div></div>
+    <div class="stat-card"><div class="value">${spawns}</div><div class="label">Subagent Spawns</div></div>
+    <div class="stat-card ${errors ? 'block' : ''}"><div class="value">${errors}</div><div class="label">Errors</div></div>
     <div class="stat-card"><div class="value">${sessions}</div><div class="label">Sessions</div></div>
   `;
 
-      // Sessions
-      const sessionMap = {};
-      for (const e of entries) {
-        if (!sessionMap[e.session_id]) sessionMap[e.session_id] = { count: 0, activated: 0, last: e.timestamp };
-        sessionMap[e.session_id].count++;
-        if (e.outcome === 'activated') sessionMap[e.session_id].activated++;
-        if (e.timestamp > sessionMap[e.session_id].last) sessionMap[e.session_id].last = e.timestamp;
-      }
-      const sessionEntries = Object.entries(sessionMap).sort((a, b) => b[1].last < a[1].last ? -1 : b[1].last > a[1].last ? 1 : 0);
-      document.getElementById('sessionList').innerHTML = sessionEntries.map(([id, info]) => `
-    <div class="session-item" data-session="${id}" onclick="filterBySession('${id}')">
-      <span class="id" title="${id}">${id.length > 16 ? id.slice(0, 8) + '...' : id}</span>
-      <span class="meta">${info.count} events, ${info.activated} activated</span>
-    </div>`).join('');
-
-      // Skills panel is updated by renderTable() with filtered entries
-    }
-
-    function filterBySession(id) {
-      document.getElementById('filterSession').value = id;
-      renderTable();
+      renderOwnership();
+      renderSubagents();
     }
 
     // --- Filters ---
     function populateFilters() {
       const sessionSelect = document.getElementById('filterSession');
+      const current = sessionSelect.value;
       const sessions = [...new Set(entries.map(e => e.session_id ?? 'unknown'))];
       sessionSelect.innerHTML = '<option value="">All</option>' +
-        sessions.map(s => `<option value="${s}">${String(s).length > 20 ? String(s).slice(0, 8) + '...' + String(s).slice(-4) : s}</option>`).join('');
+        sessions.map(s => `<option value="${esc(s)}">${String(s).length > 20 ? String(s).slice(0, 8) + '...' + String(s).slice(-4) : esc(s)}</option>`).join('');
+      sessionSelect.value = current;
     }
 
-    document.getElementById('filterOutcome').addEventListener('change', renderTable);
-    document.getElementById('filterHook').addEventListener('change', renderTable);
+    document.getElementById('filterKind').addEventListener('change', renderTable);
+    document.getElementById('filterDecision').addEventListener('change', renderTable);
     document.getElementById('filterSession').addEventListener('change', renderTable);
     document.getElementById('filterSearch').addEventListener('input', renderTable);
     document.getElementById('btnReset').addEventListener('click', () => {
-      document.getElementById('filterOutcome').value = '';
-      document.getElementById('filterHook').value = '';
+      document.getElementById('filterKind').value = '';
+      document.getElementById('filterDecision').value = '';
       document.getElementById('filterSession').value = '';
       document.getElementById('filterSearch').value = '';
       renderTable();
@@ -861,48 +1392,70 @@
     function getSortValue(entry, col) {
       switch (col) {
         case 'index': return entry._index;
-        case 'timestamp': return entry.timestamp;
-        case 'hook': return entry.hook_event ?? '';
-        case 'prompt': return entry.prompt_raw ?? '';
-        case 'outcome': return entry.outcome;
-        case 'skills': return (entry.skills_matched ?? []).length;
-        case 'signals': return (entry.signals_extracted?.words_count ?? 0);
-        case 'score': return Math.max(0, ...(entry.skills_matched ?? []).map(s => s.score));
-        case 'threshold': return entry.threshold ?? 0;
-        case 'time_ms': return entry.execution_time_ms ?? 0;
+        case 'timestamp': return entry.timestamp ?? '';
+        case 'event': return entry._kind ?? '';
+        case 'tool': return entry.tool_name ?? '';
+        case 'file': return fileOf(entry);
+        case 'editor': return editorOf(entry, entry._kind);
+        case 'decision': return entry._kind ?? '';
+        case 'owners': return ownersOf(entry, entry._kind);
         case 'session': return entry.session_id ?? '';
         default: return 0;
       }
     }
 
     // --- Render ---
+    function eventBadge(e, kind) {
+      if (kind === 'subagent') {
+        return `<span class="badge purple">${esc(e.hook_event)}</span>`;
+      }
+      if (kind === 'error') return `<span class="badge red">Error</span>`;
+      if (kind === 'legacy') return `<span class="badge grey">Legacy</span>`;
+      return `<span class="badge cyan">PreToolUse</span>`;
+    }
+
+    function decisionCell(e, kind) {
+      if (kind === 'enforce-blocked') return `<span class="badge red">Blocked</span>`;
+      if (kind === 'enforce-allow-owner') return `<span class="badge green">Allowed · owner</span>`;
+      if (kind === 'enforce-allow') return `<span class="badge grey">Allowed</span>`;
+      if (kind === 'subagent') {
+        if (e.hook_event === 'SubagentStop') {
+          const r = e.stop_reason ?? 'stopped';
+          return `<span class="badge ${reasonBadgeClass(e.stop_reason)}">${esc(r)}</span>`;
+        }
+        return '<span class="badge cyan">started</span>';
+      }
+      if (kind === 'error') return `<span class="badge red">${esc(e.error_type ?? 'error')}</span>`;
+      return '<span class="muted">—</span>';
+    }
+
     function renderTable() {
-      const outcome = document.getElementById('filterOutcome').value;
-      const hook = document.getElementById('filterHook').value;
+      const kind = document.getElementById('filterKind').value;
+      const decision = document.getElementById('filterDecision').value;
       const session = document.getElementById('filterSession').value;
       const search = document.getElementById('filterSearch').value.toLowerCase();
 
       let filtered = entries.filter(e => {
-        if (outcome && e.outcome !== outcome) return false;
-        if (hook === 'prompt' && e.hook_event) return false;
-        if (hook === 'tool' && !e.hook_event) return false;
-        if (session && e.session_id !== session) return false;
+        const group = isEnforce(e._kind) ? 'enforce' : e._kind;
+        if (kind && group !== kind) return false;
+        if (decision === 'blocked' && e._kind !== 'enforce-blocked') return false;
+        if (decision === 'allowed' && !(e._kind === 'enforce-allow-owner' || e._kind === 'enforce-allow')) return false;
+        if (session && (e.session_id ?? 'unknown') !== session) return false;
         if (search) {
           const haystack = [
-            e.prompt_raw,
-            ...(e.skills_matched ?? []).map(s => s.name),
-            ...(e.skills_matched ?? []).flatMap(s => (s.matched_signals ?? []).map(sig => sig.value)),
-            e.tool_name ?? '',
-            e.file_basename ?? '',
+            fileOf(e),
+            e.agent_type ?? '',
             ...(e.blocking_agents ?? []),
+            e.tool_name ?? '',
+            e.session_id ?? '',
+            e.stop_reason ?? '',
+            e.message ?? '',
+            e.hook_event ?? '',
           ].join(' ').toLowerCase();
           if (!haystack.includes(search)) return false;
         }
         return true;
       });
-
-      // Update skills panel with filtered data
-      renderSkillsPanel(filtered);
 
       // Sort
       filtered.sort((a, b) => {
@@ -921,58 +1474,35 @@
 
       const tbody = document.getElementById('tableBody');
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No entries match filters</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No entries match filters</td></tr>';
         return;
       }
 
       tbody.innerHTML = filtered.map(e => {
-        const hookType = e.hook_event
-          ? `<span class="badge hook-tool">${e.tool_name ?? 'PreToolUse'}</span>`
-          : `<span class="badge hook-prompt">Prompt</span>`;
-
-        const outcomeBadge = `<span class="badge ${
-          e.outcome === 'activated' ? 'activated' :
-          e.outcome === 'blocked'   ? 'blocked'   : 'no-match'
-        }">${e.outcome}</span>`;
-
-        const prompt = e.enforce_block
-          ? `${e.file_basename ?? '?'} \u2192 ${(e.blocking_agents ?? []).join(', ')}`
-          : e.hook_event
-            ? (e.prompt_raw ?? '').replace(/^\[PreToolUse:\w+\]\s*/, '')
-            : (e.prompt_raw ?? '');
-
-        const skillsHtml = (e.skills_matched ?? []).length
-          ? (e.skills_matched ?? []).map(s => `
-        <div class="skill-match">
-          <span class="skill-name">${esc(s.name)}</span>
-          <span class="skill-score">${s.score}</span>
-        </div>`).join('')
-          : '<span style="color:var(--text-muted);font-size:12px">—</span>';
-
-        const signalsHtml = (e.skills_matched ?? []).flatMap(s =>
-          (s.matched_signals ?? []).map(sig =>
-            `<span class="signal-tag ${sig.type}">${sig.type}:${esc(sig.value)}</span>`)
-        ).join('') ?? '<span style="color:var(--text-muted);font-size:12px">—</span>';
-
-        const topScore = (e.skills_matched ?? []).length
-          ? Math.max(...(e.skills_matched ?? []).map(s => s.score))
-          : '';
-
+        const kind = e._kind;
         const ts = formatTime(e.timestamp);
-        const ms = e.execution_time_ms ?? 0;
-        const msClass = ms > 3 ? 'slow' : '';
+        const tool = e.tool_name ? `<span class="mono">${esc(e.tool_name)}</span>` : '<span class="muted">—</span>';
+        const file = fileOf(e);
+        const fileCell = file ? `<div class="cell-clip mono" title="${esc(e.file_path ?? file)}">${esc(file)}</div>` : '<span class="muted">—</span>';
+        const editor = editorOf(e, kind);
+        const editorCell = editor
+          ? (editor === 'main thread' ? '<span class="editor-main">main thread</span>' : `<span class="mono">${esc(editor)}</span>`)
+          : '<span class="muted">—</span>';
+        const owners = ownersOf(e, kind);
+        const ownersCell = owners ? `<div class="cell-clip mono" title="${esc(owners)}">${esc(owners)}</div>` : '<span class="muted">—</span>';
+        const sid = e.session_id ?? '';
+        const sidCell = sid ? `<span class="session-id" title="${esc(sid)}">${String(sid).length > 12 ? String(sid).slice(0, 8) + '…' : esc(sid)}</span>` : '<span class="muted">—</span>';
 
         return `<tr>
       <td style="color:var(--text-muted);font-size:12px">${e._index + 1}</td>
-      <td style="white-space:nowrap;font-size:12px" title="${e.timestamp}">${ts}</td>
-      <td>${hookType}</td>
-      <td><div class="prompt-text" title="${esc(e.prompt_raw)}">${esc(prompt)}</div></td>
-      <td>${outcomeBadge}</td>
-      <td class="skills-cell">${skillsHtml}</td>
-      <td>${signalsHtml}</td>
-      <td style="font-weight:600;color:${topScore ? 'var(--orange)' : 'var(--text-muted)'}">${topScore ?? '—'}</td>
-      <td style="color:var(--text-muted)">${e.threshold}</td>
-      <td><span class="time-ms ${msClass}">${ms}</span></td>
+      <td style="white-space:nowrap;font-size:12px" title="${esc(e.timestamp)}">${ts}</td>
+      <td>${eventBadge(e, kind)}</td>
+      <td>${tool}</td>
+      <td>${fileCell}</td>
+      <td>${editorCell}</td>
+      <td>${decisionCell(e, kind)}</td>
+      <td>${ownersCell}</td>
+      <td>${sidCell}</td>
     </tr>`;
       }).join('');
     }
@@ -990,6 +1520,9 @@
       d.textContent = str ?? '';
       return d.innerHTML;
     }
+
+    // Insights is the default tab — load it on open.
+    loadInsights(false);
   </script>
 </body>
 

@@ -2,30 +2,66 @@ import { exec } from 'node:child_process';
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
+import { loadInvocations, resolveProjectDir } from '../transcripts.js';
+import { analyze } from '../insights-analysis.js';
+import { analyzeAgent } from '../agent-analysis.js';
 
 export interface LogsOptions {
   readonly logFile?: string | undefined;
   readonly port?: number | undefined;
   readonly open?: boolean;
+  /** Override the transcript project dir (containing `<session>/subagents/…`). Mainly for tests. */
+  readonly transcripts?: string | undefined;
 }
 
 const DEFAULT_LOG_PATH = '.claude/logs/grimoire-router.log';
 const DEFAULT_MANIFEST_PATH = '.claude/grimoire.json';
+
+/**
+ * Builds the factual Agent Insights payload by parsing Claude Code sub-agent
+ * transcripts. Interpretation is done separately (on demand) by `/api/analyze`.
+ * Never throws — missing data degrades to an empty result.
+ */
+export function buildInsights(cwd: string, transcriptsOverride?: string): Record<string, unknown> {
+  const generatedAt = new Date().toISOString();
+  const projectDir = transcriptsOverride ? resolve(cwd, transcriptsOverride) : resolveProjectDir(cwd);
+  if (!projectDir || !existsSync(projectDir)) {
+    return { agents: [], invocations: [], projectDir: null, note: 'No sub-agent transcripts found for this project.', generatedAt };
+  }
+
+  const invocations = loadInvocations(projectDir);
+  const agents = analyze(invocations);
+  return { agents, invocations, projectDir, generatedAt };
+}
+
+/** Reads a request body up to a size cap. */
+function readBody(req: import('node:http').IncomingMessage, cap = 1_000_000): Promise<string> {
+  return new Promise((resolveBody) => {
+    let body = '';
+    req.on('data', (c) => {
+      body += c;
+      if (body.length > cap) req.destroy();
+    });
+    req.on('end', () => resolveBody(body));
+    req.on('error', () => resolveBody(''));
+  });
+}
 
 export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<Server> {
   const logFilePath = options.logFile
     ? resolve(cwd, options.logFile)
     : resolve(cwd, DEFAULT_LOG_PATH);
 
-  // Validate log file exists up front
-  if (!existsSync(logFilePath)) {
-    console.error(`Log file not found: ${logFilePath}\n`);
-    console.error('The Grimoire router has not produced any logs yet.');
-    console.error('Logs are created by enforcement hooks when agent enforcement is enabled.\n');
-    console.error('To get started:');
-    console.error('  1. Enable agent enforcement: grimoire config');
-    console.error('  2. Use Claude Code to edit a file covered by an agent enforcement path');
-    console.error('  3. Run this command again');
+  // The viewer needs at least one data source: sub-agent transcripts (Insights
+  // tab) or the enforcement log (Events tab). Bail only if neither exists.
+  const projectDir = options.transcripts ? resolve(cwd, options.transcripts) : resolveProjectDir(cwd);
+  const hasTranscripts = !!projectDir && existsSync(projectDir);
+  if (!existsSync(logFilePath) && !hasTranscripts) {
+    console.error('No Grimoire data found for this project yet.\n');
+    console.error(`Looked for sub-agent transcripts and an enforcement log at:`);
+    console.error(`  transcripts: ~/.claude/projects/<this project>/*/subagents/`);
+    console.error(`  enforce log: ${logFilePath}\n`);
+    console.error('Run some sub-agents (or enable enforcement: grimoire config), then try again.');
     process.exit(1);
   }
 
@@ -48,6 +84,42 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end('Failed to read log file');
       }
+      return;
+    }
+
+    if (req.url === '/api/insights') {
+      try {
+        const payload = buildInsights(cwd, options.transcripts);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(payload));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'insights failed' }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/analyze') {
+      void (async () => {
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}') as { agentType?: unknown; model?: unknown };
+          const agentType = typeof parsed.agentType === 'string' ? parsed.agentType : '';
+          if (!agentType) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'agentType is required' }));
+            return;
+          }
+          const result = analyzeAgent(cwd, agentType, {
+            transcripts: options.transcripts,
+            model: typeof parsed.model === 'string' ? parsed.model : undefined,
+          });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'analyze failed' }));
+        }
+      })();
       return;
     }
 

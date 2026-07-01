@@ -45,22 +45,27 @@ const updateCommand = defineCommand({
 const logsCommand = defineCommand({
   meta: {
     name: 'logs',
-    description: 'Open Grimoire log viewer in the browser',
+    description: 'Open the Grimoire Agent Insights viewer in the browser',
   },
   args: {
     file: {
       type: 'string',
-      description: 'Custom log file path (default: .claude/logs/grimoire-router.log)',
+      description: 'Custom enforcement-log path (default: .claude/logs/grimoire-router.log)',
     },
     port: {
       type: 'string',
       description: 'Port to serve on (default: OS-assigned)',
+    },
+    transcripts: {
+      type: 'string',
+      description: 'Override the sub-agent transcript project dir (default: auto-detected under ~/.claude/projects)',
     },
   },
   async run({ args }) {
     const server = await runLogs(process.cwd(), {
       logFile: args.file || undefined,
       port: args.port ? Number(args.port) : undefined,
+      transcripts: args.transcripts || undefined,
     });
 
     const addr = server.address();

@@ -52,7 +52,7 @@ describe('runLogs', () => {
 
     expect(mockExit).toHaveBeenCalledWith(1);
     const output = mockError.mock.calls.map((c) => c[0]).join('\n');
-    expect(output).toMatch(/router has not produced any logs/i);
+    expect(output).toMatch(/No Grimoire data found/i);
 
     mockExit.mockRestore();
     mockError.mockRestore();
@@ -78,7 +78,7 @@ describe('runLogs', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
     const body = await res.text();
-    expect(body).toContain('Skill Router');
+    expect(body).toContain('Agent Insights');
     expect(body).toContain('autoFetch');
   });
 
@@ -94,6 +94,26 @@ describe('runLogs', () => {
     expect(res.headers.get('content-type')).toContain('application/x-ndjson');
     const body = await res.text();
     expect(body).toBe(logContent);
+  });
+
+  it('should round-trip mixed entry kinds (enforce, subagent, error, legacy) at /api/logs', async () => {
+    projectDir = makeTmpDir('mixed');
+    const mixed = [
+      '{"hook_event":"PreToolUse","outcome":"blocked","enforce_block":true,"file_basename":"a.ts","blocking_agents":["grimoire.typescript-coder"]}',
+      '{"hook_event":"PreToolUse","outcome":"allow","owner_bypass":true,"agent_type":"grimoire.typescript-coder","file_basename":"a.ts"}',
+      '{"hook_event":"SubagentStart","session_id":"s1","agent_id":"ag1","agent_type":"grimoire.csharp-coder"}',
+      '{"hook_event":"SubagentStop","session_id":"s1","agent_id":"ag1","agent_type":"grimoire.csharp-coder","stop_reason":"success"}',
+      '{"level":"error","message":"boom","error_type":"Error"}',
+      '{"outcome":"activated","prompt_raw":"legacy skill-routing entry","skills_matched":[]}',
+    ].join('\n') + '\n';
+    setupLogFile(mixed);
+
+    server = await runLogs(projectDir, { open: false });
+
+    const res = await fetch(`${serverUrl(server)}/api/logs`);
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toBe(mixed);
   });
 
   it('should read fresh data on each request', async () => {
@@ -139,6 +159,33 @@ describe('runLogs', () => {
 
     const res = await fetch(`${serverUrl(server)}/api/logs`);
     expect(res.status).toBe(500);
+  });
+
+  it('should compute /api/insights from a sub-agent transcript tree', async () => {
+    projectDir = makeTmpDir('insights');
+    // Minimal enforcement log so runLogs starts (insights also works without it)
+    setupLogFile('{"hook_event":"SubagentStart","session_id":"sess-1"}\n');
+
+    const subDir = join(projectDir, 'sess-1', 'subagents');
+    mkdirSync(subDir, { recursive: true });
+    writeFileSync(join(subDir, 'agent-ag1.meta.json'), JSON.stringify({ agentType: 'grimoire.typescript-coder', description: 'ts work' }));
+    writeFileSync(join(subDir, 'agent-ag1.jsonl'), [
+      JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:00.000Z', message: { model: 'claude-opus-4-8', usage: { output_tokens: 40 }, content: [{ type: 'tool_use', name: 'Read', input: { file_path: 'a.ts' } }] } }),
+      'corrupt line that must not crash the parse',
+      JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:05.000Z', message: { content: [{ type: 'text', text: 'done' }] } }),
+    ].join('\n'));
+
+    server = await runLogs(projectDir, { open: false, transcripts: '.' });
+
+    const res = await fetch(`${serverUrl(server)}/api/insights`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { agents: Array<Record<string, unknown>>; invocations: unknown[] };
+    expect(body.invocations).toHaveLength(1);
+    expect(body.agents).toHaveLength(1);
+    const agent = body.agents[0]!;
+    expect(agent['agentType']).toBe('grimoire.typescript-coder');
+    expect(agent['invocations']).toBe(1);
+    expect((agent['toolMix'] as Record<string, number>)['Read']).toBe(1);
   });
 
   it('should return 404 for unknown routes', async () => {
