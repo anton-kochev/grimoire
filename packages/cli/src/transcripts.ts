@@ -107,7 +107,7 @@ function toolTarget(input: unknown): string | undefined {
   if (!obj) return undefined;
   const cmd = asStr(obj['command']);
   const raw = asStr(obj['file_path']) ?? (cmd ? cmd.split('\n', 1)[0] : undefined)
-    ?? asStr(obj['pattern']) ?? asStr(obj['url']) ?? asStr(obj['path']);
+    ?? asStr(obj['pattern']) ?? asStr(obj['url']) ?? asStr(obj['query']) ?? asStr(obj['path']);
   return raw ? raw.slice(0, MAX_TARGET_CHARS) : undefined;
 }
 
