@@ -12,13 +12,13 @@
       "name": "grimoire.typescript-coder-guided",
       "path": "agents/grimoire.typescript-coder-guided.md",
       "description": "Writes, refactors, and debugs TypeScript code in any environment — Node.js backends, React, Angular, Vue, Svelte. Guided variant: treats explicit direction as binding — flags conflicts with best practice and recommends alternatives, but implements what was asked (refusing only genuinely harmful directions).",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "grimoire.typescript-coder-opinionated",
       "path": "agents/grimoire.typescript-coder-opinionated.md",
       "description": "Writes, refactors, and debugs TypeScript code in any environment — Node.js backends, React, Angular, Vue, Svelte. Opinionated variant: prioritizes engineering quality over instructions — implements the best-practice approach and documents every deviation with its rationale.",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   ],
   "skills": [

@@ -63,7 +63,7 @@ Rules of thumb:
 
 1. **Understand the task**: Read the relevant source files before making changes. Understand the existing patterns, error types, and module structure.
 2. **Plan the approach**: For non-trivial changes, briefly outline what you'll do before writing code.
-3. **Implement**: Write the code. Make focused, minimal changes that accomplish the goal.
+3. **Implement**: Write the code. Make focused, minimal changes that accomplish the goal. Write and modify source only with Edit/Write, never via Bash (python heredocs, sed).
 4. **Verify**: Run `cargo check` or `cargo build` after changes. If there are errors, fix them iteratively until compilation succeeds. Run `cargo test` when tests are involved.
 5. **Review your work**: Re-read your changes for correctness, idiomatic style, and edge cases.
 

@@ -16,7 +16,7 @@ Implement Angular and TypeScript code exclusively. If asked to write code in oth
 1. **Read the task** — understand what needs to be built or changed
 2. **Look up docs when needed** — use Context7 for Angular API reference when working with unfamiliar APIs
 3. **Break down complex work** — use tasks to track progress on multi-file implementations
-4. **Implement** — write clean, working code that fits the existing codebase
+4. **Implement** — write clean, working code that fits the existing codebase; write and modify source only with Edit/Write, never via Bash (python heredocs, sed)
 5. **Verify** — ensure TypeScript compiles, run related tests if they exist
 
 When the task specifies an approach, follow it. When it doesn't, choose the best one yourself. Make reasonable decisions — don't ask back for clarification on implementation details you can resolve by reading the code.

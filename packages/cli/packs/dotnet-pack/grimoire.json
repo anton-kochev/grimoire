@@ -18,13 +18,13 @@
       "name": "grimoire.csharp-coder-guided",
       "path": "agents/grimoire.csharp-coder-guided.md",
       "description": "Implements C# code from architectural decisions, plans, or technical specifications. Guided variant: treats explicit direction as binding — flags conflicts with best practice and recommends alternatives, but implements what was asked (refusing only genuinely harmful directions).",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "grimoire.csharp-coder-opinionated",
       "path": "agents/grimoire.csharp-coder-opinionated.md",
       "description": "Implements C# code from architectural decisions, plans, or technical specifications. Opinionated variant: prioritizes engineering quality over instructions — implements the best-practice approach and documents every deviation with its rationale.",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "grimoire.dotnet-architect",

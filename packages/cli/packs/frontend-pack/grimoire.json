@@ -6,7 +6,7 @@
       "name": "grimoire.angular-coder",
       "path": "agents/grimoire.angular-coder.md",
       "description": "Use this agent when the user needs Angular code written, fixed, refactored, or debugged. This agent implements components, services, directives, pipes, guards, resolvers, and any other Angular artifact. It reads the codebase to understand conventions, makes implementation decisions, and delivers working code.",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "name": "grimoire.vue3-coder",
@@ -18,25 +18,25 @@
       "name": "grimoire.angular-coder-guided",
       "path": "agents/grimoire.angular-coder-guided.md",
       "description": "Writes, fixes, refactors, and debugs Angular code — components, services, directives, pipes, guards, resolvers. Guided variant: treats explicit direction as binding — flags conflicts with best practice and recommends alternatives, but implements what was asked (refusing only genuinely harmful directions).",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "grimoire.angular-coder-opinionated",
       "path": "agents/grimoire.angular-coder-opinionated.md",
       "description": "Writes, fixes, refactors, and debugs Angular code — components, services, directives, pipes, guards, resolvers. Opinionated variant: prioritizes engineering quality over instructions — implements the best-practice approach and documents every deviation with its rationale.",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "grimoire.vue3-coder-guided",
       "path": "agents/grimoire.vue3-coder-guided.md",
       "description": "Builds, refactors, and debugs Vue 3 applications — components, composables, Pinia stores, Vue Router, reactivity issues. Guided variant: treats explicit direction as binding — flags conflicts with best practice and recommends alternatives, but implements what was asked (refusing only genuinely harmful directions).",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "grimoire.vue3-coder-opinionated",
       "path": "agents/grimoire.vue3-coder-opinionated.md",
       "description": "Builds, refactors, and debugs Vue 3 applications — components, composables, Pinia stores, Vue Router, reactivity issues. Opinionated variant: prioritizes engineering quality over instructions — implements the best-practice approach and documents every deviation with its rationale.",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   ],
   "skills": []
