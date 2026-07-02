@@ -47,7 +47,7 @@ function writeAgentDef(projectDir: string, agentType: string): void {
   writeFileSync(join(agentsDir, `${agentType}.md`), `---\nname: ${agentType}\n---\nprompt`);
 }
 
-function writeGrimoireConfig(projectDir: string, config: { enforcement?: boolean }): void {
+function writeGrimoireConfig(projectDir: string, config: { enforcement?: boolean; verboseEnforcementLog?: boolean }): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
   writeFileSync(join(claudeDir, 'grimoire.json'), JSON.stringify(config));
@@ -525,9 +525,30 @@ describe('runEnforce logging', () => {
     expect(entry['file_basename']).toBe('utils.ts');
   });
 
-  it('should write an allow log entry with debug info when file does not match', () => {
-    // Arrange
+  it('should NOT log an allow-passthrough entry for a non-matching file by default', () => {
+    // Arrange — verboseEnforcementLog is off (absent)
     writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'] },
+    });
+    const input = makePreToolUseInput('Edit', 'README.md', 'session-xyz');
+    const origEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+
+    // Act
+    try {
+      runEnforce(input, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    process.env['CLAUDE_PROJECT_DIR'] = origEnv;
+
+    // Assert — passthrough allows are noise, suppressed unless opted in
+    expect(existsSync(logPath)).toBe(false);
+  });
+
+  it('should log an allow-passthrough entry with debug info when verboseEnforcementLog is on', () => {
+    // Arrange
+    writeGrimoireConfig(projectDir, { enforcement: true, verboseEnforcementLog: true });
     makeManifest(projectDir, {
       'grimoire.typescript-coder': { file_patterns: ['*.ts'] },
     });

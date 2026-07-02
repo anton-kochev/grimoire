@@ -133,7 +133,9 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
 
   const result = evaluateEnforce(input, projectDir);
 
-  if (result.action === 'allow' && result.debugInfo) {
+  // Passthrough allows (edits to non-owned files) are debug telemetry for tuning
+  // file_patterns — noisy and unused downstream, so opt-in via verboseEnforcementLog.
+  if (result.action === 'allow' && result.debugInfo && loadGrimoireConfig(projectDir).verboseEnforcementLog === true) {
     writeLog({
       timestamp: new Date().toISOString(),
       session_id: input.session_id,

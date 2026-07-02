@@ -68,6 +68,8 @@ export interface InsightsConfig {
  */
 export interface GrimoireConfig {
   enforcement?: boolean;
+  /** Log allowed edits to non-owned files (passthrough telemetry for tuning file_patterns). Default false. */
+  verboseEnforcementLog?: boolean;
   insights?: InsightsConfig;
   router?: SkillManifest;
 }
