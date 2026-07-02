@@ -29,14 +29,17 @@ const META_CONTENT = JSON.stringify({ agentType: AGENT_TYPE, description: 'do th
  *   <root>/<sessionId>/subagents/agent-<id>.jsonl     (sub-agent transcript)
  *   <root>/<sessionId>/subagents/agent-<id>.meta.json (optional)
  */
-function makeTranscriptTree(root: string, opts: { meta?: boolean } = {}): { transcriptPath: string } {
+function makeTranscriptTree(root: string, opts: { meta?: boolean; agentType?: string } = {}): { transcriptPath: string } {
   const transcriptPath = join(root, `${SESSION_ID}.jsonl`);
   writeFileSync(transcriptPath, '{"cwd":"/some/project"}\n');
   const subDir = join(root, SESSION_ID, 'subagents');
   mkdirSync(subDir, { recursive: true });
   writeFileSync(join(subDir, `agent-${AGENT_ID}.jsonl`), JSONL_CONTENT);
   if (opts.meta !== false) {
-    writeFileSync(join(subDir, `agent-${AGENT_ID}.meta.json`), META_CONTENT);
+    const metaContent = opts.agentType
+      ? JSON.stringify({ agentType: opts.agentType, description: 'do the thing' })
+      : META_CONTENT;
+    writeFileSync(join(subDir, `agent-${AGENT_ID}.meta.json`), metaContent);
   }
   return { transcriptPath };
 }
@@ -103,6 +106,21 @@ describe('locateSubagentTranscript', () => {
     // Assert
     expect(located).not.toBeNull();
     expect(located?.jsonl).toBe(join(transcriptsRoot, SESSION_ID, 'subagents', `agent-${AGENT_ID}.jsonl`));
+    expect(located?.meta).toBe(join(transcriptsRoot, SESSION_ID, 'subagents', `agent-${AGENT_ID}.meta.json`));
+  });
+
+  it('should prefer an explicit agent_transcript_path over reconstruction', () => {
+    // Arrange — real sub-agent file exists, but the agent_id is wrong on purpose;
+    // only the explicit path can locate it, proving the payload path wins.
+    makeTranscriptTree(transcriptsRoot);
+    const jsonl = join(transcriptsRoot, SESSION_ID, 'subagents', `agent-${AGENT_ID}.jsonl`);
+    const input = makeInput({ agent_transcript_path: jsonl, agent_id: 'does-not-match' });
+
+    // Act
+    const located = locateSubagentTranscript(input);
+
+    // Assert
+    expect(located?.jsonl).toBe(jsonl);
     expect(located?.meta).toBe(join(transcriptsRoot, SESSION_ID, 'subagents', `agent-${AGENT_ID}.meta.json`));
   });
 
@@ -227,12 +245,32 @@ describe('archiveSubagentRun', () => {
     expect(existsSync(join(projectDir, '.claude', 'grimoire'))).toBe(false);
   });
 
-  it('should return false when agent_type is missing', () => {
+  it('should archive under the meta agentType when the payload omits agent_type', () => {
+    // Arrange — production reality: the SubagentStop payload sends an empty
+    // agent_type, so the sibling meta.json is the source of truth.
     const { transcriptPath } = makeTranscriptTree(transcriptsRoot);
-    const input = makeInput({ transcript_path: transcriptPath });
-    delete input.agent_type;
+    const input = makeInput({ transcript_path: transcriptPath, agent_type: '' });
 
+    // Act
+    const archived = archiveSubagentRun(input, projectDir);
+
+    // Assert — archived under the meta's agentType (AGENT_TYPE)
+    expect(archived).toBe(true);
+    expect(existsSync(archivedGzPath(projectDir))).toBe(true);
+  });
+
+  it('should return false when neither the payload nor the meta provides an agent type', () => {
+    // Arrange — transcript present, but meta has no agentType and payload none
+    const { transcriptPath } = makeTranscriptTree(transcriptsRoot);
+    writeFileSync(
+      join(transcriptsRoot, SESSION_ID, 'subagents', `agent-${AGENT_ID}.meta.json`),
+      JSON.stringify({ description: 'no type here' }),
+    );
+    const input = makeInput({ transcript_path: transcriptPath, agent_type: '' });
+
+    // Act / Assert
     expect(archiveSubagentRun(input, projectDir)).toBe(false);
+    expect(existsSync(join(projectDir, '.claude', 'grimoire'))).toBe(false);
   });
 
   it('should be disabled by insights.archive: false', () => {
@@ -252,10 +290,14 @@ describe('archiveSubagentRun', () => {
     expect(archiveSubagentRun(makeInput({ transcript_path: transcriptPath }), projectDir)).toBe(false);
   });
 
-  it('should sanitize hostile agent_type so the archive stays inside the sessions root', () => {
-    // Arrange
+  it('should sanitize a hostile meta agentType so the archive stays inside the sessions root', () => {
+    // Arrange — the meta.json (source of truth) carries a path-traversal type
     const { transcriptPath } = makeTranscriptTree(transcriptsRoot);
-    const input = makeInput({ transcript_path: transcriptPath, agent_type: '../../evil' });
+    writeFileSync(
+      join(transcriptsRoot, SESSION_ID, 'subagents', `agent-${AGENT_ID}.meta.json`),
+      JSON.stringify({ agentType: '../../evil', description: '' }),
+    );
+    const input = makeInput({ transcript_path: transcriptPath });
 
     // Act
     const archived = archiveSubagentRun(input, projectDir);
@@ -305,7 +347,7 @@ describe('archiveSubagentRun', () => {
     writeInsightsConfig(projectDir, { retainRunsPerAgent: 1 });
     const otherTree = join(transcriptsRoot, 'other');
     mkdirSync(otherTree, { recursive: true });
-    const { transcriptPath: otherPath } = makeTranscriptTree(otherTree);
+    const { transcriptPath: otherPath } = makeTranscriptTree(otherTree, { agentType: 'grimoire.rust-coder' });
     archiveSubagentRun(
       makeInput({ transcript_path: otherPath, agent_type: 'grimoire.rust-coder' }),
       projectDir,

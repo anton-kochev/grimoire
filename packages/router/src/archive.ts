@@ -49,6 +49,16 @@ export function locateSubagentTranscript(
   input: SubagentHookInput,
   projectsRoot = join(homedir(), '.claude', 'projects'),
 ): { jsonl: string; meta: string } | null {
+  // Newer Claude Code hands the exact sub-agent transcript path in the payload;
+  // trust it directly (its sibling `.meta.json` holds the agent type).
+  if (input.agent_transcript_path && existsSync(input.agent_transcript_path)) {
+    return {
+      jsonl: input.agent_transcript_path,
+      meta: input.agent_transcript_path.replace(/\.jsonl$/, '.meta.json'),
+    };
+  }
+
+  // Otherwise reconstruct it from the session root and agent_id.
   if (!input.agent_id || !input.session_id) return null;
 
   let sessionRoot: string | null = null;
@@ -63,6 +73,38 @@ export function locateSubagentTranscript(
   const jsonl = join(subDir, `agent-${input.agent_id}.jsonl`);
   if (!existsSync(jsonl)) return null;
   return { jsonl, meta: join(subDir, `agent-${input.agent_id}.meta.json`) };
+}
+
+/**
+ * Reads the `agentType` field from a sub-agent `meta.json`. Null when the file
+ * is missing, malformed, or has no non-empty `agentType`.
+ */
+function readMetaAgentType(metaPath: string): string | null {
+  try {
+    const parsed = JSON.parse(readFileSync(metaPath, 'utf-8')) as unknown;
+    if (parsed && typeof parsed === 'object') {
+      const t = (parsed as Record<string, unknown>)['agentType'];
+      if (typeof t === 'string' && t.trim()) return t;
+    }
+  } catch {
+    // Missing or unreadable meta — fall through to null.
+  }
+  return null;
+}
+
+/**
+ * Resolves a finished run's agent type. The SubagentStop hook payload does NOT
+ * carry `agent_type` (it comes through empty), so the authoritative source is
+ * the sibling `meta.json`. Falls back to any `agent_type` on the payload for
+ * callers that still supply one. Null when the type can't be determined.
+ */
+export function resolveAgentType(input: SubagentHookInput, projectsRoot?: string): string | null {
+  const source = projectsRoot
+    ? locateSubagentTranscript(input, projectsRoot)
+    : locateSubagentTranscript(input);
+  const fromMeta = source ? readMetaAgentType(source.meta) : null;
+  if (fromMeta) return fromMeta;
+  return input.agent_type?.trim() ? input.agent_type : null;
 }
 
 /**
@@ -112,7 +154,7 @@ export function archiveSubagentRun(
   projectsRoot?: string,
 ): boolean {
   try {
-    if (!input.agent_type || !input.agent_id) return false;
+    if (!input.agent_id) return false;
 
     const insights = loadGrimoireConfig(projectDir).insights ?? {};
     if (insights.archive === false) return false;
@@ -126,8 +168,13 @@ export function archiveSubagentRun(
       : locateSubagentTranscript(input);
     if (!source) return false;
 
+    // The stop payload omits the agent type; the sibling meta.json is the
+    // source of truth. Fall back to the payload for callers that pass one.
+    const agentType = readMetaAgentType(source.meta) ?? (input.agent_type?.trim() ? input.agent_type : null);
+    if (!agentType) return false;
+
     const agentTypeDir = join(
-      projectDir, '.claude', 'grimoire', 'sessions', sanitizeSegment(input.agent_type),
+      projectDir, '.claude', 'grimoire', 'sessions', sanitizeSegment(agentType),
     );
     const sessionDir = join(agentTypeDir, sanitizeSegment(input.session_id));
     mkdirSync(sessionDir, { recursive: true });
@@ -142,7 +189,7 @@ export function archiveSubagentRun(
     try {
       writeFileSync(metaPath, readFileSync(source.meta));
     } catch {
-      writeFileSync(metaPath, JSON.stringify({ agentType: input.agent_type, description: '' }));
+      writeFileSync(metaPath, JSON.stringify({ agentType, description: '' }));
     }
 
     pruneAgentArchive(agentTypeDir, retain);

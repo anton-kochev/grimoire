@@ -237,6 +237,8 @@ export interface SubagentHookInput {
   stop_reason?: string;
   /** Main session transcript path (`…/projects/<encoded-cwd>/<session_id>.jsonl`). */
   transcript_path?: string;
+  /** Exact sub-agent transcript path, supplied directly by newer Claude Code. */
+  agent_transcript_path?: string;
   /** Project working directory the session runs in. */
   cwd?: string;
 }

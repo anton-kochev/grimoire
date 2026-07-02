@@ -107,6 +107,7 @@ export function buildSubagentInput(obj: Record<string, unknown>): SubagentHookIn
     ...(str('agent_type') !== undefined ? { agent_type: str('agent_type') } : {}),
     ...(str('stop_reason') !== undefined ? { stop_reason: str('stop_reason') } : {}),
     ...(str('transcript_path') !== undefined ? { transcript_path: str('transcript_path') } : {}),
+    ...(str('agent_transcript_path') !== undefined ? { agent_transcript_path: str('agent_transcript_path') } : {}),
     ...(str('cwd') !== undefined ? { cwd: str('cwd') } : {}),
   };
 }

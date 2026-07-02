@@ -771,16 +771,15 @@ describe('runSubagentStop', () => {
     expect(existsSync(logPath)).toBe(false);
   });
 
-  it('should record a null stop_reason when absent', () => {
-    // Act
+  it('should skip a stop it cannot attribute to a defined agent', () => {
+    // Act — no agent_id/agent_type and no transcript to recover a type from,
+    // so the run is unattributable (this is what produced empty agent_type rows)
     try {
       runSubagentStop({ session_id: 'session-abc' }, logPath);
     } catch { /* process.exit(0) throws in vitest */ }
 
-    // Assert
-    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
-    expect(entry['hook_event']).toBe('SubagentStop');
-    expect(entry['stop_reason']).toBe(null);
+    // Assert — nothing written
+    expect(existsSync(logPath)).toBe(false);
   });
 });
 
@@ -811,14 +810,18 @@ describe('runSubagentStop archiving', () => {
     rmSync(transcriptsDir, { recursive: true, force: true });
   });
 
-  /** Fake Claude Code transcript layout; returns the main transcript_path. */
-  function makeTranscripts(): string {
+  /**
+   * Fake Claude Code transcript layout; returns the main transcript_path.
+   * The meta.json's agentType is the resolved type (the stop payload's is empty
+   * in production), so tests drive attribution through it.
+   */
+  function makeTranscripts(agentType = 'grimoire.csharp-coder'): string {
     const transcriptPath = join(transcriptsDir, `${SESSION_ID}.jsonl`);
     writeFileSync(transcriptPath, '{}\n');
     const subDir = join(transcriptsDir, SESSION_ID, 'subagents');
     mkdirSync(subDir, { recursive: true });
     writeFileSync(join(subDir, `agent-${AGENT_ID}.jsonl`), '{"type":"assistant"}\n');
-    writeFileSync(join(subDir, `agent-${AGENT_ID}.meta.json`), '{"agentType":"grimoire.csharp-coder"}');
+    writeFileSync(join(subDir, `agent-${AGENT_ID}.meta.json`), JSON.stringify({ agentType }));
     return transcriptPath;
   }
 
@@ -871,8 +874,8 @@ describe('runSubagentStop archiving', () => {
   });
 
   it('should not archive built-in agents', () => {
-    // Arrange — no local agent def for Explore
-    const transcriptPath = makeTranscripts();
+    // Arrange — meta resolves to a built-in type with no local agent def
+    const transcriptPath = makeTranscripts('Explore');
 
     // Act
     try {

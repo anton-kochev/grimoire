@@ -12,7 +12,7 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import picomatch from 'picomatch';
 import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
-import { archiveSubagentRun } from './archive.js';
+import { archiveSubagentRun, resolveAgentType } from './archive.js';
 import { loadManifest } from './manifest.js';
 import { loadGrimoireConfig } from './grimoire-config.js';
 import { writeLog } from './logging.js';
@@ -257,14 +257,27 @@ export function runSubagentStart(input: SubagentHookInput, logPath = '.claude/lo
 
 /**
  * Archives the finished subagent's transcript and emits telemetry
- * (SubagentStop hook). Built-in agents are skipped for both.
+ * (SubagentStop hook).
+ *
+ * The stop payload omits `agent_type`, so the real type is recovered from the
+ * sub-agent's meta.json (via `resolveAgentType`). A `cwd` is synthesized from
+ * the project dir when the payload lacks one so the transcript can still be
+ * located. Only agents with an editable local definition are tracked: built-ins
+ * (Plan, Explore, general-purpose) and stops we can't attribute are skipped for
+ * both archiving and telemetry — this is what kept the log free of empty
+ * `agent_type` rows.
  */
 export function runSubagentStop(input: SubagentHookInput, logPath = '.claude/logs/grimoire-router.log'): void {
-  let archived = false;
-  if (!input.agent_type || hasLocalAgentDef(input.agent_type)) {
-    const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-    archived = archiveSubagentRun(input, projectDir);
+  const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
+  const located: SubagentHookInput = { ...input, cwd: input.cwd ?? projectDir };
+
+  const agentType = resolveAgentType(located);
+  if (!agentType || !hasLocalAgentDef(agentType)) {
+    process.exit(0);
   }
-  logSubagentEvent('SubagentStop', input, logPath, { archived });
+
+  const enriched: SubagentHookInput = { ...located, agent_type: agentType };
+  const archived = archiveSubagentRun(enriched, projectDir);
+  logSubagentEvent('SubagentStop', enriched, logPath, { archived });
   process.exit(0);
 }

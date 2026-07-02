@@ -126,6 +126,7 @@ describe('buildSubagentInput', () => {
       agent_type: 'grimoire.typescript-coder',
       stop_reason: 'success',
       transcript_path: '/home/u/.claude/projects/-p/sess-1.jsonl',
+      agent_transcript_path: '/home/u/.claude/projects/-p/sess-1/subagents/agent-a1.jsonl',
       cwd: '/p',
     });
 
@@ -135,6 +136,7 @@ describe('buildSubagentInput', () => {
       agent_type: 'grimoire.typescript-coder',
       stop_reason: 'success',
       transcript_path: '/home/u/.claude/projects/-p/sess-1.jsonl',
+      agent_transcript_path: '/home/u/.claude/projects/-p/sess-1/subagents/agent-a1.jsonl',
       cwd: '/p',
     });
   });
