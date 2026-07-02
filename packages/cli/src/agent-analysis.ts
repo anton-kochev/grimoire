@@ -175,9 +175,12 @@ export function buildEvidencePrompt(
   invocations: readonly InvocationProfile[],
   ctx: AgentContext = {},
 ): string {
+  // Select the MAX_RUNS most recent, then render oldest → newest so the reviewer
+  // can read the agent's trajectory across runs (improvement, regressions, repeats).
   const recent = [...invocations]
-    .sort((a, b) => (b.firstTs ?? '') < (a.firstTs ?? '') ? -1 : 1)
-    .slice(0, MAX_RUNS);
+    .sort((a, b) => (Date.parse(b.firstTs ?? '') || 0) - (Date.parse(a.firstTs ?? '') || 0))
+    .slice(0, MAX_RUNS)
+    .reverse();
 
   const lines: string[] = [];
   lines.push(
@@ -198,6 +201,7 @@ export function buildEvidencePrompt(
   lines.push('');
 
   lines.push(`## Observed runs (the ${recent.length} most recent of ${invocations.length} recorded)`);
+  lines.push('Ordered oldest → newest — watch for changes across runs (a fix that stuck, a regression, a mistake it keeps repeating).');
   const budgets = allocateRunBudgets(recent, TOTAL_NARRATIVE_BUDGET);
   recent.forEach((v, i) => {
     lines.push('');

@@ -458,8 +458,18 @@ describe('buildEvidencePrompt', () => {
   it('caps the number of runs, states the selection window and notes built-in agents', () => {
     const prompt = buildEvidencePrompt('Explore', null, invs);
     expect(prompt).toContain('Built-in agent');
-    // 9 invocations but capped at 6, most recent first
+    // 9 invocations but capped at the 6 most recent
     expect(prompt).toContain('Observed runs (the 6 most recent of 9 recorded)');
+  });
+
+  it('renders the selected runs oldest → newest so the reviewer can read the trend', () => {
+    // firstTs runs 2026-07-01 .. 2026-07-09; the 6 most recent are tasks 3..8.
+    const prompt = buildEvidencePrompt('grimoire.typescript-coder', null, invs);
+    expect(prompt).not.toContain('task number 2'); // outside the recent window
+    const oldest = prompt.indexOf('task number 3'); // oldest of the window → first
+    const newest = prompt.indexOf('task number 8'); // newest of the window → last
+    expect(oldest).toBeGreaterThan(-1);
+    expect(newest).toBeGreaterThan(oldest);
   });
 });
 
