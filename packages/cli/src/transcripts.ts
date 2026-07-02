@@ -116,14 +116,27 @@ const MAX_SNIPPETS = 3;
 /** Per-item cap for thinking/text timeline entries — bounds memory; the prompt budgeter truncates further. */
 const MAX_TIMELINE_ITEM_CHARS = 2000;
 
+/** Repo-root-relative form of an absolute path; unchanged if outside the repo. */
+function toRepoRelative(p: string, cwd: string | null): string {
+  if (!cwd) return p;
+  const norm = p.replace(/\\/g, '/');
+  const base = cwd.replace(/\\/g, '/').replace(/\/+$/, '');
+  return norm.startsWith(base + '/') ? norm.slice(base.length + 1) : p;
+}
+
 /** Best-effort human-readable target of a tool call from its input object. */
-function toolTarget(input: unknown): string | undefined {
+function toolTarget(input: unknown, cwd: string | null): string | undefined {
   const obj = asObj(input);
   if (!obj) return undefined;
   const cmd = asStr(obj['command']);
-  const raw = asStr(obj['file_path']) ?? (cmd ? cmd.split('\n', 1)[0] : undefined)
+  const fp = asStr(obj['file_path']);
+  const raw = fp ?? (cmd ? cmd.split('\n', 1)[0] : undefined)
     ?? asStr(obj['pattern']) ?? asStr(obj['url']) ?? asStr(obj['query']) ?? asStr(obj['path']);
-  return raw ? raw.slice(0, MAX_TARGET_CHARS) : undefined;
+  if (!raw) return undefined;
+  // A file_path is a repo file — show it relative to the repo root (shorter,
+  // portable, no longer truncated). Commands/globs/urls stay verbatim.
+  const shown = raw === fp ? toRepoRelative(raw, cwd) : raw;
+  return shown.slice(0, MAX_TARGET_CHARS);
 }
 
 // =============================================================================
@@ -154,6 +167,7 @@ export function parseInvocation(
   let lastTs: string | null = null;
   let taskPrompt = '';
   let parseErrors = 0;
+  let cwd: string | null = null;
 
   for (const line of jsonlText.split('\n')) {
     const trimmed = line.trim();
@@ -167,6 +181,13 @@ export function parseInvocation(
       continue;
     }
     if (!obj) continue;
+
+    // cwd is stamped on every transcript line; capture the first we see so
+    // tool_use blocks on later lines can be shown relative to the repo root.
+    if (!cwd) {
+      const c = asStr(obj['cwd']);
+      if (c) cwd = c;
+    }
 
     const ts = asStr(obj['timestamp']);
     if (ts) {
@@ -239,7 +260,7 @@ export function parseInvocation(
         toolCounts[name] = (toolCounts[name] ?? 0) + 1;
         toolSequence.push(name);
         const event: ToolEvent = { name, isError: false };
-        const target = toolTarget(block['input']);
+        const target = toolTarget(block['input'], cwd);
         if (target) event.target = target;
         toolEvents.push(event);
         timeline.push({ kind: 'tool', event }); // same ref → error correlation shows here
@@ -248,7 +269,7 @@ export function parseInvocation(
         if (id) eventById.set(id, event);
         if (EDIT_TOOLS.has(name)) {
           const fp = asStr(asObj(block['input'])?.['file_path']);
-          if (fp) filesTouched.push(fp);
+          if (fp) filesTouched.push(toRepoRelative(fp, cwd));
         }
       } else if (btype === 'text') {
         const t = asStr(block['text']);

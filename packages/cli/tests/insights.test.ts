@@ -108,6 +108,55 @@ describe('parseInvocation', () => {
 });
 
 // =============================================================================
+// parseInvocation — repo-root-relative file targets
+// =============================================================================
+
+describe('parseInvocation repo-relative targets', () => {
+  const CWD = '/repo/root';
+  const jsonl = [
+    // cwd appears only on the first line — later tool_use lines must inherit it
+    line({ type: 'user', cwd: CWD, timestamp: '2026-07-01T10:00:00.000Z', message: { role: 'user', content: [{ type: 'text', text: 'edit files' }] } }),
+    line({
+      type: 'assistant',
+      timestamp: '2026-07-01T10:00:01.000Z',
+      message: {
+        content: [
+          { type: 'tool_use', name: 'Write', input: { file_path: '/repo/root/src/x.ts', content: 'x' } },
+          { type: 'tool_use', name: 'Edit', input: { file_path: '/repo/root/pkg/a/b.ts', old_string: 'a', new_string: 'b' } },
+          { type: 'tool_use', name: 'Write', input: { file_path: '/tmp/out.log', content: 'log' } },
+          { type: 'tool_use', name: 'Read', input: { file_path: '/somewhere/else/out.ts' } },
+          { type: 'tool_use', name: 'Bash', input: { command: 'ls -la\nmore' } },
+          { type: 'tool_use', name: 'Glob', input: { pattern: '**/*.ts', path: '/repo/root/src' } },
+        ],
+      },
+    }),
+  ].join('\n');
+
+  const inv = parseInvocation('ag-rel', 'sess-1', jsonl, { agentType: 'X' });
+  // toolEvents order: [Write in-repo, Edit in-repo, Write outside, Read outside, Bash, Glob]
+  const targets = inv.toolEvents.map((e) => e.target);
+
+  it('shows in-repo file_path targets relative to the repo root', () => {
+    expect(targets[0]).toBe('src/x.ts');
+    expect(targets[1]).toBe('pkg/a/b.ts');
+  });
+
+  it('keeps file_path targets outside the repo absolute', () => {
+    expect(targets[2]).toBe('/tmp/out.log'); // Write outside the repo
+    expect(targets[3]).toBe('/somewhere/else/out.ts'); // Read outside the repo
+  });
+
+  it('leaves non-file targets (bash command, glob pattern) verbatim', () => {
+    expect(targets[4]).toBe('ls -la');
+    expect(targets[5]).toBe('**/*.ts'); // pattern beats path, unchanged
+  });
+
+  it('records filesTouched relative to the repo root (absolute when outside)', () => {
+    expect(inv.filesTouched).toEqual(['src/x.ts', 'pkg/a/b.ts', '/tmp/out.log']);
+  });
+});
+
+// =============================================================================
 // parseInvocation — is_error correlation + reasoning snippets
 // =============================================================================
 
