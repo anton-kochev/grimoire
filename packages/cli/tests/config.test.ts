@@ -66,4 +66,31 @@ describe('runConfig', () => {
     expect(vi.mocked(clack.intro)).not.toHaveBeenCalled();
     expect(vi.mocked(clack.outro)).not.toHaveBeenCalled();
   });
+
+  function readConfig(): Record<string, unknown> {
+    return JSON.parse(readFileSync(join(projectDir, '.claude', 'grimoire.json'), 'utf-8')) as Record<string, unknown>;
+  }
+
+  it('should enable verbose enforcement logging when its toggle is selected', async () => {
+    vi.mocked(clack.multiselect).mockResolvedValueOnce(['verboseLog'] as never);
+
+    await runConfig(projectDir, { quiet: true });
+
+    expect(readConfig()['verboseEnforcementLog']).toBe(true);
+  });
+
+  it('should clear verbose enforcement logging when its toggle is deselected', async () => {
+    // Arrange — start with the flag on
+    const configPath = join(projectDir, '.claude', 'grimoire.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    config['verboseEnforcementLog'] = true;
+    writeFileSync(configPath, JSON.stringify(config));
+    vi.mocked(clack.multiselect).mockResolvedValueOnce([] as never);
+
+    // Act
+    await runConfig(projectDir, { quiet: true });
+
+    // Assert
+    expect(readConfig()['verboseEnforcementLog']).toBe(false);
+  });
 });

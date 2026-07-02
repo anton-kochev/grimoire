@@ -26,6 +26,10 @@ export async function runConfig(projectDir: string, options?: { quiet?: boolean 
     ? `${agentsWithPatterns.length} agent(s) with file patterns`
     : 'no agents with file patterns';
 
+  const initialValues: string[] = [];
+  if (config.enforcement) initialValues.push('enforcement');
+  if (config.verboseEnforcementLog) initialValues.push('verboseLog');
+
   const selected = await clack.multiselect({
     message: 'Toggle features',
     options: [
@@ -34,8 +38,13 @@ export async function runConfig(projectDir: string, options?: { quiet?: boolean 
         label: 'Agent enforcement',
         hint: enforcementHint,
       },
+      {
+        value: 'verboseLog' as const,
+        label: 'Verbose enforcement log',
+        hint: 'logs allowed edits to non-owned files — for tuning file patterns',
+      },
     ],
-    initialValues: config.enforcement ? ['enforcement' as const] : [],
+    initialValues,
     required: false,
   });
 
@@ -45,22 +54,32 @@ export async function runConfig(projectDir: string, options?: { quiet?: boolean 
   }
 
   const enforcementEnabled = (selected as string[]).includes('enforcement');
-  const changed = enforcementEnabled !== (config.enforcement ?? false);
+  const verboseEnabled = (selected as string[]).includes('verboseLog');
+  const enforcementChanged = enforcementEnabled !== (config.enforcement ?? false);
+  const verboseChanged = verboseEnabled !== (config.verboseEnforcementLog ?? false);
 
-  if (!changed) {
+  if (!enforcementChanged && !verboseChanged) {
     if (!options?.quiet) clack.outro('No changes.');
     return;
   }
 
   config.enforcement = enforcementEnabled;
+  config.verboseEnforcementLog = verboseEnabled;
   writeGrimoireConfig(projectDir, config);
 
-  if (enforcementEnabled) {
-    ensureEnforceHooks(projectDir, agentsWithPatterns);
-    clack.log.success('Enforcement enabled.');
-  } else {
-    removeEnforceHooks(projectDir);
-    clack.log.success('Enforcement disabled.');
+  // Hook registration follows the enforcement toggle only.
+  if (enforcementChanged) {
+    if (enforcementEnabled) {
+      ensureEnforceHooks(projectDir, agentsWithPatterns);
+      clack.log.success('Enforcement enabled.');
+    } else {
+      removeEnforceHooks(projectDir);
+      clack.log.success('Enforcement disabled.');
+    }
+  }
+
+  if (verboseChanged) {
+    clack.log.success(verboseEnabled ? 'Verbose enforcement log enabled.' : 'Verbose enforcement log disabled.');
   }
 
   if (!options?.quiet) clack.outro('Configuration saved.');
