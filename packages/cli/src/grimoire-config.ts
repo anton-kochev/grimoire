@@ -7,8 +7,16 @@ export interface InstalledEntry {
   pack: string;
 }
 
+export interface InsightsConfig {
+  /** Archive sub-agent transcripts on SubagentStop (default true). */
+  archive?: boolean;
+  /** Sessions kept per agent type (default 20; 0 disables archiving). */
+  retainRunsPerAgent?: number;
+}
+
 export interface GrimoireConfig {
   enforcement?: boolean;
+  insights?: InsightsConfig;
   installed?: Record<string, InstalledEntry>;
   router?: Record<string, unknown>;
 }

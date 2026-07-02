@@ -681,6 +681,44 @@
 
     .timeline-step .mono { color: var(--text); }
 
+    .trace-item {
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      padding: 6px 0;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+    .trace-item:last-child { border-bottom: none; }
+    .trace-item .tag {
+      flex-shrink: 0;
+      width: 58px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      padding-top: 1px;
+    }
+    .trace-item.thought .tag { color: var(--accent); }
+    .trace-item.tool .tag { color: var(--orange); }
+    .trace-item.tool.err .tag { color: var(--red); }
+    .trace-item .body { white-space: pre-wrap; word-break: break-word; }
+    .trace-item.thought .body { color: var(--text-muted); font-style: italic; cursor: pointer; }
+    .trace-item.tool .body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .trace-item .body.clip {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .trace-item .err-txt {
+      display: block;
+      margin-top: 3px;
+      color: var(--red);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+
     .kv {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -985,9 +1023,6 @@
       document.getElementById('insightsDetail').style.display = 'none';
       const el = document.getElementById('insightsInvocation');
       el.style.display = 'block';
-      const steps = v.toolSequence.length
-        ? v.toolSequence.map((t, i) => `<div class="timeline-step"><span class="idx">${i + 1}</span><span class="mono">${esc(t)}</span></div>`).join('')
-        : '<div class="muted">No tool calls recorded.</div>';
       el.innerHTML = `
     <button class="back-link" onclick="showAgent(currentAgentIndex)">← ${esc(v.agentType)}</button>
     <h1 style="font-size:18px">${esc(v.agentType)} <span class="muted" style="font-size:12px">${esc(v.agentId)}</span></h1>
@@ -1003,9 +1038,50 @@
     </div>
     <h2>Tool mix</h2>
     ${mixbar(v.toolCounts)}${mixLegend(v.toolCounts)}
-    <h2 style="margin-top:20px">Tool sequence</h2>
-    <div class="panel">${steps}</div>
+    <h2 style="margin-top:20px">Trace <span class="muted" style="font-size:12px">thoughts · actions · results</span></h2>
+    <div class="panel" id="invTrace"><div class="muted">Loading session trace…</div></div>
     ${v.finalText ? `<h2 style="margin-top:20px">Outcome</h2><div class="panel" style="white-space:pre-wrap;font-size:13px">${esc(v.finalText)}</div>` : ''}`;
+      loadInvocationTrace(v);
+    }
+
+    // Fetches the full per-run timeline (kept out of /api/insights for weight) and
+    // renders it; falls back to the flat tool sequence if the fetch fails.
+    async function loadInvocationTrace(v) {
+      const panel = document.getElementById('invTrace');
+      if (!panel) return;
+      try {
+        const res = await fetch(`/api/invocations/${encodeURIComponent(v.agentId)}`);
+        if (!res.ok) throw new Error('no trace');
+        const full = await res.json();
+        const items = Array.isArray(full.timeline) ? full.timeline : [];
+        if (!items.length) { panel.innerHTML = renderToolSequence(v); return; }
+        panel.innerHTML = items.map(renderTraceItem).join('');
+      } catch (e) {
+        panel.innerHTML = renderToolSequence(v);
+      }
+    }
+
+    function renderTraceItem(it) {
+      if (it.kind === 'tool') {
+        const ev = it.event || {};
+        const target = ev.target ? `(${esc(ev.target)})` : '';
+        const err = ev.isError
+          ? `<span class="err-txt">⚠ ${esc(ev.errorText || 'error')}</span>` : '';
+        return `<div class="trace-item tool${ev.isError ? ' err' : ''}"><span class="tag">tool</span>`
+          + `<span class="body">${esc(ev.name || '?')}${target}${err}</span></div>`;
+      }
+      const tag = it.kind === 'thinking' ? 'thought' : 'text';
+      const cls = it.kind === 'thinking' ? 'thought' : 'text';
+      const clip = it.kind === 'thinking' ? ' clip' : '';
+      const toggle = it.kind === 'thinking' ? ` onclick="this.classList.toggle('clip')"` : '';
+      return `<div class="trace-item ${cls}"><span class="tag">${tag}</span>`
+        + `<span class="body${clip}"${toggle}>${esc(it.text || '')}</span></div>`;
+    }
+
+    function renderToolSequence(v) {
+      return v.toolSequence && v.toolSequence.length
+        ? v.toolSequence.map((t, i) => `<div class="timeline-step"><span class="idx">${i + 1}</span><span class="mono">${esc(t)}</span></div>`).join('')
+        : '<div class="muted">No tool calls recorded.</div>';
     }
 
     // --- LLM analysis (on demand) ---

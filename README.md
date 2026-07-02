@@ -143,18 +143,35 @@ Adds or removes skills in an agent's frontmatter `skills:` array. Claude Code na
 # Open the Agent Insights viewer in your browser
 grimoire logs
 
-# Use a custom log file, port, or transcript directory
+# Use a custom log file, port, transcript directory, or archive root
 grimoire logs --file path/to/custom.log
 grimoire logs --port 3000
 grimoire logs --transcripts path/to/project-transcripts
+grimoire logs --sessions path/to/archived-sessions
 ```
 
 Starts a local server and opens an interactive dashboard with two tabs:
 
-- **Insights** — reconstructs each sub-agent's real behavior from its Claude Code transcripts: runs, turns, tool mix, files touched, errors, and outcomes. From an agent's detail view you can request an on-demand **AI review** that reasons over the recorded runs (via your local `claude` CLI; each review spends tokens) and suggests concrete prompt/tools/skills improvements.
+- **Insights** — reconstructs each sub-agent's real behavior from its Claude Code transcripts: runs, turns, tool mix, files touched, errors, and outcomes. An invocation's detail view shows its full **chronological trace** — the agent's thinking, intermediate messages, and tool calls (with errors) interleaved in order, read straight from the transcript at no cost. From an agent's detail view you can also request an on-demand **AI review** that reasons over the recorded runs (via your local `claude` CLI; each review spends tokens) and suggests concrete prompt/tools/skills improvements.
 - **Events** — the router enforcement log with stats, filters, and a sortable table. New entries stream in real time via SSE — a green "LIVE" badge indicates active streaming.
 
 Press `Ctrl+C` to stop.
+
+#### Session archiving
+
+Claude Code purges its own transcripts after a retention window (~30 days), which would erase your insights history. When the router hook is installed, its `SubagentStop` handler archives each finished sub-agent's transcript — gzipped — into a project-local store that Grimoire owns:
+
+```
+.claude/grimoire/sessions/<agentType>/<sessionId>/agent-<id>.jsonl.gz
+```
+
+The viewer merges this archive with any still-present live transcripts (deduping by run, keeping the fuller copy), so history survives the purge. Built-in agents (Explore, Plan, …) are never archived. Tune it in `.claude/grimoire.json`:
+
+```json
+{ "insights": { "archive": true, "retainRunsPerAgent": 20 } }
+```
+
+`retainRunsPerAgent` caps how many sessions are kept per agent type (default 20); set it to `0`, or `archive` to `false`, to disable archiving.
 
 ### Pack Manifest
 

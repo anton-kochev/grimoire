@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mkdirSync, realpathSync, rmSync, writeFileSync, appendFileSync, chmodSync } from 'fs';
+import { gzipSync } from 'zlib';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import type { Server } from 'node:http';
@@ -195,6 +196,94 @@ describe('runLogs', () => {
     expect(agent['invocations']).toBe(1);
     expect((agent['toolMix'] as Record<string, number>)['Read']).toBe(1);
     expect(body.invocations[0]!['agentType']).toBe('grimoire.typescript-coder');
+  });
+
+  it('should compute /api/insights from the archive when live transcripts are gone', async () => {
+    projectDir = makeTmpDir('insights-archive');
+    // The agent def survives even after Claude Code purges the live transcripts
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'grimoire.rust-coder.md'), '---\nname: grimoire.rust-coder\n---\nprompt');
+
+    // A gzipped archived run under a custom sessions root
+    const sessionsRoot = makeTmpDir('sessions');
+    const runDir = join(sessionsRoot, 'grimoire.rust-coder', 'sess-1');
+    mkdirSync(runDir, { recursive: true });
+    const jsonl = [
+      JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:00.000Z', message: { model: 'claude-opus-4-8', usage: { output_tokens: 20 }, content: [{ type: 'tool_use', name: 'Read', input: { file_path: 'a.rs' } }] } }),
+      JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:05.000Z', message: { content: [{ type: 'text', text: 'done' }] } }),
+    ].join('\n');
+    writeFileSync(join(runDir, 'agent-ag1.jsonl.gz'), gzipSync(Buffer.from(jsonl, 'utf-8')));
+    writeFileSync(join(runDir, 'agent-ag1.meta.json'), JSON.stringify({ agentType: 'grimoire.rust-coder', description: 'rust work' }));
+
+    // No live transcripts and no enforcement log — the archive is the only source
+    server = await runLogs(projectDir, { open: false, sessions: sessionsRoot });
+
+    const res = await fetch(`${serverUrl(server)}/api/insights`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { agents: Array<Record<string, unknown>>; invocations: Array<Record<string, unknown>> };
+    expect(body.invocations).toHaveLength(1);
+    expect(body.agents[0]!['agentType']).toBe('grimoire.rust-coder');
+
+    rmSync(sessionsRoot, { recursive: true, force: true });
+  });
+
+  it('should not include the full timeline in the /api/insights payload', async () => {
+    projectDir = makeTmpDir('insights-strip');
+    setupLogFile('{"hook_event":"SubagentStart","session_id":"sess-1"}\n');
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'grimoire.typescript-coder.md'), '---\nname: grimoire.typescript-coder\n---\nprompt');
+
+    const subDir = join(projectDir, 'sess-1', 'subagents');
+    mkdirSync(subDir, { recursive: true });
+    writeFileSync(join(subDir, 'agent-ag1.meta.json'), JSON.stringify({ agentType: 'grimoire.typescript-coder', description: 'ts' }));
+    writeFileSync(join(subDir, 'agent-ag1.jsonl'), [
+      JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:00.000Z', message: { content: [{ type: 'thinking', thinking: 'planning' }, { type: 'tool_use', name: 'Read', input: { file_path: 'a.ts' } }] } }),
+      JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:05.000Z', message: { content: [{ type: 'text', text: 'done' }] } }),
+    ].join('\n'));
+
+    server = await runLogs(projectDir, { open: false, transcripts: '.' });
+
+    const res = await fetch(`${serverUrl(server)}/api/insights`);
+    const body = await res.json() as { invocations: Array<Record<string, unknown>> };
+    expect(body.invocations).toHaveLength(1);
+    expect(body.invocations[0]!).not.toHaveProperty('timeline');
+    expect(body.invocations[0]!['agentId']).toBe('ag1');
+  });
+
+  it('should serve the full timeline for one invocation at /api/invocations/<agentId>', async () => {
+    projectDir = makeTmpDir('one-invocation');
+    setupLogFile('{"hook_event":"SubagentStart","session_id":"sess-1"}\n');
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'grimoire.typescript-coder.md'), '---\nname: grimoire.typescript-coder\n---\nprompt');
+
+    const subDir = join(projectDir, 'sess-1', 'subagents');
+    mkdirSync(subDir, { recursive: true });
+    writeFileSync(join(subDir, 'agent-ag1.meta.json'), JSON.stringify({ agentType: 'grimoire.typescript-coder', description: 'ts' }));
+    writeFileSync(join(subDir, 'agent-ag1.jsonl'), [
+      JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:00.000Z', message: { content: [{ type: 'thinking', thinking: 'planning the work' }, { type: 'tool_use', name: 'Read', input: { file_path: 'a.ts' } }] } }),
+      JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:05.000Z', message: { content: [{ type: 'text', text: 'done' }] } }),
+    ].join('\n'));
+
+    server = await runLogs(projectDir, { open: false, transcripts: '.' });
+
+    const res = await fetch(`${serverUrl(server)}/api/invocations/ag1`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { agentId: string; timeline: Array<Record<string, unknown>> };
+    expect(body.agentId).toBe('ag1');
+    expect(body.timeline.some((it) => it['kind'] === 'thinking' && it['text'] === 'planning the work')).toBe(true);
+  });
+
+  it('should return 404 from /api/invocations for an unknown agentId', async () => {
+    projectDir = makeTmpDir('invocation-404');
+    setupLogFile('{"event":"test"}\n');
+
+    server = await runLogs(projectDir, { open: false });
+
+    const res = await fetch(`${serverUrl(server)}/api/invocations/nope`);
+    expect(res.status).toBe(404);
   });
 
   it('should return 404 for unknown routes', async () => {

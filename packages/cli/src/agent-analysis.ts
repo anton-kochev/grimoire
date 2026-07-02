@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { loadInvocations, resolveProjectDir, type InvocationProfile } from './transcripts.js';
+import { defaultArchiveRoot, loadMergedInvocations, resolveProjectDir, type InvocationProfile, type ToolEvent } from './transcripts.js';
 import { resolveAgentDefPath } from './agent-defs.js';
 import { parseGrantedTools, enforceContextFromLog, type AgentContext } from './insights-analysis.js';
 
@@ -19,6 +19,13 @@ const MAX_DEF_CHARS = 5000;
 const MAX_TASK_CHARS = 1000;
 const MAX_OUTCOME_CHARS = 400;
 const MAX_SEQUENCE = 60;
+
+// Interleaved-narrative budgeting (per-run char budgets sum to this total).
+const TOTAL_NARRATIVE_BUDGET = 24_000;
+const TOOL_LINE_MAX = 200;
+const ERROR_TEXT_MAX = 160;
+const REASONING_CAP = 400;
+const REASONING_CAP_PRE_ERROR = 600; // the "why" right before a failure is worth more room
 
 /** Formats a wall-clock span as `4m10s` / `38s` / `1h02m`. */
 function fmtSpan(ms: number): string {
@@ -38,6 +45,127 @@ export interface AnalysisResult {
   durationMs?: number | undefined;
   runsAnalyzed?: number | undefined;
   error?: string | undefined;
+}
+
+/** The one-line run header shared by the narrative and legacy renderings. */
+function runHeader(v: InvocationProfile, i: number): string {
+  return `### Run ${i + 1} — ${v.turns} turns, ${v.toolCalls} tool calls, ${v.tokens.output} output tokens, ${fmtSpan(v.spanMs)} wall-clock (includes idle)${v.toolErrors ? `, ${v.toolErrors} tool errors` : ''}${v.completed ? '' : ', DID NOT finish'}`;
+}
+
+/**
+ * Splits a total char budget across runs, giving unhealthy runs (tool errors or
+ * unfinished) double the share of healthy ones. Pure.
+ */
+export function allocateRunBudgets(runs: readonly InvocationProfile[], total: number): number[] {
+  if (runs.length === 0) return [];
+  const weights = runs.map((r) => (r.toolErrors > 0 || !r.completed ? 2 : 1));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  return weights.map((w) => Math.floor((total * w) / sum));
+}
+
+/** Renders one tool step, capping the error text and the whole line. */
+function renderToolLine(ev: ToolEvent): string {
+  const base = `[tool] ${ev.name}${ev.target ? `(${ev.target})` : ''}`;
+  if (ev.isError) {
+    const err = (ev.errorText ?? '(no error text)').slice(0, ERROR_TEXT_MAX);
+    return `${base} ⚠ error: ${err}`.slice(0, TOOL_LINE_MAX);
+  }
+  return base.slice(0, TOOL_LINE_MAX);
+}
+
+/**
+ * Renders one run as a chronological thought→action→result trace within a char
+ * budget. Mandatory items (the plan, every errored tool + its preceding reason,
+ * the outcome, and tool lines) always render; other reasoning fills the
+ * remaining budget, and skipped stretches collapse into an elision marker. Pure.
+ */
+export function renderRunNarrative(v: InvocationProfile, index: number, budget: number): string {
+  const lines: string[] = [
+    runHeader(v, index),
+    `Model: ${v.model ?? 'unknown'}`,
+    `Task: ${v.taskPrompt.slice(0, MAX_TASK_CHARS) || '(unknown)'}`,
+  ];
+  let used = lines.reduce((n, l) => n + l.length, 0);
+
+  const timeline = v.timeline;
+  // The final text is the outcome — rendered separately, excluded from the trace.
+  let outcomeIdx = -1;
+  if (v.finalText) {
+    for (let i = timeline.length - 1; i >= 0; i--) {
+      if (timeline[i]!.kind === 'text') { outcomeIdx = i; break; }
+    }
+  }
+  // The first reasoning item is the plan (always kept).
+  let planIdx = -1;
+  for (let i = 0; i < timeline.length; i++) {
+    if (i === outcomeIdx) continue;
+    const k = timeline[i]!.kind;
+    if (k === 'thinking' || k === 'text') { planIdx = i; break; }
+  }
+  const precedesError = (i: number): boolean => {
+    const next = timeline[i + 1];
+    return !!next && next.kind === 'tool' && next.event.isError;
+  };
+
+  lines.push('Trace (chronological):');
+  let toolCount = 0;
+  let pendingElided = 0;
+  const flush = () => {
+    if (pendingElided > 0) { lines.push(`… (${pendingElided} reasoning blocks elided) …`); pendingElided = 0; }
+  };
+
+  for (let i = 0; i < timeline.length; i++) {
+    if (i === outcomeIdx) continue;
+    const item = timeline[i]!;
+    if (item.kind === 'tool') {
+      if (++toolCount > MAX_SEQUENCE) continue;
+      flush();
+      const s = renderToolLine(item.event);
+      lines.push(s); used += s.length;
+    } else {
+      const preErr = precedesError(i);
+      const s = `[${item.kind === 'thinking' ? 'thought' : 'text'}] "${item.text.slice(0, preErr ? REASONING_CAP_PRE_ERROR : REASONING_CAP)}"`;
+      if (i === planIdx || preErr || used + s.length <= budget) {
+        flush();
+        lines.push(s); used += s.length;
+      } else {
+        pendingElided++;
+      }
+    }
+  }
+  flush();
+
+  if (v.finalText) lines.push(`[outcome] "${v.finalText.slice(0, MAX_OUTCOME_CHARS)}"`);
+  return lines.join('\n');
+}
+
+/** Legacy flat rendering, used for runs with no captured timeline. */
+function renderRunLegacy(v: InvocationProfile, i: number): string {
+  const toolCounts = Object.entries(v.toolCounts).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}×${n}`).join(', ') || 'none';
+  const files = [...new Set(v.filesTouched)];
+  const events = v.toolEvents.length ? v.toolEvents : v.toolSequence.map((name) => ({ name, target: undefined, isError: false, errorText: undefined }));
+  const order = events.slice(0, MAX_SEQUENCE)
+    .map((e) => `${e.name}${e.target ? `(${e.target})` : ''}${e.isError ? '⚠' : ''}`)
+    .join(' → ');
+  const lines = [
+    runHeader(v, i),
+    `Model: ${v.model ?? 'unknown'}`,
+    `Task: ${v.taskPrompt.slice(0, MAX_TASK_CHARS) || '(unknown)'}`,
+    `Tool counts: ${toolCounts}`,
+    `Tool order: ${order}${events.length > MAX_SEQUENCE ? ' → …' : ''}`,
+  ];
+  const errored = v.toolEvents.filter((e) => e.isError);
+  if (errored.length) {
+    lines.push('Errors:');
+    for (const e of errored) lines.push(`- ${e.name}${e.target ? `(${e.target})` : ''}: ${e.errorText ?? '(no error text)'}`);
+  }
+  if (v.reasoningSnippets.length) {
+    lines.push('Reasoning excerpts (the agent\'s own intermediate thoughts):');
+    for (const s of v.reasoningSnippets) lines.push(`- "${s}"`);
+  }
+  if (files.length) lines.push(`Files edited: ${files.join(', ')}${v.maxFileEdits > 1 ? ` (one file edited up to ${v.maxFileEdits}×)` : ''}`);
+  lines.push(`Outcome: ${v.finalText.slice(0, MAX_OUTCOME_CHARS) || '(no final text)'}`);
+  return lines.join('\n');
 }
 
 /** Builds the reviewer prompt from an agent definition + real invocation traces. Pure. */
@@ -70,32 +198,12 @@ export function buildEvidencePrompt(
   lines.push('');
 
   lines.push(`## Observed runs (the ${recent.length} most recent of ${invocations.length} recorded)`);
+  const budgets = allocateRunBudgets(recent, TOTAL_NARRATIVE_BUDGET);
   recent.forEach((v, i) => {
-    const toolCounts = Object.entries(v.toolCounts).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}×${n}`).join(', ') || 'none';
-    const files = [...new Set(v.filesTouched)];
-    const events = v.toolEvents.length ? v.toolEvents : v.toolSequence.map((name) => ({ name, target: undefined, isError: false, errorText: undefined }));
-    const order = events.slice(0, MAX_SEQUENCE)
-      .map((e) => `${e.name}${e.target ? `(${e.target})` : ''}${e.isError ? '⚠' : ''}`)
-      .join(' → ');
-    lines.push(
-      '',
-      `### Run ${i + 1} — ${v.turns} turns, ${v.toolCalls} tool calls, ${v.tokens.output} output tokens, ${fmtSpan(v.spanMs)} wall-clock (includes idle)${v.toolErrors ? `, ${v.toolErrors} tool errors` : ''}${v.completed ? '' : ', DID NOT finish'}`,
-      `Model: ${v.model ?? 'unknown'}`,
-      `Task: ${v.taskPrompt.slice(0, MAX_TASK_CHARS) || '(unknown)'}`,
-      `Tool counts: ${toolCounts}`,
-      `Tool order: ${order}${events.length > MAX_SEQUENCE ? ' → …' : ''}`,
-    );
-    const errored = v.toolEvents.filter((e) => e.isError);
-    if (errored.length) {
-      lines.push('Errors:');
-      for (const e of errored) lines.push(`- ${e.name}${e.target ? `(${e.target})` : ''}: ${e.errorText ?? '(no error text)'}`);
-    }
-    if (v.reasoningSnippets.length) {
-      lines.push('Reasoning excerpts (the agent\'s own intermediate thoughts):');
-      for (const s of v.reasoningSnippets) lines.push(`- "${s}"`);
-    }
-    if (files.length) lines.push(`Files edited: ${files.join(', ')}${v.maxFileEdits > 1 ? ` (one file edited up to ${v.maxFileEdits}×)` : ''}`);
-    lines.push(`Outcome: ${v.finalText.slice(0, MAX_OUTCOME_CHARS) || '(no final text)'}`);
+    lines.push('');
+    // Timeline-backed runs get the interleaved narrative; older/legacy profiles
+    // (no captured timeline) fall back to the flat rendering.
+    lines.push(v.timeline.length > 0 ? renderRunNarrative(v, i, budgets[i] ?? TOTAL_NARRATIVE_BUDGET) : renderRunLegacy(v, i));
   });
 
   lines.push(
@@ -165,14 +273,18 @@ export function runClaude(prompt: string, model = 'haiku', timeoutMs = 180000): 
 export function analyzeAgent(
   cwd: string,
   agentType: string,
-  opts: { transcripts?: string | undefined; model?: string | undefined } = {},
+  opts: { transcripts?: string | undefined; sessions?: string | undefined; model?: string | undefined } = {},
 ): AnalysisResult {
-  const projectDir = opts.transcripts ? resolve(cwd, opts.transcripts) : resolveProjectDir(cwd);
-  if (!projectDir || !existsSync(projectDir)) {
+  const liveDir = opts.transcripts ? resolve(cwd, opts.transcripts) : resolveProjectDir(cwd);
+  const hasLive = !!liveDir && existsSync(liveDir);
+  const archiveDir = opts.sessions ? resolve(cwd, opts.sessions) : defaultArchiveRoot(cwd);
+  const hasArchive = existsSync(archiveDir);
+  if (!hasLive && !hasArchive) {
     return { ok: false, agentType, error: 'No transcripts found for this project.' };
   }
 
-  const invocations = loadInvocations(projectDir).filter((i) => i.agentType === agentType);
+  const invocations = loadMergedInvocations(hasLive ? liveDir : null, hasArchive ? archiveDir : null)
+    .filter((i) => i.agentType === agentType);
   if (!invocations.length) {
     return { ok: false, agentType, error: `No recorded runs for "${agentType}".` };
   }

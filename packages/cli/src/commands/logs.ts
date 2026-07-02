@@ -2,7 +2,7 @@ import { exec } from 'node:child_process';
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
-import { loadInvocations, resolveProjectDir } from '../transcripts.js';
+import { defaultArchiveRoot, loadInvocationById, loadMergedInvocations, resolveProjectDir } from '../transcripts.js';
 import { listDefinedAgentTypes } from '../agent-defs.js';
 import { analyze } from '../insights-analysis.js';
 import { analyzeAgent } from '../agent-analysis.js';
@@ -13,6 +13,8 @@ export interface LogsOptions {
   readonly open?: boolean;
   /** Override the transcript project dir (containing `<session>/subagents/…`). Mainly for tests. */
   readonly transcripts?: string | undefined;
+  /** Override the archived-sessions root (`.claude/grimoire/sessions`). Mainly for tests. */
+  readonly sessions?: string | undefined;
 }
 
 const DEFAULT_LOG_PATH = '.claude/logs/grimoire-router.log';
@@ -23,18 +25,36 @@ const DEFAULT_MANIFEST_PATH = '.claude/grimoire.json';
  * transcripts. Interpretation is done separately (on demand) by `/api/analyze`.
  * Never throws — missing data degrades to an empty result.
  */
-export function buildInsights(cwd: string, transcriptsOverride?: string): Record<string, unknown> {
+/** Resolves the live transcript dir and the archived-sessions root, or null when absent. */
+function resolveInsightSources(
+  cwd: string,
+  transcriptsOverride?: string,
+  sessionsOverride?: string,
+): { liveDir: string | null; archiveDir: string | null } {
+  const live = transcriptsOverride ? resolve(cwd, transcriptsOverride) : resolveProjectDir(cwd);
+  const archive = sessionsOverride ? resolve(cwd, sessionsOverride) : defaultArchiveRoot(cwd);
+  return {
+    liveDir: live && existsSync(live) ? live : null,
+    archiveDir: existsSync(archive) ? archive : null,
+  };
+}
+
+export function buildInsights(cwd: string, transcriptsOverride?: string, sessionsOverride?: string): Record<string, unknown> {
   const generatedAt = new Date().toISOString();
-  const projectDir = transcriptsOverride ? resolve(cwd, transcriptsOverride) : resolveProjectDir(cwd);
-  if (!projectDir || !existsSync(projectDir)) {
+  const { liveDir, archiveDir } = resolveInsightSources(cwd, transcriptsOverride, sessionsOverride);
+
+  if (!liveDir && !archiveDir) {
     return { agents: [], invocations: [], projectDir: null, note: 'No sub-agent transcripts found for this project.', generatedAt };
   }
 
   // Built-in agents (Explore, Plan, …) have no editable definition — skip them.
   const defined = listDefinedAgentTypes(cwd);
-  const invocations = loadInvocations(projectDir).filter((i) => defined.has(i.agentType));
+  const invocations = loadMergedInvocations(liveDir, archiveDir).filter((i) => defined.has(i.agentType));
   const agents = analyze(invocations);
-  return { agents, invocations, projectDir, generatedAt };
+  // The full per-run timeline is heavy — strip it here; the viewer fetches it on
+  // demand per invocation via GET /api/invocations/<agentId>.
+  const summaries = invocations.map(({ timeline, ...rest }) => rest);
+  return { agents, invocations: summaries, projectDir: liveDir ?? archiveDir, generatedAt };
 }
 
 /** Reads a request body up to a size cap. */
@@ -55,14 +75,18 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
     ? resolve(cwd, options.logFile)
     : resolve(cwd, DEFAULT_LOG_PATH);
 
-  // The viewer needs at least one data source: sub-agent transcripts (Insights
-  // tab) or the enforcement log (Events tab). Bail only if neither exists.
-  const projectDir = options.transcripts ? resolve(cwd, options.transcripts) : resolveProjectDir(cwd);
-  const hasTranscripts = !!projectDir && existsSync(projectDir);
-  if (!existsSync(logFilePath) && !hasTranscripts) {
+  // The viewer needs at least one data source: live sub-agent transcripts or the
+  // archived sessions (Insights tab), or the enforcement log (Events tab). Bail
+  // only if none exists.
+  const liveDir = options.transcripts ? resolve(cwd, options.transcripts) : resolveProjectDir(cwd);
+  const hasTranscripts = !!liveDir && existsSync(liveDir);
+  const archiveDir = options.sessions ? resolve(cwd, options.sessions) : defaultArchiveRoot(cwd);
+  const hasArchive = existsSync(archiveDir);
+  if (!existsSync(logFilePath) && !hasTranscripts && !hasArchive) {
     console.error('No Grimoire data found for this project yet.\n');
     console.error(`Looked for sub-agent transcripts and an enforcement log at:`);
     console.error(`  transcripts: ~/.claude/projects/<this project>/*/subagents/`);
+    console.error(`  archive:     ${archiveDir}`);
     console.error(`  enforce log: ${logFilePath}\n`);
     console.error('Run some sub-agents (or enable enforcement: grimoire config), then try again.');
     process.exit(1);
@@ -92,12 +116,31 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
 
     if (req.url === '/api/insights') {
       try {
-        const payload = buildInsights(cwd, options.transcripts);
+        const payload = buildInsights(cwd, options.transcripts, options.sessions);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(payload));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'insights failed' }));
+      }
+      return;
+    }
+
+    if (req.url && req.url.startsWith('/api/invocations/')) {
+      try {
+        const agentId = decodeURIComponent(req.url.slice('/api/invocations/'.length));
+        const { liveDir, archiveDir } = resolveInsightSources(cwd, options.transcripts, options.sessions);
+        const inv = agentId ? loadInvocationById(liveDir, archiveDir, agentId) : null;
+        if (!inv) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'invocation not found' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(inv));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'invocation failed' }));
       }
       return;
     }
@@ -114,6 +157,7 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
           }
           const result = analyzeAgent(cwd, agentType, {
             transcripts: options.transcripts,
+            sessions: options.sessions,
             model: typeof parsed.model === 'string' ? parsed.model : undefined,
           });
           res.writeHead(200, { 'Content-Type': 'application/json' });

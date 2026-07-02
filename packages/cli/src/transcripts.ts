@@ -13,6 +13,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { gunzipSync } from 'node:zlib';
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit']);
 
@@ -33,6 +34,16 @@ export interface ToolEvent {
   isError: boolean;
   errorText?: string | undefined;
 }
+
+/**
+ * One chronological step of a sub-agent's session. Tool steps hold a reference
+ * to the same ToolEvent recorded in `toolEvents`, so is_error correlation that
+ * runs after the tool call is issued is reflected here automatically.
+ */
+export type TimelineItem =
+  | { kind: 'thinking'; text: string }
+  | { kind: 'text'; text: string }
+  | { kind: 'tool'; event: ToolEvent };
 
 export interface InvocationProfile {
   agentId: string;
@@ -57,6 +68,8 @@ export interface InvocationProfile {
   maxFileEdits: number;
   /** intermediate assistant reasoning: the initial plan + text preceding errored calls */
   reasoningSnippets: string[];
+  /** full chronological session: thinking, text and tool steps in order */
+  timeline: TimelineItem[];
   /** the task the sub-agent was given (its first user message), truncated */
   taskPrompt: string;
   finalText: string;
@@ -100,6 +113,8 @@ const MAX_TARGET_CHARS = 120;
 const MAX_ERROR_CHARS = 200;
 const MAX_SNIPPET_CHARS = 300;
 const MAX_SNIPPETS = 3;
+/** Per-item cap for thinking/text timeline entries — bounds memory; the prompt budgeter truncates further. */
+const MAX_TIMELINE_ITEM_CHARS = 2000;
 
 /** Best-effort human-readable target of a tool call from its input object. */
 function toolTarget(input: unknown): string | undefined {
@@ -124,6 +139,7 @@ export function parseInvocation(
   const toolCounts: Record<string, number> = {};
   const toolSequence: string[] = [];
   const toolEvents: ToolEvent[] = [];
+  const timeline: TimelineItem[] = [];
   const eventById = new Map<string, ToolEvent>();
   const precedingTextIdx = new Map<ToolEvent, number>();
   const texts: string[] = [];
@@ -226,6 +242,7 @@ export function parseInvocation(
         const target = toolTarget(block['input']);
         if (target) event.target = target;
         toolEvents.push(event);
+        timeline.push({ kind: 'tool', event }); // same ref → error correlation shows here
         precedingTextIdx.set(event, texts.length - 1);
         const id = asStr(block['id']);
         if (id) eventById.set(id, event);
@@ -235,7 +252,13 @@ export function parseInvocation(
         }
       } else if (btype === 'text') {
         const t = asStr(block['text']);
-        if (t && t.trim()) texts.push(t.trim());
+        if (t && t.trim()) {
+          texts.push(t.trim());
+          timeline.push({ kind: 'text', text: t.trim().slice(0, MAX_TIMELINE_ITEM_CHARS) });
+        }
+      } else if (btype === 'thinking') {
+        const t = asStr(block['thinking']); // absent/redacted_thinking → skipped
+        if (t && t.trim()) timeline.push({ kind: 'thinking', text: t.trim().slice(0, MAX_TIMELINE_ITEM_CHARS) });
       }
     }
   }
@@ -286,6 +309,7 @@ export function parseInvocation(
     filesTouched,
     maxFileEdits,
     reasoningSnippets,
+    timeline,
     taskPrompt: taskPrompt.slice(0, 1000),
     finalText: finalText.slice(0, 600),
     completed: finalText.length > 0,
@@ -345,11 +369,15 @@ export function resolveProjectDir(projectCwd: string, root = defaultTranscriptsR
   return null;
 }
 
-interface SubagentFile {
+export interface SubagentFile {
   agentId: string;
   sessionId: string;
   jsonlPath: string;
   metaPath: string;
+  /** transcript is gzipped (`.jsonl.gz`) — archived runs. */
+  gz?: boolean;
+  /** agent type from the archive dir layout, used when the meta file is absent. */
+  agentTypeHint?: string;
 }
 
 /** Lists every `<session>/subagents/agent-*.jsonl` under a project dir. */
@@ -383,29 +411,142 @@ export function listSubagentFiles(projectDir: string): SubagentFile[] {
   return out;
 }
 
-/** Loads and parses all sub-agent invocations found under a project dir. */
-export function loadInvocations(projectDir: string): InvocationProfile[] {
-  const out: InvocationProfile[] = [];
-  for (const f of listSubagentFiles(projectDir)) {
-    let jsonl: string;
+/** Reads a transcript, transparently gunzipping archived (`.jsonl.gz`) files. Null on any failure. */
+export function readTranscriptText(path: string, gz = false): string | null {
+  try {
+    const buf = readFileSync(path);
+    return gz ? gunzipSync(buf).toString('utf-8') : buf.toString('utf-8');
+  } catch {
+    return null; // missing file or corrupt gzip — skip, never throw
+  }
+}
+
+/** Reads a sub-agent `.meta.json`, falling back to the agent-type hint when absent. */
+function readMeta(metaPath: string, agentTypeHint?: string): { agentType?: string; description?: string } {
+  const meta: { agentType?: string; description?: string } = {};
+  if (agentTypeHint) meta.agentType = agentTypeHint;
+  try {
+    const parsed = asObj(JSON.parse(readFileSync(metaPath, 'utf-8')));
+    if (parsed) {
+      const agentType = asStr(parsed['agentType']);
+      const description = asStr(parsed['description']);
+      if (agentType) meta.agentType = agentType; // meta wins over the dir-name hint
+      if (description) meta.description = description;
+    }
+  } catch {
+    /* meta optional */
+  }
+  return meta;
+}
+
+/** The project-local archive root the router writes to (`.claude/grimoire/sessions`). */
+export function defaultArchiveRoot(projectCwd: string): string {
+  return join(projectCwd, '.claude', 'grimoire', 'sessions');
+}
+
+/** Lists every archived `<agentType>/<session>/agent-*.jsonl[.gz]` under the archive root. */
+export function listArchivedSubagentFiles(archiveRoot: string): SubagentFile[] {
+  const out: SubagentFile[] = [];
+  let typeDirs: string[];
+  try {
+    typeDirs = readdirSync(archiveRoot, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+  } catch {
+    return out;
+  }
+  for (const agentType of typeDirs) {
+    const typeDir = join(archiveRoot, agentType);
+    let sessions: string[];
     try {
-      jsonl = readFileSync(f.jsonlPath, 'utf-8');
+      sessions = readdirSync(typeDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
     } catch {
       continue;
     }
-    const meta: { agentType?: string; description?: string } = {};
-    try {
-      const parsed = asObj(JSON.parse(readFileSync(f.metaPath, 'utf-8')));
-      if (parsed) {
-        const agentType = asStr(parsed['agentType']);
-        const description = asStr(parsed['description']);
-        if (agentType) meta.agentType = agentType;
-        if (description) meta.description = description;
+    for (const sessionId of sessions) {
+      const sessionDir = join(typeDir, sessionId);
+      let files: string[];
+      try {
+        files = readdirSync(sessionDir);
+      } catch {
+        continue;
       }
-    } catch {
-      /* meta optional */
+      for (const f of files) {
+        if (!f.startsWith('agent-')) continue;
+        const gz = f.endsWith('.jsonl.gz');
+        if (!gz && !f.endsWith('.jsonl')) continue;
+        const agentId = f.replace(/^agent-/, '').replace(/\.jsonl(\.gz)?$/, '');
+        out.push({
+          agentId,
+          sessionId,
+          jsonlPath: join(sessionDir, f),
+          metaPath: join(sessionDir, `agent-${agentId}.meta.json`),
+          gz,
+          agentTypeHint: agentType,
+        });
+      }
     }
-    out.push(parseInvocation(f.agentId, f.sessionId, jsonl, meta));
   }
   return out;
+}
+
+/** Loads and parses all sub-agent invocations found under a live project dir. */
+export function loadInvocations(projectDir: string): InvocationProfile[] {
+  return loadMergedInvocations(projectDir, null);
+}
+
+/**
+ * Loads invocations from the live transcript dir and the gzipped archive,
+ * deduped by agentId. On collision the longer transcript wins (a live run may
+ * still be flushing after SubagentStop; a purged live run may be a stub); ties
+ * go to the live copy.
+ */
+export function loadMergedInvocations(
+  liveDir: string | null,
+  archiveDir: string | null,
+): InvocationProfile[] {
+  const winners = new Map<string, { file: SubagentFile; text: string }>();
+
+  const consider = (files: SubagentFile[]) => {
+    for (const file of files) {
+      const text = readTranscriptText(file.jsonlPath, file.gz);
+      if (text === null) continue;
+      const existing = winners.get(file.agentId);
+      if (!existing || text.length > existing.text.length) {
+        winners.set(file.agentId, { file, text });
+      }
+    }
+  };
+
+  // Live first so equal-length ties resolve in its favor.
+  if (liveDir) consider(listSubagentFiles(liveDir));
+  if (archiveDir) consider(listArchivedSubagentFiles(archiveDir));
+
+  const out: InvocationProfile[] = [];
+  for (const { file, text } of winners.values()) {
+    out.push(parseInvocation(file.agentId, file.sessionId, text, readMeta(file.metaPath, file.agentTypeHint)));
+  }
+  return out;
+}
+
+/**
+ * Loads and parses a single invocation by agentId across live + archive
+ * (longer transcript wins, tie → live). Parses on demand — used to serve the
+ * full timeline for one run without materializing every invocation. Null if not found.
+ */
+export function loadInvocationById(
+  liveDir: string | null,
+  archiveDir: string | null,
+  agentId: string,
+): InvocationProfile | null {
+  const candidates: SubagentFile[] = [];
+  if (liveDir) candidates.push(...listSubagentFiles(liveDir).filter((f) => f.agentId === agentId));
+  if (archiveDir) candidates.push(...listArchivedSubagentFiles(archiveDir).filter((f) => f.agentId === agentId));
+
+  let best: { file: SubagentFile; text: string } | null = null;
+  for (const file of candidates) {
+    const text = readTranscriptText(file.jsonlPath, file.gz);
+    if (text === null) continue;
+    if (!best || text.length > best.text.length) best = { file, text };
+  }
+  if (!best) return null;
+  return parseInvocation(best.file.agentId, best.file.sessionId, best.text, readMeta(best.file.metaPath, best.file.agentTypeHint));
 }

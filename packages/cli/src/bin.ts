@@ -60,12 +60,17 @@ const logsCommand = defineCommand({
       type: 'string',
       description: 'Override the sub-agent transcript project dir (default: auto-detected under ~/.claude/projects)',
     },
+    sessions: {
+      type: 'string',
+      description: 'Override the archived-sessions root (default: .claude/grimoire/sessions)',
+    },
   },
   async run({ args }) {
     const server = await runLogs(process.cwd(), {
       logFile: args.file || undefined,
       port: args.port ? Number(args.port) : undefined,
       transcripts: args.transcripts || undefined,
+      sessions: args.sessions || undefined,
     });
 
     const addr = server.address();
