@@ -974,7 +974,7 @@
       const el = document.getElementById('insightsDetail');
       el.style.display = 'block';
       const invs = insightsData.invocations.filter(v => v.agentType === a.agentType)
-        .sort((x, y) => (y.firstTs || '') < (x.firstTs || '') ? -1 : 1);
+        .sort((x, y) => (Date.parse(y.firstTs) || 0) - (Date.parse(x.firstTs) || 0));
       const cached = analysisCache[a.agentType];
       el.innerHTML = `
     <button class="back-link" onclick="showRoster()">← All agents</button>

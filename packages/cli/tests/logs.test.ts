@@ -198,6 +198,35 @@ describe('runLogs', () => {
     expect(body.invocations[0]!['agentType']).toBe('grimoire.typescript-coder');
   });
 
+  it('should return /api/insights invocations ordered by date descending', async () => {
+    projectDir = makeTmpDir('insights-order');
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'grimoire.rust-coder.md'), '---\nname: grimoire.rust-coder\n---\nprompt');
+
+    const sessionsRoot = makeTmpDir('sessions-order');
+    // Write the OLDER run first so disk enumeration order can't accidentally
+    // produce the desired ordering — the sort has to earn it.
+    const mkRun = (sessionId: string, agentId: string, ts: string) => {
+      const dir = join(sessionsRoot, 'grimoire.rust-coder', sessionId);
+      mkdirSync(dir, { recursive: true });
+      const jsonl = JSON.stringify({ type: 'assistant', timestamp: ts, message: { content: [{ type: 'text', text: 'done' }] } });
+      writeFileSync(join(dir, `agent-${agentId}.jsonl.gz`), gzipSync(Buffer.from(jsonl, 'utf-8')));
+      writeFileSync(join(dir, `agent-${agentId}.meta.json`), JSON.stringify({ agentType: 'grimoire.rust-coder', description: '' }));
+    };
+    mkRun('sess-old', 'agOld', '2026-06-01T09:00:00.000Z');
+    mkRun('sess-new', 'agNew', '2026-07-01T09:00:00.000Z');
+    mkRun('sess-mid', 'agMid', '2026-06-15T09:00:00.000Z');
+
+    server = await runLogs(projectDir, { open: false, sessions: sessionsRoot });
+
+    const res = await fetch(`${serverUrl(server)}/api/insights`);
+    const body = await res.json() as { invocations: Array<{ agentId: string }> };
+    expect(body.invocations.map((i) => i.agentId)).toEqual(['agNew', 'agMid', 'agOld']);
+
+    rmSync(sessionsRoot, { recursive: true, force: true });
+  });
+
   it('should compute /api/insights from the archive when live transcripts are gone', async () => {
     projectDir = makeTmpDir('insights-archive');
     // The agent def survives even after Claude Code purges the live transcripts

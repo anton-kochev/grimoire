@@ -52,8 +52,11 @@ export function buildInsights(cwd: string, transcriptsOverride?: string, session
   const invocations = loadMergedInvocations(liveDir, archiveDir).filter((i) => defined.has(i.agentType));
   const agents = analyze(invocations);
   // The full per-run timeline is heavy — strip it here; the viewer fetches it on
-  // demand per invocation via GET /api/invocations/<agentId>.
-  const summaries = invocations.map(({ timeline, ...rest }) => rest);
+  // demand per invocation via GET /api/invocations/<agentId>. Ordered newest-first
+  // so every consumer sees sessions by date descending (undated runs sink last).
+  const summaries = invocations
+    .map(({ timeline, ...rest }) => rest)
+    .sort((a, b) => (Date.parse(b.firstTs ?? '') || 0) - (Date.parse(a.firstTs ?? '') || 0));
   return { agents, invocations: summaries, projectDir: liveDir ?? archiveDir, generatedAt };
 }
 
