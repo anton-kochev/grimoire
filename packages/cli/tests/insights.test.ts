@@ -285,6 +285,18 @@ describe('buildEvidencePrompt', () => {
     expect(prompt).toMatch(/small sample/i);
   });
 
+  it('requires observed cost per suggestion and filters out low-confidence polish', () => {
+    const prompt = buildEvidencePrompt('grimoire.typescript-coder', null, invs);
+    expect(prompt).toMatch(/observed cost/i);
+    expect(prompt).toContain('Confidence: high|medium');
+    expect(prompt).not.toMatch(/high\|medium\|low/);
+    expect(prompt).toMatch(/omit/i);
+    // The formatting example must not be a plausible generic suggestion the
+    // model can parrot back for any agent (it did, with "single-purpose Bash").
+    expect(prompt).not.toMatch(/single-purpose/i);
+    expect(prompt).not.toMatch(/never chain commands/i);
+  });
+
   it('caps the number of runs, states the selection window and notes built-in agents', () => {
     const prompt = buildEvidencePrompt('Explore', null, invs);
     expect(prompt).toContain('Built-in agent');
