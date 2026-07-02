@@ -10,7 +10,7 @@
  * a malformed line is counted and skipped rather than aborting the parse.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
@@ -570,4 +570,132 @@ export function loadInvocationById(
   }
   if (!best) return null;
   return parseInvocation(best.file.agentId, best.file.sessionId, best.text, readMeta(best.file.metaPath, best.file.agentTypeHint));
+}
+
+// =============================================================================
+// Per-session analysis persistence
+//
+// The LLM "Review" of a single session is saved alongside its transcript as
+// `analysis.md` (+ an `analysis.meta.json` sidecar), mirroring the router's
+// `agent-<id>.jsonl.gz` + `agent-<id>.meta.json` convention. Exactly one review
+// lives per session dir — regenerating overwrites it.
+// =============================================================================
+
+/**
+ * Keeps archive path segments from escaping the sessions root.
+ * MUST stay in sync with `sanitizeSegment` in `packages/router/src/archive.ts`
+ * so the CLI writes into the exact directory the router uses.
+ */
+function sanitizeSegment(s: string): string {
+  const cleaned = s.replace(/[^A-Za-z0-9._-]/g, '-');
+  return /^\.+$/.test(cleaned) ? cleaned.replace(/\./g, '-') : cleaned;
+}
+
+/** The saved review + its metadata, as read back from disk. */
+export interface SessionAnalysis {
+  result: string;
+  model?: string | undefined;
+  costUsd?: number | undefined;
+  durationMs?: number | undefined;
+  runsAnalyzed?: number | undefined;
+  generatedAt?: string | undefined;
+  agentId?: string | undefined;
+}
+
+/** Resolves the on-disk paths for a session's saved analysis. Pure. */
+export function sessionAnalysisPaths(
+  archiveRoot: string,
+  agentType: string,
+  sessionId: string,
+): { dir: string; mdPath: string; metaPath: string } {
+  const dir = join(archiveRoot, sanitizeSegment(agentType), sanitizeSegment(sessionId));
+  return { dir, mdPath: join(dir, 'analysis.md'), metaPath: join(dir, 'analysis.meta.json') };
+}
+
+/**
+ * Writes (or overwrites) a session's review to `analysis.md` + `analysis.meta.json`,
+ * creating the session dir if needed. Atomic per file (tmp + rename). Stamps and
+ * returns `generatedAt`.
+ */
+export function writeSessionAnalysis(
+  archiveRoot: string,
+  agentType: string,
+  sessionId: string,
+  data: {
+    result: string;
+    model?: string | undefined;
+    costUsd?: number | undefined;
+    durationMs?: number | undefined;
+    runsAnalyzed?: number | undefined;
+    agentId?: string | undefined;
+  },
+): string {
+  const { dir, mdPath, metaPath } = sessionAnalysisPaths(archiveRoot, agentType, sessionId);
+  mkdirSync(dir, { recursive: true });
+  const generatedAt = new Date().toISOString();
+  const meta = {
+    agentId: data.agentId,
+    model: data.model,
+    costUsd: data.costUsd,
+    durationMs: data.durationMs,
+    runsAnalyzed: data.runsAnalyzed,
+    generatedAt,
+  };
+  writeFileSync(`${mdPath}.tmp`, data.result ?? '');
+  renameSync(`${mdPath}.tmp`, mdPath);
+  writeFileSync(`${metaPath}.tmp`, JSON.stringify(meta, null, 2));
+  renameSync(`${metaPath}.tmp`, metaPath);
+  return generatedAt;
+}
+
+/** Reads a session's saved review, or null when `analysis.md` is absent. */
+export function readSessionAnalysis(
+  archiveRoot: string,
+  agentType: string,
+  sessionId: string,
+): SessionAnalysis | null {
+  const { mdPath, metaPath } = sessionAnalysisPaths(archiveRoot, agentType, sessionId);
+  let result: string;
+  try {
+    result = readFileSync(mdPath, 'utf-8');
+  } catch {
+    return null;
+  }
+  const out: SessionAnalysis = { result };
+  try {
+    const parsed = asObj(JSON.parse(readFileSync(metaPath, 'utf-8')));
+    if (parsed) {
+      const model = asStr(parsed['model']);
+      if (model) out.model = model;
+      if (typeof parsed['costUsd'] === 'number') out.costUsd = parsed['costUsd'];
+      if (typeof parsed['durationMs'] === 'number') out.durationMs = parsed['durationMs'];
+      if (typeof parsed['runsAnalyzed'] === 'number') out.runsAnalyzed = parsed['runsAnalyzed'];
+      const generatedAt = asStr(parsed['generatedAt']);
+      if (generatedAt) out.generatedAt = generatedAt;
+      const agentId = asStr(parsed['agentId']);
+      if (agentId) out.agentId = agentId;
+    }
+  } catch {
+    /* meta optional — the markdown is the source of truth */
+  }
+  return out;
+}
+
+/**
+ * Resolves an agentId to its `{ agentType, sessionId }` without parsing the
+ * transcript — enough to locate the session's archive dir. Null if unknown.
+ */
+export function findSessionRef(
+  liveDir: string | null,
+  archiveDir: string | null,
+  agentId: string,
+): { agentType: string; sessionId: string } | null {
+  const files: SubagentFile[] = [];
+  if (liveDir) files.push(...listSubagentFiles(liveDir).filter((f) => f.agentId === agentId));
+  if (archiveDir) files.push(...listArchivedSubagentFiles(archiveDir).filter((f) => f.agentId === agentId));
+  for (const f of files) {
+    const meta = readMeta(f.metaPath, f.agentTypeHint);
+    if (meta.agentType) return { agentType: meta.agentType, sessionId: f.sessionId };
+  }
+  return null;
 }

@@ -2,10 +2,18 @@ import { exec } from 'node:child_process';
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
-import { defaultArchiveRoot, loadInvocationById, loadMergedInvocations, resolveProjectDir } from '../transcripts.js';
+import {
+  defaultArchiveRoot,
+  findSessionRef,
+  loadInvocationById,
+  loadMergedInvocations,
+  readSessionAnalysis,
+  resolveProjectDir,
+  writeSessionAnalysis,
+} from '../transcripts.js';
 import { listDefinedAgentTypes } from '../agent-defs.js';
 import { analyze } from '../insights-analysis.js';
-import { analyzeAgent } from '../agent-analysis.js';
+import { analyzeAgent, analyzeSession } from '../agent-analysis.js';
 
 export interface LogsOptions {
   readonly logFile?: string | undefined;
@@ -170,6 +178,74 @@ export async function runLogs(cwd: string, options: LogsOptions = {}): Promise<S
           res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'analyze failed' }));
         }
       })();
+      return;
+    }
+
+    // Reviews one session (by agentId) and persists it into that session's
+    // archive dir as analysis.md (+ meta), overwriting any prior review.
+    if (req.method === 'POST' && req.url === '/api/session-analysis') {
+      void (async () => {
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}') as { agentId?: unknown; model?: unknown };
+          const agentId = typeof parsed.agentId === 'string' ? parsed.agentId : '';
+          if (!agentId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'agentId is required' }));
+            return;
+          }
+          const { liveDir, archiveDir } = resolveInsightSources(cwd, options.transcripts, options.sessions);
+          const ref = findSessionRef(liveDir, archiveDir, agentId);
+          if (!ref) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'invocation not found' }));
+            return;
+          }
+          const result = analyzeSession(cwd, agentId, {
+            transcripts: options.transcripts,
+            sessions: options.sessions,
+            model: typeof parsed.model === 'string' ? parsed.model : undefined,
+          });
+          const payload: Record<string, unknown> = { ...result };
+          if (result.ok && result.result) {
+            // Write root is ungated (may not exist yet for a live-only session).
+            const archiveRoot = options.sessions ? resolve(cwd, options.sessions) : defaultArchiveRoot(cwd);
+            payload['generatedAt'] = writeSessionAnalysis(archiveRoot, ref.agentType, ref.sessionId, {
+              result: result.result,
+              model: result.model,
+              costUsd: result.costUsd,
+              durationMs: result.durationMs,
+              runsAnalyzed: result.runsAnalyzed,
+              agentId,
+            });
+            payload['saved'] = true;
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(payload));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'analyze failed' }));
+        }
+      })();
+      return;
+    }
+
+    if (req.url && req.url.startsWith('/api/session-analysis/')) {
+      try {
+        const agentId = decodeURIComponent(req.url.slice('/api/session-analysis/'.length));
+        const { liveDir, archiveDir } = resolveInsightSources(cwd, options.transcripts, options.sessions);
+        const ref = agentId ? findSessionRef(liveDir, archiveDir, agentId) : null;
+        const archiveRoot = options.sessions ? resolve(cwd, options.sessions) : defaultArchiveRoot(cwd);
+        const saved = ref ? readSessionAnalysis(archiveRoot, ref.agentType, ref.sessionId) : null;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        if (!saved) {
+          res.end(JSON.stringify({ ok: false, saved: false }));
+          return;
+        }
+        res.end(JSON.stringify({ ok: true, saved: true, agentType: ref!.agentType, ...saved }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'session analysis failed' }));
+      }
       return;
     }
 

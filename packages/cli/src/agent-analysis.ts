@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { defaultArchiveRoot, loadMergedInvocations, resolveProjectDir, type InvocationProfile, type ToolEvent } from './transcripts.js';
+import { defaultArchiveRoot, loadInvocationById, loadMergedInvocations, resolveProjectDir, type InvocationProfile, type ToolEvent } from './transcripts.js';
 import { resolveAgentDefPath } from './agent-defs.js';
 import { parseGrantedTools, enforceContextFromLog, type AgentContext } from './insights-analysis.js';
 
@@ -273,27 +273,21 @@ export function runClaude(prompt: string, model = 'haiku', timeoutMs = 180000): 
   }
 }
 
-/** Orchestrates: gather evidence for one agent type, then reason over it with the LLM. */
-export function analyzeAgent(
+/** Resolves the live + archive dirs from analyze options. */
+function resolveDirs(
   cwd: string,
-  agentType: string,
-  opts: { transcripts?: string | undefined; sessions?: string | undefined; model?: string | undefined } = {},
-): AnalysisResult {
-  const liveDir = opts.transcripts ? resolve(cwd, opts.transcripts) : resolveProjectDir(cwd);
-  const hasLive = !!liveDir && existsSync(liveDir);
-  const archiveDir = opts.sessions ? resolve(cwd, opts.sessions) : defaultArchiveRoot(cwd);
-  const hasArchive = existsSync(archiveDir);
-  if (!hasLive && !hasArchive) {
-    return { ok: false, agentType, error: 'No transcripts found for this project.' };
-  }
+  opts: { transcripts?: string | undefined; sessions?: string | undefined },
+): { liveDir: string | null; archiveDir: string | null } {
+  const live = opts.transcripts ? resolve(cwd, opts.transcripts) : resolveProjectDir(cwd);
+  const archive = opts.sessions ? resolve(cwd, opts.sessions) : defaultArchiveRoot(cwd);
+  return {
+    liveDir: live && existsSync(live) ? live : null,
+    archiveDir: existsSync(archive) ? archive : null,
+  };
+}
 
-  const invocations = loadMergedInvocations(hasLive ? liveDir : null, hasArchive ? archiveDir : null)
-    .filter((i) => i.agentType === agentType);
-  if (!invocations.length) {
-    return { ok: false, agentType, error: `No recorded runs for "${agentType}".` };
-  }
-
-  // Optional context: the agent's own definition + enforcement blocks against it
+/** Loads the agent's own definition + any enforcement context recorded against it. */
+function loadAgentContext(cwd: string, agentType: string): { agentDef: string | null; ctx: AgentContext } {
   let agentDef: string | null = null;
   const defPath = resolveAgentDefPath(cwd, agentType);
   if (defPath) {
@@ -311,8 +305,54 @@ export function analyzeAgent(
       if (enforce) Object.assign(ctx, enforce);
     } catch { /* optional */ }
   }
+  return { agentDef, ctx };
+}
 
+/** Orchestrates: gather evidence for one agent type, then reason over it with the LLM. */
+export function analyzeAgent(
+  cwd: string,
+  agentType: string,
+  opts: { transcripts?: string | undefined; sessions?: string | undefined; model?: string | undefined } = {},
+): AnalysisResult {
+  const { liveDir, archiveDir } = resolveDirs(cwd, opts);
+  if (!liveDir && !archiveDir) {
+    return { ok: false, agentType, error: 'No transcripts found for this project.' };
+  }
+
+  const invocations = loadMergedInvocations(liveDir, archiveDir).filter((i) => i.agentType === agentType);
+  if (!invocations.length) {
+    return { ok: false, agentType, error: `No recorded runs for "${agentType}".` };
+  }
+
+  const { agentDef, ctx } = loadAgentContext(cwd, agentType);
   const prompt = buildEvidencePrompt(agentType, agentDef, invocations, ctx);
   const res = runClaude(prompt, opts.model);
   return { ...res, agentType, runsAnalyzed: Math.min(invocations.length, MAX_RUNS) };
+}
+
+/**
+ * Reviews a single session (one invocation, by agentId). Same evidence pipeline
+ * as `analyzeAgent` but scoped to that one run. Does not persist — the caller
+ * saves the result into the session's archive dir.
+ */
+export function analyzeSession(
+  cwd: string,
+  agentId: string,
+  opts: { transcripts?: string | undefined; sessions?: string | undefined; model?: string | undefined } = {},
+): AnalysisResult {
+  const { liveDir, archiveDir } = resolveDirs(cwd, opts);
+  if (!liveDir && !archiveDir) {
+    return { ok: false, agentType: '', error: 'No transcripts found for this project.' };
+  }
+
+  const invocation = loadInvocationById(liveDir, archiveDir, agentId);
+  if (!invocation) {
+    return { ok: false, agentType: '', error: `No recorded run for "${agentId}".` };
+  }
+
+  const { agentType } = invocation;
+  const { agentDef, ctx } = loadAgentContext(cwd, agentType);
+  const prompt = buildEvidencePrompt(agentType, agentDef, [invocation], ctx);
+  const res = runClaude(prompt, opts.model);
+  return { ...res, agentType, runsAnalyzed: 1 };
 }

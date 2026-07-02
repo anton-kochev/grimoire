@@ -315,6 +315,87 @@ describe('runLogs', () => {
     expect(res.status).toBe(404);
   });
 
+  it('should serve a saved session review at GET /api/session-analysis/<agentId>', async () => {
+    projectDir = makeTmpDir('session-analysis-get');
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'grimoire.rust-coder.md'), '---\nname: grimoire.rust-coder\n---\nprompt');
+
+    const sessionsRoot = makeTmpDir('sessions-get');
+    const runDir = join(sessionsRoot, 'grimoire.rust-coder', 'sess-1');
+    mkdirSync(runDir, { recursive: true });
+    const jsonl = JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:00.000Z', message: { content: [{ type: 'text', text: 'done' }] } });
+    writeFileSync(join(runDir, 'agent-ag1.jsonl.gz'), gzipSync(Buffer.from(jsonl, 'utf-8')));
+    writeFileSync(join(runDir, 'agent-ag1.meta.json'), JSON.stringify({ agentType: 'grimoire.rust-coder', description: 'rust' }));
+    // Pre-write a saved review (as a prior analyze run would have)
+    writeFileSync(join(runDir, 'analysis.md'), '## Review\nlooks solid');
+    writeFileSync(join(runDir, 'analysis.meta.json'), JSON.stringify({ agentId: 'ag1', model: 'haiku', generatedAt: '2026-07-03T00:00:00.000Z' }));
+
+    server = await runLogs(projectDir, { open: false, sessions: sessionsRoot });
+
+    const res = await fetch(`${serverUrl(server)}/api/session-analysis/ag1`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { ok: boolean; saved: boolean; agentType: string; result: string; model?: string };
+    expect(body.saved).toBe(true);
+    expect(body.ok).toBe(true);
+    expect(body.agentType).toBe('grimoire.rust-coder');
+    expect(body.result).toBe('## Review\nlooks solid');
+    expect(body.model).toBe('haiku');
+
+    rmSync(sessionsRoot, { recursive: true, force: true });
+  });
+
+  it('should report saved:false when no review has been generated for a session', async () => {
+    projectDir = makeTmpDir('session-analysis-none');
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'grimoire.rust-coder.md'), '---\nname: grimoire.rust-coder\n---\nprompt');
+
+    const sessionsRoot = makeTmpDir('sessions-none');
+    const runDir = join(sessionsRoot, 'grimoire.rust-coder', 'sess-1');
+    mkdirSync(runDir, { recursive: true });
+    const jsonl = JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:00.000Z', message: { content: [{ type: 'text', text: 'done' }] } });
+    writeFileSync(join(runDir, 'agent-ag1.jsonl.gz'), gzipSync(Buffer.from(jsonl, 'utf-8')));
+    writeFileSync(join(runDir, 'agent-ag1.meta.json'), JSON.stringify({ agentType: 'grimoire.rust-coder', description: 'rust' }));
+
+    server = await runLogs(projectDir, { open: false, sessions: sessionsRoot });
+
+    const res = await fetch(`${serverUrl(server)}/api/session-analysis/ag1`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { ok: boolean; saved: boolean };
+    expect(body.saved).toBe(false);
+
+    rmSync(sessionsRoot, { recursive: true, force: true });
+  });
+
+  it('should report saved:false for an unknown agentId', async () => {
+    projectDir = makeTmpDir('session-analysis-unknown');
+    setupLogFile('{"event":"test"}\n');
+
+    server = await runLogs(projectDir, { open: false });
+
+    const res = await fetch(`${serverUrl(server)}/api/session-analysis/ghost`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { saved: boolean };
+    expect(body.saved).toBe(false);
+  });
+
+  it('should 400 a POST /api/session-analysis with no agentId', async () => {
+    projectDir = makeTmpDir('session-analysis-post-400');
+    setupLogFile('{"event":"test"}\n');
+
+    server = await runLogs(projectDir, { open: false });
+
+    const res = await fetch(`${serverUrl(server)}/api/session-analysis`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'haiku' }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+  });
+
   it('should return 404 for unknown routes', async () => {
     projectDir = makeTmpDir('notfound');
     setupLogFile('{"event":"test"}\n');

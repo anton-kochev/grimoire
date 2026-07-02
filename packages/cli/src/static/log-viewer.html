@@ -1038,10 +1038,22 @@
     </div>
     <h2>Tool mix</h2>
     ${mixbar(v.toolCounts)}${mixLegend(v.toolCounts)}
+    <div style="display:flex;align-items:center;gap:10px;margin-top:20px">
+      <h2 style="margin:0">Session review</h2>
+      <select id="sessionAnalyzeModel">
+        <option value="haiku">Haiku (cheap)</option>
+        <option value="sonnet">Sonnet</option>
+        <option value="opus">Opus (thorough)</option>
+      </select>
+      <button class="btn" id="btnSessionAnalyze" onclick="runSessionAnalysis('${esc(v.agentId)}')">🔎 Analyze this session</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin:4px 0 10px">Reasons over this single session's trace with your local Claude and saves the review next to the transcript. Costs a model call; re-run to regenerate.</div>
+    <div id="sessionAnalysisPanel" class="panel"><div class="muted">Loading saved review…</div></div>
     <h2 style="margin-top:20px">Trace <span class="muted" style="font-size:12px">thoughts · actions · results</span></h2>
     <div class="panel" id="invTrace"><div class="muted">Loading session trace…</div></div>
     ${v.finalText ? `<h2 style="margin-top:20px">Outcome</h2><div class="panel" style="white-space:pre-wrap;font-size:13px">${esc(v.finalText)}</div>` : ''}`;
       loadInvocationTrace(v);
+      loadSessionAnalysis(v);
     }
 
     // Fetches the full per-run timeline (kept out of /api/insights for weight) and
@@ -1114,8 +1126,45 @@
       const bits = [`${data.runsAnalyzed || 0} runs`, `model ${esc(data.model || '?')}`];
       if (data.costUsd != null) bits.push(`$${data.costUsd.toFixed(4)}`);
       if (data.durationMs != null) bits.push(`${(data.durationMs / 1000).toFixed(1)}s`);
+      if (data.generatedAt) bits.push(`saved ${esc(formatTime(data.generatedAt))}`);
       const footer = `<div class="muted" style="font-size:11px;border-top:1px solid var(--border);margin-top:12px;padding-top:8px">${bits.join(' · ')}</div>`;
       return `<div class="md">${mdToHtml(data.result || '')}</div>${footer}`;
+    }
+
+    // --- Per-session review (persisted next to the transcript) ---
+    async function loadSessionAnalysis(v) {
+      const panel = document.getElementById('sessionAnalysisPanel');
+      if (!panel) return;
+      try {
+        const res = await fetch(`/api/session-analysis/${encodeURIComponent(v.agentId)}`);
+        const data = await res.json();
+        panel.innerHTML = data && data.saved
+          ? renderAnalysis(data)
+          : '<div class="muted">No review yet — click Analyze.</div>';
+      } catch (e) {
+        panel.innerHTML = '<div class="muted">No review yet — click Analyze.</div>';
+      }
+    }
+
+    async function runSessionAnalysis(agentId) {
+      const panel = document.getElementById('sessionAnalysisPanel');
+      const btn = document.getElementById('btnSessionAnalyze');
+      const model = (document.getElementById('sessionAnalyzeModel') || {}).value || 'haiku';
+      panel.innerHTML = `<div class="muted">Analyzing this session with Claude (${esc(model)})… reading the run trace — this can take ~10–40s.</div>`;
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/session-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, model }),
+        });
+        const data = await res.json();
+        panel.innerHTML = renderAnalysis(data);
+      } catch (e) {
+        panel.innerHTML = `<div class="muted">Analysis request failed: ${esc(String(e))}</div>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     // Minimal, safe markdown → HTML (escape first, then structure).

@@ -1,14 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { gzipSync } from 'zlib';
 import {
   defaultArchiveRoot,
+  findSessionRef,
   listArchivedSubagentFiles,
   loadMergedInvocations,
   parseInvocation,
+  readSessionAnalysis,
   readTranscriptText,
+  sessionAnalysisPaths,
+  writeSessionAnalysis,
   type InvocationProfile,
 } from '../src/transcripts.js';
 import { aggregate, analyze, parseGrantedTools, enforceContextFromLog } from '../src/insights-analysis.js';
@@ -783,5 +787,109 @@ describe('loadMergedInvocations', () => {
 
   it('returns empty when both sources are null', () => {
     expect(loadMergedInvocations(null, null)).toEqual([]);
+  });
+});
+
+// =============================================================================
+// Per-session analysis persistence (analysis.md + analysis.meta.json)
+// =============================================================================
+
+describe('sessionAnalysisPaths', () => {
+  it('builds analysis.md / analysis.meta.json under <root>/<agentType>/<session>', () => {
+    const p = sessionAnalysisPaths('/root', 'grimoire.rust-coder', 'sess-1');
+    expect(p.dir).toBe(join('/root', 'grimoire.rust-coder', 'sess-1'));
+    expect(p.mdPath).toBe(join(p.dir, 'analysis.md'));
+    expect(p.metaPath).toBe(join(p.dir, 'analysis.meta.json'));
+  });
+
+  it('sanitizes hostile path segments so they cannot escape the root', () => {
+    // Matches the router's sanitizeSegment: '/' → '-', and an all-dots segment
+    // ('..') collapses to dashes; both stay a single literal dir name.
+    const p = sessionAnalysisPaths('/root', '../evil', '..');
+    expect(p.dir).toBe(join('/root', '..-evil', '--'));
+  });
+});
+
+describe('writeSessionAnalysis / readSessionAnalysis', () => {
+  let archiveRoot: string;
+  beforeEach(() => { archiveRoot = tmpRoot('analysis'); });
+  afterEach(() => { rmSync(archiveRoot, { recursive: true, force: true }); });
+
+  it('round-trips the review markdown and its metadata', () => {
+    const generatedAt = writeSessionAnalysis(archiveRoot, 'grimoire.rust-coder', 'sess-1', {
+      result: '## Review\nlooks good',
+      model: 'haiku',
+      costUsd: 0.0123,
+      durationMs: 4200,
+      runsAnalyzed: 1,
+      agentId: 'ag1',
+    });
+    expect(generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    const back = readSessionAnalysis(archiveRoot, 'grimoire.rust-coder', 'sess-1');
+    expect(back).not.toBeNull();
+    expect(back!.result).toBe('## Review\nlooks good');
+    expect(back!.model).toBe('haiku');
+    expect(back!.costUsd).toBeCloseTo(0.0123);
+    expect(back!.durationMs).toBe(4200);
+    expect(back!.runsAnalyzed).toBe(1);
+    expect(back!.generatedAt).toBe(generatedAt);
+  });
+
+  it('overwrites in place so only one analysis.md ever exists', () => {
+    writeSessionAnalysis(archiveRoot, 'grimoire.rust-coder', 'sess-1', { result: 'first' });
+    writeSessionAnalysis(archiveRoot, 'grimoire.rust-coder', 'sess-1', { result: 'second' });
+    const { mdPath } = sessionAnalysisPaths(archiveRoot, 'grimoire.rust-coder', 'sess-1');
+    expect(readFileSync(mdPath, 'utf-8')).toBe('second');
+    expect(readSessionAnalysis(archiveRoot, 'grimoire.rust-coder', 'sess-1')!.result).toBe('second');
+  });
+
+  it('creates the session dir when it does not exist yet (live-only session)', () => {
+    const { dir } = sessionAnalysisPaths(archiveRoot, 'grimoire.vue3-coder', 'sess-x');
+    expect(existsSync(dir)).toBe(false);
+    writeSessionAnalysis(archiveRoot, 'grimoire.vue3-coder', 'sess-x', { result: 'hi' });
+    expect(existsSync(dir)).toBe(true);
+  });
+
+  it('returns null when no analysis has been written', () => {
+    expect(readSessionAnalysis(archiveRoot, 'grimoire.rust-coder', 'nope')).toBeNull();
+  });
+
+  it('still returns the markdown when the meta sidecar is missing', () => {
+    const { dir, mdPath } = sessionAnalysisPaths(archiveRoot, 'grimoire.rust-coder', 'sess-2');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(mdPath, 'just markdown');
+    const back = readSessionAnalysis(archiveRoot, 'grimoire.rust-coder', 'sess-2');
+    expect(back!.result).toBe('just markdown');
+    expect(back!.model).toBeUndefined();
+  });
+});
+
+describe('findSessionRef', () => {
+  let liveDir: string;
+  let archiveDir: string;
+  beforeEach(() => { liveDir = tmpRoot('ref-live'); archiveDir = tmpRoot('ref-arch'); });
+  afterEach(() => {
+    rmSync(liveDir, { recursive: true, force: true });
+    rmSync(archiveDir, { recursive: true, force: true });
+  });
+
+  it('resolves an archived agentId to its {agentType, sessionId}', () => {
+    writeArchived(archiveDir, 'grimoire.rust-coder', 'sess-1', 'ag1', jsonlFor('ag1'));
+    expect(findSessionRef(null, archiveDir, 'ag1')).toEqual({ agentType: 'grimoire.rust-coder', sessionId: 'sess-1' });
+  });
+
+  it('resolves a live agentId via its meta file', () => {
+    writeLive(liveDir, 'sess-2', 'ag2', 'grimoire.typescript-coder', jsonlFor('ag2'));
+    expect(findSessionRef(liveDir, null, 'ag2')).toEqual({ agentType: 'grimoire.typescript-coder', sessionId: 'sess-2' });
+  });
+
+  it('falls back to the agent-type dir name when an archived run has no meta', () => {
+    writeArchived(archiveDir, 'grimoire.vue3-coder', 'sess-3', 'ag3', jsonlFor('ag3'), { meta: false });
+    expect(findSessionRef(null, archiveDir, 'ag3')).toEqual({ agentType: 'grimoire.vue3-coder', sessionId: 'sess-3' });
+  });
+
+  it('returns null for an unknown agentId', () => {
+    expect(findSessionRef(liveDir, archiveDir, 'ghost')).toBeNull();
   });
 });
