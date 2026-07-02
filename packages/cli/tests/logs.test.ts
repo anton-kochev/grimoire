@@ -165,6 +165,10 @@ describe('runLogs', () => {
     projectDir = makeTmpDir('insights');
     // Minimal enforcement log so runLogs starts (insights also works without it)
     setupLogFile('{"hook_event":"SubagentStart","session_id":"sess-1"}\n');
+    // Only agents with a local definition are tracked
+    const agentsDir = join(projectDir, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(join(agentsDir, 'grimoire.typescript-coder.md'), '---\nname: grimoire.typescript-coder\n---\nprompt');
 
     const subDir = join(projectDir, 'sess-1', 'subagents');
     mkdirSync(subDir, { recursive: true });
@@ -175,17 +179,22 @@ describe('runLogs', () => {
       JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:00:05.000Z', message: { content: [{ type: 'text', text: 'done' }] } }),
     ].join('\n'));
 
+    // A built-in agent run (no definition file) must not appear in the insights
+    writeFileSync(join(subDir, 'agent-ag2.meta.json'), JSON.stringify({ agentType: 'Explore', description: 'search' }));
+    writeFileSync(join(subDir, 'agent-ag2.jsonl'), JSON.stringify({ type: 'assistant', timestamp: '2026-07-01T10:01:00.000Z', message: { content: [{ type: 'text', text: 'found it' }] } }));
+
     server = await runLogs(projectDir, { open: false, transcripts: '.' });
 
     const res = await fetch(`${serverUrl(server)}/api/insights`);
     expect(res.status).toBe(200);
-    const body = await res.json() as { agents: Array<Record<string, unknown>>; invocations: unknown[] };
+    const body = await res.json() as { agents: Array<Record<string, unknown>>; invocations: Array<Record<string, unknown>> };
     expect(body.invocations).toHaveLength(1);
     expect(body.agents).toHaveLength(1);
     const agent = body.agents[0]!;
     expect(agent['agentType']).toBe('grimoire.typescript-coder');
     expect(agent['invocations']).toBe(1);
     expect((agent['toolMix'] as Record<string, number>)['Read']).toBe(1);
+    expect(body.invocations[0]!['agentType']).toBe('grimoire.typescript-coder');
   });
 
   it('should return 404 for unknown routes', async () => {

@@ -40,6 +40,13 @@ function makeManifest(
   );
 }
 
+/** Creates a local agent definition so the subagent hooks treat the type as tracked. */
+function writeAgentDef(projectDir: string, agentType: string): void {
+  const agentsDir = join(projectDir, '.claude', 'agents');
+  mkdirSync(agentsDir, { recursive: true });
+  writeFileSync(join(agentsDir, `${agentType}.md`), `---\nname: ${agentType}\n---\nprompt`);
+}
+
 function writeGrimoireConfig(projectDir: string, config: { enforcement?: boolean }): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
@@ -625,17 +632,23 @@ describe('runEnforce logging', () => {
 describe('runSubagentStart', () => {
   let projectDir: string;
   let logPath: string;
+  let origProjectDirEnv: string | undefined;
 
   beforeEach(() => {
     projectDir = makeTmpDir('subagent-start');
     logPath = join(projectDir, 'test-router.log');
+    origProjectDirEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
   });
 
   afterEach(() => {
+    process.env['CLAUDE_PROJECT_DIR'] = origProjectDirEnv;
     rmSync(projectDir, { recursive: true, force: true });
   });
 
   it('should write a SubagentStart telemetry log entry', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+
     // Act
     try {
       runSubagentStart({ session_id: 'session-abc', agent_id: 'agent-1', agent_type: 'grimoire.csharp-coder' }, logPath);
@@ -649,6 +662,16 @@ describe('runSubagentStart', () => {
     expect(entry['agent_id']).toBe('agent-1');
     expect(entry['agent_type']).toBe('grimoire.csharp-coder');
     expect(typeof entry['timestamp']).toBe('string');
+  });
+
+  it('should skip built-in agents that have no local definition file', () => {
+    // Act — no .claude/agents/Explore.md exists
+    try {
+      runSubagentStart({ session_id: 'session-abc', agent_id: 'agent-1', agent_type: 'Explore' }, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    // Assert — nothing written
+    expect(existsSync(logPath)).toBe(false);
   });
 
   it('should record null agent fields when absent', () => {
@@ -682,16 +705,23 @@ describe('runSubagentStop', () => {
   let projectDir: string;
   let logPath: string;
 
+  let origProjectDirEnv: string | undefined;
+
   beforeEach(() => {
     projectDir = makeTmpDir('subagent-stop');
     logPath = join(projectDir, 'test-router.log');
+    origProjectDirEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
   });
 
   afterEach(() => {
+    process.env['CLAUDE_PROJECT_DIR'] = origProjectDirEnv;
     rmSync(projectDir, { recursive: true, force: true });
   });
 
   it('should write a SubagentStop telemetry log entry with stop_reason', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+
     // Act
     try {
       runSubagentStop(
@@ -708,6 +738,16 @@ describe('runSubagentStop', () => {
     expect(entry['agent_id']).toBe('agent-1');
     expect(entry['agent_type']).toBe('grimoire.csharp-coder');
     expect(entry['stop_reason']).toBe('success');
+  });
+
+  it('should skip built-in agents that have no local definition file', () => {
+    // Act — no .claude/agents/Plan.md exists
+    try {
+      runSubagentStop({ session_id: 'session-abc', agent_id: 'agent-1', agent_type: 'Plan', stop_reason: 'success' }, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    // Assert — nothing written
+    expect(existsSync(logPath)).toBe(false);
   });
 
   it('should record a null stop_reason when absent', () => {

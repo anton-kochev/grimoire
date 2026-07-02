@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { loadInvocations, resolveProjectDir, type InvocationProfile } from './transcripts.js';
+import { resolveAgentDefPath } from './agent-defs.js';
 import { parseGrantedTools, enforceContextFromLog, type AgentContext } from './insights-analysis.js';
 
 const MAX_RUNS = 6;
@@ -178,8 +179,8 @@ export function analyzeAgent(
 
   // Optional context: the agent's own definition + enforcement blocks against it
   let agentDef: string | null = null;
-  const defPath = resolve(cwd, '.claude', 'agents', `${agentType}.md`);
-  if (existsSync(defPath)) {
+  const defPath = resolveAgentDefPath(cwd, agentType);
+  if (defPath) {
     try { agentDef = readFileSync(defPath, 'utf-8'); } catch { /* optional */ }
   }
   const ctx: AgentContext = {};

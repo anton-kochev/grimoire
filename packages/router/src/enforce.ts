@@ -7,6 +7,8 @@
  * only the files it owns; anyone else is blocked from owned files.
  */
 
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import picomatch from 'picomatch';
 import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
@@ -205,16 +207,31 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
 //
 // Enforcement no longer keeps a session registry — ownership is resolved
 // statelessly in evaluateEnforce from the PreToolUse `agent_type`. These hooks
-// remain wired up purely to emit lifecycle telemetry.
+// remain wired up purely to emit lifecycle telemetry, and only for agents with
+// an editable local definition: Claude Code's built-in agents (Explore, Plan,
+// general-purpose, …) have none, so their lifecycle is not worth recording.
+
+/**
+ * Whether the agent type has an editable definition file (project or user level).
+ */
+function hasLocalAgentDef(agentType: string): boolean {
+  const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
+  return (
+    existsSync(join(projectDir, '.claude', 'agents', `${agentType}.md`)) ||
+    existsSync(join(homedir(), '.claude', 'agents', `${agentType}.md`))
+  );
+}
 
 /**
  * Logs a subagent lifecycle event (SubagentStart / SubagentStop hooks).
+ * Skips built-in agents; a missing `agent_type` is still logged (can't classify).
  */
 function logSubagentEvent(
   hookEvent: 'SubagentStart' | 'SubagentStop',
   input: SubagentHookInput,
   logPath: string,
 ): void {
+  if (input.agent_type && !hasLocalAgentDef(input.agent_type)) return;
   writeLog({
     timestamp: new Date().toISOString(),
     hook_event: hookEvent,

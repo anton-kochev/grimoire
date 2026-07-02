@@ -3,6 +3,7 @@ import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } fro
 import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
 import { loadInvocations, resolveProjectDir } from '../transcripts.js';
+import { listDefinedAgentTypes } from '../agent-defs.js';
 import { analyze } from '../insights-analysis.js';
 import { analyzeAgent } from '../agent-analysis.js';
 
@@ -29,7 +30,9 @@ export function buildInsights(cwd: string, transcriptsOverride?: string): Record
     return { agents: [], invocations: [], projectDir: null, note: 'No sub-agent transcripts found for this project.', generatedAt };
   }
 
-  const invocations = loadInvocations(projectDir);
+  // Built-in agents (Explore, Plan, …) have no editable definition — skip them.
+  const defined = listDefinedAgentTypes(cwd);
+  const invocations = loadInvocations(projectDir).filter((i) => defined.has(i.agentType));
   const agents = analyze(invocations);
   return { agents, invocations, projectDir, generatedAt };
 }
