@@ -3,7 +3,7 @@
  */
 
 import { readFileSync } from 'fs';
-import type { HookInput, PreToolUseInput } from './types.js';
+import type { HookInput, PreToolUseInput, SubagentHookInput } from './types.js';
 import { isPreToolUseInput, parsePreToolUseInput } from './tool-input.js';
 
 /**
@@ -90,6 +90,24 @@ export function parseHookInput(jsonString: string): HookInput {
       typeof input['timestamp'] === 'string'
         ? input['timestamp']
         : new Date().toISOString(),
+  };
+}
+
+/**
+ * Builds a SubagentHookInput from a parsed stdin payload, keeping only
+ * string-typed fields and defaulting session_id.
+ */
+export function buildSubagentInput(obj: Record<string, unknown>): SubagentHookInput {
+  const str = (key: string): string | undefined =>
+    typeof obj[key] === 'string' ? (obj[key] as string) : undefined;
+
+  return {
+    session_id: str('session_id') ?? 'unknown',
+    ...(str('agent_id') !== undefined ? { agent_id: str('agent_id') } : {}),
+    ...(str('agent_type') !== undefined ? { agent_type: str('agent_type') } : {}),
+    ...(str('stop_reason') !== undefined ? { stop_reason: str('stop_reason') } : {}),
+    ...(str('transcript_path') !== undefined ? { transcript_path: str('transcript_path') } : {}),
+    ...(str('cwd') !== undefined ? { cwd: str('cwd') } : {}),
   };
 }
 

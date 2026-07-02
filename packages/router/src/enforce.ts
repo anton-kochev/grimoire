@@ -12,6 +12,7 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import picomatch from 'picomatch';
 import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
+import { archiveSubagentRun } from './archive.js';
 import { loadManifest } from './manifest.js';
 import { loadGrimoireConfig } from './grimoire-config.js';
 import { writeLog } from './logging.js';
@@ -230,6 +231,7 @@ function logSubagentEvent(
   hookEvent: 'SubagentStart' | 'SubagentStop',
   input: SubagentHookInput,
   logPath: string,
+  extra: Record<string, unknown> = {},
 ): void {
   if (input.agent_type && !hasLocalAgentDef(input.agent_type)) return;
   writeLog({
@@ -239,6 +241,7 @@ function logSubagentEvent(
     agent_id: input.agent_id ?? null,
     agent_type: input.agent_type ?? null,
     ...(hookEvent === 'SubagentStop' ? { stop_reason: input.stop_reason ?? null } : {}),
+    ...extra,
   }, logPath);
 }
 
@@ -251,9 +254,15 @@ export function runSubagentStart(input: SubagentHookInput, logPath = '.claude/lo
 }
 
 /**
- * Emits telemetry when a subagent finishes (SubagentStop hook).
+ * Archives the finished subagent's transcript and emits telemetry
+ * (SubagentStop hook). Built-in agents are skipped for both.
  */
 export function runSubagentStop(input: SubagentHookInput, logPath = '.claude/logs/grimoire-router.log'): void {
-  logSubagentEvent('SubagentStop', input, logPath);
+  let archived = false;
+  if (!input.agent_type || hasLocalAgentDef(input.agent_type)) {
+    const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
+    archived = archiveSubagentRun(input, projectDir);
+  }
+  logSubagentEvent('SubagentStop', input, logPath, { archived });
   process.exit(0);
 }

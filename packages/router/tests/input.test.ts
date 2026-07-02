@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseHookInput, parseStdinInput } from '../src/input.js';
+import { buildSubagentInput, parseHookInput, parseStdinInput } from '../src/input.js';
 
 describe('parseHookInput', () => {
   it('should parse valid JSON input', () => {
@@ -115,5 +115,33 @@ describe('parseStdinInput', () => {
 
     const result = parseStdinInput(json);
     expect(result.kind).toBe('tooluse');
+  });
+});
+
+describe('buildSubagentInput', () => {
+  it('should map all subagent fields from the stdin payload', () => {
+    const input = buildSubagentInput({
+      session_id: 'sess-1',
+      agent_id: 'a1',
+      agent_type: 'grimoire.typescript-coder',
+      stop_reason: 'success',
+      transcript_path: '/home/u/.claude/projects/-p/sess-1.jsonl',
+      cwd: '/p',
+    });
+
+    expect(input).toEqual({
+      session_id: 'sess-1',
+      agent_id: 'a1',
+      agent_type: 'grimoire.typescript-coder',
+      stop_reason: 'success',
+      transcript_path: '/home/u/.claude/projects/-p/sess-1.jsonl',
+      cwd: '/p',
+    });
+  });
+
+  it('should omit absent or non-string optional fields and default session_id', () => {
+    const input = buildSubagentInput({ agent_id: 42, transcript_path: null });
+
+    expect(input).toEqual({ session_id: 'unknown' });
   });
 });

@@ -11,7 +11,7 @@ import { formatContext } from './formatting.js';
 import { formatToolUseContext } from './tool-formatting.js';
 import { loadManifest } from './manifest.js';
 import { readSkillBody } from './skill-content.js';
-import { parseStdinInput, readStdin } from './input.js';
+import { buildSubagentInput, parseStdinInput, readStdin } from './input.js';
 import { buildLogEntry, writeLog } from './logging.js';
 import { buildHookOutput } from './output.js';
 import { buildPreToolUseOutput } from './tool-output.js';
@@ -234,7 +234,6 @@ export async function main(): Promise<void> {
       }
 
       const obj = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
-      const sessionId = typeof obj['session_id'] === 'string' ? obj['session_id'] : 'unknown';
 
       // Resolve the configured log path once for all enforce/subagent modes.
       const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
@@ -253,12 +252,7 @@ export async function main(): Promise<void> {
         process.exit(0);
       }
 
-      const subagentInput = {
-        session_id: sessionId,
-        ...(typeof obj['agent_id'] === 'string' ? { agent_id: obj['agent_id'] } : {}),
-        ...(typeof obj['agent_type'] === 'string' ? { agent_type: obj['agent_type'] } : {}),
-        ...(typeof obj['stop_reason'] === 'string' ? { stop_reason: obj['stop_reason'] } : {}),
-      };
+      const subagentInput = buildSubagentInput(obj);
 
       if (args.subagentStart) {
         runSubagentStart(subagentInput, logPath);

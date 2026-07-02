@@ -762,3 +762,113 @@ describe('runSubagentStop', () => {
     expect(entry['stop_reason']).toBe(null);
   });
 });
+
+// =============================================================================
+// runSubagentStop — transcript archiving
+// =============================================================================
+
+describe('runSubagentStop archiving', () => {
+  let projectDir: string;
+  let transcriptsDir: string;
+  let logPath: string;
+  let origProjectDirEnv: string | undefined;
+
+  const SESSION_ID = 'sess-arch';
+  const AGENT_ID = 'agentid1';
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('subagent-archive');
+    transcriptsDir = makeTmpDir('subagent-archive-src');
+    logPath = join(projectDir, 'test-router.log');
+    origProjectDirEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+  });
+
+  afterEach(() => {
+    process.env['CLAUDE_PROJECT_DIR'] = origProjectDirEnv;
+    rmSync(projectDir, { recursive: true, force: true });
+    rmSync(transcriptsDir, { recursive: true, force: true });
+  });
+
+  /** Fake Claude Code transcript layout; returns the main transcript_path. */
+  function makeTranscripts(): string {
+    const transcriptPath = join(transcriptsDir, `${SESSION_ID}.jsonl`);
+    writeFileSync(transcriptPath, '{}\n');
+    const subDir = join(transcriptsDir, SESSION_ID, 'subagents');
+    mkdirSync(subDir, { recursive: true });
+    writeFileSync(join(subDir, `agent-${AGENT_ID}.jsonl`), '{"type":"assistant"}\n');
+    writeFileSync(join(subDir, `agent-${AGENT_ID}.meta.json`), '{"agentType":"grimoire.csharp-coder"}');
+    return transcriptPath;
+  }
+
+  it('should archive the transcript and report archived: true in telemetry', () => {
+    // Arrange
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    const transcriptPath = makeTranscripts();
+
+    // Act
+    try {
+      runSubagentStop(
+        {
+          session_id: SESSION_ID,
+          agent_id: AGENT_ID,
+          agent_type: 'grimoire.csharp-coder',
+          stop_reason: 'success',
+          transcript_path: transcriptPath,
+        },
+        logPath,
+      );
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    // Assert
+    const gzPath = join(
+      projectDir, '.claude', 'grimoire', 'sessions',
+      'grimoire.csharp-coder', SESSION_ID, `agent-${AGENT_ID}.jsonl.gz`,
+    );
+    expect(existsSync(gzPath)).toBe(true);
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['hook_event']).toBe('SubagentStop');
+    expect(entry['archived']).toBe(true);
+  });
+
+  it('should report archived: false when the transcript cannot be located', () => {
+    // Arrange — no transcript_path/cwd in the payload
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+
+    // Act
+    try {
+      runSubagentStop(
+        { session_id: SESSION_ID, agent_id: AGENT_ID, agent_type: 'grimoire.csharp-coder', stop_reason: 'success' },
+        logPath,
+      );
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    // Assert — telemetry still written, archive silently skipped
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['archived']).toBe(false);
+    expect(existsSync(join(projectDir, '.claude', 'grimoire'))).toBe(false);
+  });
+
+  it('should not archive built-in agents', () => {
+    // Arrange — no local agent def for Explore
+    const transcriptPath = makeTranscripts();
+
+    // Act
+    try {
+      runSubagentStop(
+        {
+          session_id: SESSION_ID,
+          agent_id: AGENT_ID,
+          agent_type: 'Explore',
+          stop_reason: 'success',
+          transcript_path: transcriptPath,
+        },
+        logPath,
+      );
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    // Assert — neither telemetry nor archive
+    expect(existsSync(logPath)).toBe(false);
+    expect(existsSync(join(projectDir, '.claude', 'grimoire'))).toBe(false);
+  });
+});

@@ -54,10 +54,21 @@ export interface AgentEntry {
 }
 
 /**
+ * Agent Insights settings (`insights` key in `.claude/grimoire.json`)
+ */
+export interface InsightsConfig {
+  /** Archive sub-agent transcripts on SubagentStop (default true). */
+  archive?: boolean;
+  /** Sessions kept per agent type (default 20; 0 disables archiving). */
+  retainRunsPerAgent?: number;
+}
+
+/**
  * Global Grimoire configuration (`.claude/grimoire.json`)
  */
 export interface GrimoireConfig {
   enforcement?: boolean;
+  insights?: InsightsConfig;
   router?: SkillManifest;
 }
 
@@ -212,7 +223,7 @@ export type EnforceResult =
   | { action: 'block'; agents: string[]; filePath: string };
 
 /**
- * Input for SubagentStart/Stop hooks — used for telemetry logging only.
+ * Input for SubagentStart/Stop hooks — telemetry logging and transcript archiving.
  */
 export interface SubagentHookInput {
   session_id: string;
@@ -222,6 +233,10 @@ export interface SubagentHookInput {
   agent_type?: string;
   /** SubagentStop only: `success` | `cancelled` | `error`. */
   stop_reason?: string;
+  /** Main session transcript path (`…/projects/<encoded-cwd>/<session_id>.jsonl`). */
+  transcript_path?: string;
+  /** Project working directory the session runs in. */
+  cwd?: string;
 }
 
 // =============================================================================
