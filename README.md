@@ -2,7 +2,7 @@
 
 A collection of specialized agents and skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns — coders, reviewers, and architects for .NET, TypeScript, Angular, Vue, and Rust, plus skills for testing, git commits, requirements, documentation, and content.
+Extend Claude Code with domain-specific agents, reusable skills, and agent enforcement that routes edits of owned files through the right specialist — coders, reviewers, and architects for .NET, TypeScript, Angular, Vue, and Rust, plus skills for testing, git commits, requirements, documentation, and content.
 
 [![CI](https://github.com/anton-kochev/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/anton-kochev/grimoire/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/%40grimoire-cc%2Fcli.svg)](https://www.npmjs.com/package/@grimoire-cc/cli)
