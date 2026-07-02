@@ -5,6 +5,7 @@ A collection of specialized agents and skills for [Claude Code](https://docs.ant
 Extend Claude Code with domain-specific expertise, automated workflows, and reusable development patterns — coders, reviewers, and architects for .NET, TypeScript, Angular, Vue, and Rust, plus skills for testing, git commits, requirements, documentation, and content.
 
 [![CI](https://github.com/anton-kochev/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/anton-kochev/grimoire/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/%40grimoire-cc%2Fcli.svg)](https://www.npmjs.com/package/@grimoire-cc/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Table of Contents
@@ -18,7 +19,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
   - [Update](#update)
   - [Config](#config)
   - [Agent Skills](#agent-skills)
-  - [Log Viewer](#log-viewer)
+  - [Agent Insights & Logs](#agent-insights--logs)
   - [Pack Manifest](#pack-manifest)
 - [Router and Agent Enforcement](#router-and-agent-enforcement)
 - [Packs](#packs)
@@ -32,7 +33,7 @@ Extend Claude Code with domain-specific expertise, automated workflows, and reus
 
 ## Features
 
-- **CLI tool** — install, list, update, and remove agents and skills with `grimoire add/list/update/remove`; view enforcement logs with `grimoire logs`
+- **CLI tool** — install, list, update, and remove agents and skills with `grimoire add/list/update/remove`; inspect sub-agent behavior and enforcement logs with `grimoire logs`
 - **Pre-built agents** — coders, reviewers, architects, and test writers for .NET, TypeScript, Angular, Vue, and Rust, plus language-agnostic review/TDD and content verification
 - **Reusable skills** — language and framework best-practice guides (modern C#, ASP.NET Core APIs, modern TypeScript), testing playbooks for six languages, conventional commits, SRS/user-story generation, business-logic docs, README and skill authoring, translation, and content craft
 - **Agent enforcement** — optional router hooks that keep edits to owned files flowing through the right specialist agent
@@ -48,7 +49,7 @@ Install agents and skills from npm packs using the `grimoire` CLI:
 ```bash
 # For JS/TS projects — install as a dev dependency
 pnpm add -D @grimoire-cc/cli
-grimoire add    # interactive wizard
+pnpm exec grimoire add    # interactive wizard
 
 # For non-JS projects — run on demand
 npx -p @grimoire-cc/cli grimoire add
@@ -136,18 +137,24 @@ grimoire agent-skills
 
 Adds or removes skills in an agent's frontmatter `skills:` array. Claude Code natively injects the full content of assigned skills into the subagent's context at startup.
 
-### Log Viewer
+### Agent Insights & Logs
 
 ```bash
-# Open the router log viewer in your browser
+# Open the Agent Insights viewer in your browser
 grimoire logs
 
-# Use a custom log file or port
+# Use a custom log file, port, or transcript directory
 grimoire logs --file path/to/custom.log
 grimoire logs --port 3000
+grimoire logs --transcripts path/to/project-transcripts
 ```
 
-Starts a local server and opens an interactive dashboard with stats, filters, and a sortable table for analyzing router activity. New entries stream in real time via SSE — a green "LIVE" badge indicates active streaming. Press `Ctrl+C` to stop.
+Starts a local server and opens an interactive dashboard with two tabs:
+
+- **Insights** — reconstructs each sub-agent's real behavior from its Claude Code transcripts: runs, turns, tool mix, files touched, errors, and outcomes. From an agent's detail view you can request an on-demand **AI review** that reasons over the recorded runs (via your local `claude` CLI; each review spends tokens) and suggests concrete prompt/tools/skills improvements.
+- **Events** — the router enforcement log with stats, filters, and a sortable table. New entries stream in real time via SSE — a green "LIVE" badge indicates active streaming.
+
+Press `Ctrl+C` to stop.
 
 ### Pack Manifest
 
