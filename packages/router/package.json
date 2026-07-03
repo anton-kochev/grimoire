@@ -1,6 +1,6 @@
 {
   "name": "@grimoire-cc/router",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "Hook runtime for Grimoire agent enforcement",
   "type": "module",
   "main": "./dist/index.js",
