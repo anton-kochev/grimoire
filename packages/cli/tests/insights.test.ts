@@ -348,13 +348,12 @@ function mkInv(over: Partial<InvocationProfile>): InvocationProfile {
 describe('aggregate', () => {
   it('rolls up invocations of the same agent type', () => {
     const invs = [
-      mkInv({ agentType: 'coder', toolCounts: { Read: 3, Edit: 1 }, skillCounts: { 'grimoire.modern-typescript': 1 }, toolCalls: 4, turns: 10, tokens: { output: 100, input: 0, cacheRead: 0, cacheCreation: 0, total: 100 }, completed: true, filesTouched: ['a.ts'] }),
-      mkInv({ agentType: 'coder', toolCounts: { Read: 1, Bash: 2 }, skillCounts: { 'grimoire.modern-typescript': 2, 'grimoire.testing': 1 }, toolCalls: 3, turns: 6, tokens: { output: 50, input: 0, cacheRead: 0, cacheCreation: 0, total: 50 }, completed: false, filesTouched: ['b.ts'] }),
+      mkInv({ agentType: 'coder', toolCounts: { Read: 3, Edit: 1 }, toolCalls: 4, turns: 10, tokens: { output: 100, input: 0, cacheRead: 0, cacheCreation: 0, total: 100 }, completed: true, filesTouched: ['a.ts'] }),
+      mkInv({ agentType: 'coder', toolCounts: { Read: 1, Bash: 2 }, toolCalls: 3, turns: 6, tokens: { output: 50, input: 0, cacheRead: 0, cacheCreation: 0, total: 50 }, completed: false, filesTouched: ['b.ts'] }),
     ];
     const [p] = aggregate(invs);
     expect(p!.invocations).toBe(2);
     expect(p!.toolMix).toEqual({ Read: 4, Edit: 1, Bash: 2 });
-    expect(p!.skillMix).toEqual({ 'grimoire.modern-typescript': 3, 'grimoire.testing': 1 });
     expect(p!.avgToolCalls).toBe(3.5);
     expect(p!.totalOutputTokens).toBe(150);
     expect(p!.distinctFiles).toBe(2);

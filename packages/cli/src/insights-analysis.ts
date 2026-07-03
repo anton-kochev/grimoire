@@ -16,7 +16,6 @@ export interface AgentProfile {
   totalToolCalls: number;
   avgToolCalls: number;
   toolMix: Record<string, number>;
-  skillMix: Record<string, number>;
   avgTurns: number;
   totalOutputTokens: number;
   avgOutputTokens: number;
@@ -57,11 +56,9 @@ export function aggregate(invocations: readonly InvocationProfile[]): AgentProfi
   const profiles: AgentProfile[] = [];
   for (const [agentType, list] of byType) {
     const toolMix: Record<string, number> = {};
-    const skillMix: Record<string, number> = {};
     const files = new Set<string>();
     for (const inv of list) {
       for (const [name, n] of Object.entries(inv.toolCounts)) toolMix[name] = (toolMix[name] ?? 0) + n;
-      for (const [name, n] of Object.entries(inv.skillCounts)) skillMix[name] = (skillMix[name] ?? 0) + n;
       for (const f of inv.filesTouched) files.add(f);
     }
 
@@ -77,7 +74,6 @@ export function aggregate(invocations: readonly InvocationProfile[]): AgentProfi
       totalToolCalls,
       avgToolCalls: avg(list.map((i) => i.toolCalls)),
       toolMix,
-      skillMix,
       avgTurns: avg(list.map((i) => i.turns)),
       totalOutputTokens,
       avgOutputTokens: avg(list.map((i) => i.tokens.output)),
