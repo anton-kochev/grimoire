@@ -121,7 +121,7 @@ export interface PreToolUseInput {
 /**
  * Supported hook event types
  */
-export type HookEventName = 'UserPromptSubmit' | 'SubagentStart' | 'PreToolUse';
+export type HookEventName = 'UserPromptSubmit' | 'SubagentStart' | 'SubagentStop' | 'PreToolUse';
 
 /**
  * Hook-specific output data
@@ -283,6 +283,21 @@ export interface EnforceBlockLogEntry {
   enforce_block: true;
   file_basename: string;
   blocking_agents: string[];
+}
+
+/**
+ * Log entry for sub-agent lifecycle telemetry.
+ */
+export interface SubagentLogEntry {
+  timestamp: string;
+  hook_event: 'SubagentStart' | 'SubagentStop';
+  session_id: string;
+  agent_id: string | null;
+  agent_type: string | null;
+  stop_reason?: string | null;
+  archived?: boolean;
+  /** Runtime-invoked skills observed in the transcript at SubagentStop. */
+  skills_activated?: string[];
 }
 
 /**

@@ -992,6 +992,7 @@
     <h2>Tool mix</h2>
     ${mixbar(a.toolMix)}
     ${mixLegend(a.toolMix)}
+    ${a.skillMix && Object.keys(a.skillMix).length ? `<h2>Skills activated</h2>${mixLegend(a.skillMix)}` : ''}
     <div style="display:flex;align-items:center;gap:10px;margin-top:20px">
       <h2 style="margin:0">Review</h2>
       <select id="analyzeModel">
@@ -1038,6 +1039,7 @@
     </div>
     <h2>Tool mix</h2>
     ${mixbar(v.toolCounts)}${mixLegend(v.toolCounts)}
+    ${v.skillCounts && Object.keys(v.skillCounts).length ? `<h2>Skills activated</h2>${mixLegend(v.skillCounts)}` : ''}
     <div style="display:flex;align-items:center;gap:10px;margin-top:20px">
       <h2 style="margin:0">Session review</h2>
       <select id="sessionAnalyzeModel">

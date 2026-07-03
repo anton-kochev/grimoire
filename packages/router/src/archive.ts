@@ -92,6 +92,44 @@ function readMetaAgentType(metaPath: string): string | null {
   return null;
 }
 
+function asObj(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+function asArr(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : [];
+}
+
+/**
+ * Extracts runtime-invoked skills from a Claude Code transcript. Malformed
+ * lines and unknown shapes are ignored: hooks must never fail on transcript
+ * schema drift.
+ */
+export function extractActivatedSkills(jsonlText: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of jsonlText.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let obj: Record<string, unknown> | null;
+    try {
+      obj = asObj(JSON.parse(trimmed));
+    } catch {
+      continue;
+    }
+    if (obj?.['type'] !== 'assistant') continue;
+    for (const rawBlock of asArr(asObj(obj['message'])?.['content'])) {
+      const block = asObj(rawBlock);
+      if (block?.['type'] !== 'tool_use' || block['name'] !== 'Skill') continue;
+      const skill = asObj(block['input'])?.['skill'];
+      if (typeof skill !== 'string' || !skill || seen.has(skill)) continue;
+      seen.add(skill);
+      out.push(skill);
+    }
+  }
+  return out;
+}
+
 /**
  * Resolves a finished run's agent type. The SubagentStop hook payload does NOT
  * carry `agent_type` (it comes through empty), so the authoritative source is

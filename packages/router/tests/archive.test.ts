@@ -6,6 +6,7 @@ import { gunzipSync } from 'zlib';
 import {
   archiveSubagentRun,
   encodeProjectDirName,
+  extractActivatedSkills,
   locateSubagentTranscript,
   pruneAgentArchive,
 } from '../src/archive.js';
@@ -77,6 +78,30 @@ describe('encodeProjectDirName', () => {
     expect(encodeProjectDirName('/Users/anton/sources/repos/my.project')).toBe(
       '-Users-anton-sources-repos-my-project',
     );
+  });
+});
+
+// =============================================================================
+// extractActivatedSkills
+// =============================================================================
+
+describe('extractActivatedSkills', () => {
+  it('extracts skills in first-seen order, dedupes, and ignores malformed lines', () => {
+    const text = [
+      '{not json',
+      JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'grimoire.modern-typescript' } }] } }),
+      JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: 'a.ts' } }] } }),
+      JSON.stringify({ type: 'assistant', message: { content: [
+        { type: 'tool_use', name: 'Skill', input: { skill: 'grimoire.testing' } },
+        { type: 'tool_use', name: 'Skill', input: { skill: 'grimoire.modern-typescript' } },
+      ] } }),
+    ].join('\n');
+
+    expect(extractActivatedSkills(text)).toEqual(['grimoire.modern-typescript', 'grimoire.testing']);
+  });
+
+  it('returns an empty list when no Skill tool calls are present', () => {
+    expect(extractActivatedSkills(JSONL_CONTENT)).toEqual([]);
   });
 });
 

@@ -109,6 +109,16 @@ describe('parseInvocation', () => {
     expect(inv.toolEvents[2]!.isError).toBe(true);
     expect(inv.toolEvents[0]!.isError).toBe(false);
   });
+
+  it('extracts runtime-invoked skill names and targets Skill tool events', () => {
+    const skillJsonl = line({
+      type: 'assistant',
+      message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'grimoire.modern-typescript' } }] },
+    });
+    const skillInv = parseInvocation('ag-skill', 'sess-1', skillJsonl, { agentType: 'X' });
+    expect(skillInv.skillCounts).toEqual({ 'grimoire.modern-typescript': 1 });
+    expect(skillInv.toolEvents[0]).toMatchObject({ name: 'Skill', target: 'grimoire.modern-typescript' });
+  });
 });
 
 // =============================================================================
@@ -327,7 +337,7 @@ describe('parseInvocation timeline', () => {
 function mkInv(over: Partial<InvocationProfile>): InvocationProfile {
   return {
     agentId: 'a', agentType: 'X', description: '', sessionId: 's', model: 'claude-opus-4-8',
-    toolCounts: {}, toolSequence: [], toolCalls: 0, turns: 0,
+    toolCounts: {}, skillCounts: {}, toolSequence: [], toolCalls: 0, turns: 0,
     tokens: { output: 0, input: 0, cacheRead: 0, cacheCreation: 0, total: 0 },
     firstTs: null, lastTs: null, spanMs: 0, toolErrors: 0, filesTouched: [], maxFileEdits: 0,
     toolEvents: [], reasoningSnippets: [], timeline: [],
@@ -338,12 +348,13 @@ function mkInv(over: Partial<InvocationProfile>): InvocationProfile {
 describe('aggregate', () => {
   it('rolls up invocations of the same agent type', () => {
     const invs = [
-      mkInv({ agentType: 'coder', toolCounts: { Read: 3, Edit: 1 }, toolCalls: 4, turns: 10, tokens: { output: 100, input: 0, cacheRead: 0, cacheCreation: 0, total: 100 }, completed: true, filesTouched: ['a.ts'] }),
-      mkInv({ agentType: 'coder', toolCounts: { Read: 1, Bash: 2 }, toolCalls: 3, turns: 6, tokens: { output: 50, input: 0, cacheRead: 0, cacheCreation: 0, total: 50 }, completed: false, filesTouched: ['b.ts'] }),
+      mkInv({ agentType: 'coder', toolCounts: { Read: 3, Edit: 1 }, skillCounts: { 'grimoire.modern-typescript': 1 }, toolCalls: 4, turns: 10, tokens: { output: 100, input: 0, cacheRead: 0, cacheCreation: 0, total: 100 }, completed: true, filesTouched: ['a.ts'] }),
+      mkInv({ agentType: 'coder', toolCounts: { Read: 1, Bash: 2 }, skillCounts: { 'grimoire.modern-typescript': 2, 'grimoire.testing': 1 }, toolCalls: 3, turns: 6, tokens: { output: 50, input: 0, cacheRead: 0, cacheCreation: 0, total: 50 }, completed: false, filesTouched: ['b.ts'] }),
     ];
     const [p] = aggregate(invs);
     expect(p!.invocations).toBe(2);
     expect(p!.toolMix).toEqual({ Read: 4, Edit: 1, Bash: 2 });
+    expect(p!.skillMix).toEqual({ 'grimoire.modern-typescript': 3, 'grimoire.testing': 1 });
     expect(p!.avgToolCalls).toBe(3.5);
     expect(p!.totalOutputTokens).toBe(150);
     expect(p!.distinctFiles).toBe(2);

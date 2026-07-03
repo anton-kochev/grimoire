@@ -47,7 +47,7 @@ function writeAgentDef(projectDir: string, agentType: string): void {
   writeFileSync(join(agentsDir, `${agentType}.md`), `---\nname: ${agentType}\n---\nprompt`);
 }
 
-function writeGrimoireConfig(projectDir: string, config: { enforcement?: boolean; verboseEnforcementLog?: boolean }): void {
+function writeGrimoireConfig(projectDir: string, config: { enforcement?: boolean; verboseEnforcementLog?: boolean; insights?: { archive?: boolean } }): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
   writeFileSync(join(claudeDir, 'grimoire.json'), JSON.stringify(config));
@@ -815,12 +815,12 @@ describe('runSubagentStop archiving', () => {
    * The meta.json's agentType is the resolved type (the stop payload's is empty
    * in production), so tests drive attribution through it.
    */
-  function makeTranscripts(agentType = 'grimoire.csharp-coder'): string {
+  function makeTranscripts(agentType = 'grimoire.csharp-coder', jsonl = '{"type":"assistant"}\n'): string {
     const transcriptPath = join(transcriptsDir, `${SESSION_ID}.jsonl`);
     writeFileSync(transcriptPath, '{}\n');
     const subDir = join(transcriptsDir, SESSION_ID, 'subagents');
     mkdirSync(subDir, { recursive: true });
-    writeFileSync(join(subDir, `agent-${AGENT_ID}.jsonl`), '{"type":"assistant"}\n');
+    writeFileSync(join(subDir, `agent-${AGENT_ID}.jsonl`), jsonl);
     writeFileSync(join(subDir, `agent-${AGENT_ID}.meta.json`), JSON.stringify({ agentType }));
     return transcriptPath;
   }
@@ -828,7 +828,10 @@ describe('runSubagentStop archiving', () => {
   it('should archive the transcript and report archived: true in telemetry', () => {
     // Arrange
     writeAgentDef(projectDir, 'grimoire.csharp-coder');
-    const transcriptPath = makeTranscripts();
+    const transcriptPath = makeTranscripts('grimoire.csharp-coder', JSON.stringify({
+      type: 'assistant',
+      message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'grimoire.modern-typescript' } }] },
+    }) + '\n');
 
     // Act
     try {
@@ -853,6 +856,37 @@ describe('runSubagentStop archiving', () => {
     const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
     expect(entry['hook_event']).toBe('SubagentStop');
     expect(entry['archived']).toBe(true);
+    expect(entry['skills_activated']).toEqual(['grimoire.modern-typescript']);
+  });
+
+  it('should log activated skills even when transcript archiving is disabled', () => {
+    // Arrange
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    writeGrimoireConfig(projectDir, { insights: { archive: false } });
+    const transcriptPath = makeTranscripts('grimoire.csharp-coder', JSON.stringify({
+      type: 'assistant',
+      message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'grimoire.testing' } }] },
+    }) + '\n');
+
+    // Act
+    try {
+      runSubagentStop(
+        {
+          session_id: SESSION_ID,
+          agent_id: AGENT_ID,
+          agent_type: 'grimoire.csharp-coder',
+          stop_reason: 'success',
+          transcript_path: transcriptPath,
+        },
+        logPath,
+      );
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    // Assert
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['archived']).toBe(false);
+    expect(entry['skills_activated']).toEqual(['grimoire.testing']);
+    expect(existsSync(join(projectDir, '.claude', 'grimoire'))).toBe(false);
   });
 
   it('should report archived: false when the transcript cannot be located', () => {

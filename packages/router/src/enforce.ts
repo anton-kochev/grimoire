@@ -7,12 +7,12 @@
  * only the files it owns; anyone else is blocked from owned files.
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import picomatch from 'picomatch';
-import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput } from './types.js';
-import { archiveSubagentRun, resolveAgentType } from './archive.js';
+import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput, SubagentLogEntry } from './types.js';
+import { archiveSubagentRun, extractActivatedSkills, locateSubagentTranscript, resolveAgentType } from './archive.js';
 import { loadManifest } from './manifest.js';
 import { loadGrimoireConfig } from './grimoire-config.js';
 import { writeLog } from './logging.js';
@@ -233,10 +233,10 @@ function logSubagentEvent(
   hookEvent: 'SubagentStart' | 'SubagentStop',
   input: SubagentHookInput,
   logPath: string,
-  extra: Record<string, unknown> = {},
+  extra: Pick<SubagentLogEntry, 'archived' | 'skills_activated'> = {},
 ): void {
   if (input.agent_type && !hasLocalAgentDef(input.agent_type)) return;
-  writeLog({
+  const entry: SubagentLogEntry = {
     timestamp: new Date().toISOString(),
     hook_event: hookEvent,
     session_id: input.session_id,
@@ -244,7 +244,8 @@ function logSubagentEvent(
     agent_type: input.agent_type ?? null,
     ...(hookEvent === 'SubagentStop' ? { stop_reason: input.stop_reason ?? null } : {}),
     ...extra,
-  }, logPath);
+  };
+  writeLog(entry, logPath);
 }
 
 /**
@@ -277,7 +278,21 @@ export function runSubagentStop(input: SubagentHookInput, logPath = '.claude/log
   }
 
   const enriched: SubagentHookInput = { ...located, agent_type: agentType };
+
+  // Point-in-time snapshot: Claude Code may still be flushing the transcript at
+  // SubagentStop. Agent Insights later merges live+archive and is authoritative.
+  let skillsActivated: string[] | undefined;
+  try {
+    const source = locateSubagentTranscript(enriched);
+    if (source) skillsActivated = extractActivatedSkills(readFileSync(source.jsonl, 'utf-8'));
+  } catch {
+    // Fail silent, like archiving/logging.
+  }
+
   const archived = archiveSubagentRun(enriched, projectDir);
-  logSubagentEvent('SubagentStop', enriched, logPath, { archived });
+  logSubagentEvent('SubagentStop', enriched, logPath, {
+    archived,
+    ...(skillsActivated ? { skills_activated: skillsActivated } : {}),
+  });
   process.exit(0);
 }

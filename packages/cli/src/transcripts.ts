@@ -52,6 +52,8 @@ export interface InvocationProfile {
   sessionId: string;
   model: string | null;
   toolCounts: Record<string, number>;
+  /** Runtime-invoked skills via the Skill tool, keyed by skill name. */
+  skillCounts: Record<string, number>;
   toolSequence: string[];
   /** toolSequence enriched with targets and correlated errors */
   toolEvents: ToolEvent[];
@@ -131,7 +133,7 @@ function toolTarget(input: unknown, cwd: string | null): string | undefined {
   const cmd = asStr(obj['command']);
   const fp = asStr(obj['file_path']);
   const raw = fp ?? (cmd ? cmd.split('\n', 1)[0] : undefined)
-    ?? asStr(obj['pattern']) ?? asStr(obj['url']) ?? asStr(obj['query']) ?? asStr(obj['path']);
+    ?? asStr(obj['pattern']) ?? asStr(obj['url']) ?? asStr(obj['query']) ?? asStr(obj['path']) ?? asStr(obj['skill']);
   if (!raw) return undefined;
   // A file_path is a repo file — show it relative to the repo root (shorter,
   // portable, no longer truncated). Commands/globs/urls stay verbatim.
@@ -150,6 +152,7 @@ export function parseInvocation(
   meta: { agentType?: string; description?: string },
 ): InvocationProfile {
   const toolCounts: Record<string, number> = {};
+  const skillCounts: Record<string, number> = {};
   const toolSequence: string[] = [];
   const toolEvents: ToolEvent[] = [];
   const timeline: TimelineItem[] = [];
@@ -262,6 +265,10 @@ export function parseInvocation(
         const event: ToolEvent = { name, isError: false };
         const target = toolTarget(block['input'], cwd);
         if (target) event.target = target;
+        if (name === 'Skill') {
+          const skill = asStr(asObj(block['input'])?.['skill']);
+          if (skill) skillCounts[skill] = (skillCounts[skill] ?? 0) + 1;
+        }
         toolEvents.push(event);
         timeline.push({ kind: 'tool', event }); // same ref → error correlation shows here
         precedingTextIdx.set(event, texts.length - 1);
@@ -318,6 +325,7 @@ export function parseInvocation(
     sessionId,
     model,
     toolCounts,
+    skillCounts,
     toolSequence,
     toolEvents,
     toolCalls,
