@@ -8,8 +8,10 @@ import { checkUpdates, type UpdateCheckResult } from './update.js';
 import { copyItems } from '../copy.js';
 import { runAgentSkillsFor } from './agent-skills.js';
 import { runAgentPathsFor } from './agent-paths.js';
+import { runAgentApproachesFor } from './agent-approaches.js';
 import { readGrimoireConfig } from '../grimoire-config.js';
 import { ensureEnforceHooks, removeSubagentHooksFor } from '../enforce.js';
+import type { ManifestApproachEntry } from '../enforce.js';
 import type { InstallItem } from '../types.js';
 
 // --- Frontmatter helpers ---
@@ -61,7 +63,7 @@ type SelectedItem =
   | { readonly kind: 'agent'; readonly name: string }
   | { readonly kind: 'skill'; readonly name: string };
 
-type Action = 'remove' | 'update' | 'manage-skills' | 'manage-paths';
+type Action = 'remove' | 'update' | 'manage-skills' | 'manage-paths' | 'manage-approaches';
 
 // --- Detail formatters ---
 
@@ -106,6 +108,7 @@ function buildAgentDetail(
   agentsDir: string,
   name: string,
   filePatterns?: readonly string[],
+  approaches?: readonly ManifestApproachEntry[],
 ): string {
   const agentPath = join(agentsDir, `${name}.md`);
   const meta = readAgentFullMeta(agentPath);
@@ -124,6 +127,11 @@ function buildAgentDetail(
 
   const ep = filePatterns?.length ? filePatterns.join(', ') : '(none)';
   lines.push(`Enforcement paths: ${ep}`);
+
+  const ap = approaches?.length
+    ? approaches.map((a) => (a.skill ? `${a.name} (${a.skill})` : a.name)).join(', ')
+    : '(none)';
+  lines.push(`Approaches: ${ap}`);
 
   return lines.join('\n');
 }
@@ -210,7 +218,12 @@ export async function runList(projectDir: string): Promise<void> {
 
     // Show detail via note
     const detail = isAgent
-      ? buildAgentDetail(agentsDir, itemName, scan.agentFilePatterns.get(itemName))
+      ? buildAgentDetail(
+          agentsDir,
+          itemName,
+          scan.agentFilePatterns.get(itemName),
+          scan.agentApproaches.get(itemName),
+        )
       : buildSkillDetail(skillsDir, itemName, skillManifestDescs);
     clack.note(detail, itemName);
 
@@ -236,6 +249,10 @@ export async function runList(projectDir: string): Promise<void> {
       actionOptions.push({
         value: 'manage-paths' as const,
         label: 'Manage paths',
+      });
+      actionOptions.push({
+        value: 'manage-approaches' as const,
+        label: 'Manage approaches',
       });
     }
 
@@ -304,14 +321,17 @@ export async function runList(projectDir: string): Promise<void> {
         const config = readGrimoireConfig(projectDir);
         if (config.enforcement) {
           const manifest = readManifest(projectDir);
-          const currentPatterns = manifest.agents[itemName]?.file_patterns ?? [];
+          const entry = manifest.agents[itemName];
+          const currentPatterns = entry?.file_patterns ?? [];
+          const hasApproaches = (entry?.approaches?.length ?? 0) > 0;
 
-          if (currentPatterns.length === 0) {
+          // Approach-driven hooks must survive a patterns cleanup.
+          if (currentPatterns.length === 0 && !hasApproaches) {
             removeSubagentHooksFor(projectDir, itemName);
           }
 
           const agentsWithPatterns = Object.entries(manifest.agents)
-            .filter(([, entry]) => entry.file_patterns && entry.file_patterns.length > 0)
+            .filter(([, e]) => e.file_patterns && e.file_patterns.length > 0)
             .map(([n]) => n);
           if (agentsWithPatterns.length > 0) {
             ensureEnforceHooks(projectDir, agentsWithPatterns);
@@ -320,6 +340,11 @@ export async function runList(projectDir: string): Promise<void> {
       } catch {
         // No manifest or config
       }
+    }
+
+    if (action === 'manage-approaches') {
+      // Hook syncing lives inside the command itself.
+      await runAgentApproachesFor(projectDir, itemName);
     }
 
     break; // exit after any completed action
@@ -338,11 +363,13 @@ function scanInstalledItems(
   agentFiles: string[];
   skillDirs: string[];
   agentFilePatterns: Map<string, string[]>;
+  agentApproaches: Map<string, ManifestApproachEntry[]>;
   skillManifestDescs: Map<string, string>;
 } | null {
   let managedAgentNames: Set<string> | null = null;
   let managedSkillDirNames: Set<string> | null = null;
   const agentFilePatterns = new Map<string, string[]>();
+  const agentApproaches = new Map<string, ManifestApproachEntry[]>();
   const skillManifestDescs = new Map<string, string>();
 
   try {
@@ -351,6 +378,7 @@ function scanInstalledItems(
     managedSkillDirNames = new Set(manifest.skills.map((s) => basename(s.path)));
     for (const [name, entry] of Object.entries(manifest.agents)) {
       if (entry.file_patterns?.length) agentFilePatterns.set(name, entry.file_patterns);
+      if (entry.approaches?.length) agentApproaches.set(name, entry.approaches);
     }
     for (const skill of manifest.skills) {
       const dirName = basename(skill.path);
@@ -383,7 +411,7 @@ function scanInstalledItems(
 
   if (agentFiles.length === 0 && skillDirs.length === 0) return null;
 
-  return { agentFiles, skillDirs, agentFilePatterns, skillManifestDescs };
+  return { agentFiles, skillDirs, agentFilePatterns, agentApproaches, skillManifestDescs };
 }
 
 function buildUpdateMap(results: readonly UpdateCheckResult[]): Map<string, UpdateCheckResult> {

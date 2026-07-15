@@ -9,8 +9,11 @@ import {
   hasEnforcePreToolUseHook,
   hasSubagentHook,
   ensureEnforceHooks,
+  ensureSubagentHooks,
   removeEnforceHooks,
   removeSubagentHooksFor,
+  agentsWithPatterns,
+  agentsWithApproaches,
 } from '../src/enforce.js';
 import type { SkillsManifest } from '../src/enforce.js';
 
@@ -24,7 +27,13 @@ function readJson(filePath: string): unknown {
   return JSON.parse(readFileSync(filePath, 'utf-8'));
 }
 
-function makeManifest(projectDir: string, agents: Record<string, { file_patterns?: string[] }>): void {
+function makeManifest(
+  projectDir: string,
+  agents: Record<string, {
+    file_patterns?: string[];
+    approaches?: Array<{ name?: string; directive?: string; skill?: string }>;
+  }>,
+): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
   const grimoirePath = join(claudeDir, 'grimoire.json');
@@ -112,6 +121,177 @@ describe('writeManifest', () => {
     expect(loaded.agents['grimoire.typescript-coder']?.file_patterns).toEqual(['*.ts']);
   });
 
+});
+
+// =============================================================================
+// Approaches in the manifest
+// =============================================================================
+
+describe('manifest approaches', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('approaches');
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('should preserve approaches through readManifest/writeManifest', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': {
+        file_patterns: ['*.cs'],
+        approaches: [{ name: 'tdd', directive: 'Tests first.', skill: 'grimoire.unit-testing-dotnet' }],
+      },
+    });
+
+    // Act — round-trip without touching approaches
+    const manifest = readManifest(projectDir);
+    writeManifest(projectDir, manifest);
+
+    // Assert
+    const raw = readJson(join(projectDir, '.claude', 'grimoire.json')) as {
+      router: { agents: Record<string, { file_patterns?: string[]; approaches?: unknown }> };
+    };
+    expect(raw.router.agents['grimoire.csharp-coder']!.approaches).toEqual([
+      { name: 'tdd', directive: 'Tests first.', skill: 'grimoire.unit-testing-dotnet' },
+    ]);
+    expect(raw.router.agents['grimoire.csharp-coder']!.file_patterns).toEqual(['*.cs']);
+  });
+
+  it('should filter agents with approaches via agentsWithApproaches', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'agent-a': { approaches: [{ name: 'tdd', directive: 'Tests first.' }] },
+      'agent-b': { file_patterns: ['*.cs'] },
+      'agent-c': {},
+    });
+
+    // Act + Assert
+    expect(agentsWithApproaches(readManifest(projectDir))).toEqual(['agent-a']);
+  });
+
+  it('should filter agents with patterns via agentsWithPatterns', () => {
+    // Arrange
+    makeManifest(projectDir, {
+      'agent-a': { approaches: [{ name: 'tdd', directive: 'Tests first.' }] },
+      'agent-b': { file_patterns: ['*.cs'] },
+      'agent-c': {},
+    });
+
+    // Act + Assert
+    expect(agentsWithPatterns(readManifest(projectDir))).toEqual(['agent-b']);
+  });
+
+  it('should not count approach entries the router would reject', () => {
+    // Arrange — entries the router's parseApproachEntry drops must not keep
+    // hooks alive or show as enforced in the CLI
+    makeManifest(projectDir, {
+      'agent-a': { approaches: [{ name: 'no-directive' }] },
+      'agent-b': { approaches: [{ name: 'no-directive' }, { name: 'tdd', directive: 'Tests first.' }] },
+      'agent-c': { approaches: [{ name: '   ', directive: 'blank name' }] },
+    });
+
+    // Act + Assert
+    expect(agentsWithApproaches(readManifest(projectDir))).toEqual(['agent-b']);
+  });
+});
+
+// =============================================================================
+// ensureSubagentHooks
+// =============================================================================
+
+describe('ensureSubagentHooks', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('ensure-subagent');
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('should create SubagentStart/Stop entries without a PreToolUse hook', () => {
+    // Act
+    ensureSubagentHooks(projectDir, ['grimoire.csharp-coder']);
+
+    // Assert
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, Array<{ matcher: string; hooks: Array<{ command: string }> }>>;
+
+    expect(hooks['PreToolUse']).toBeUndefined();
+    expect(hooks['SubagentStart']).toHaveLength(1);
+    expect(hooks['SubagentStart']![0]!.matcher).toBe('grimoire.csharp-coder');
+    expect(hooks['SubagentStart']![0]!.hooks[0]!.command).toContain('--subagent-start');
+    expect(hooks['SubagentStop']).toHaveLength(1);
+    expect(hooks['SubagentStop']![0]!.hooks[0]!.command).toContain('--subagent-stop');
+  });
+
+  it('should be idempotent on re-run', () => {
+    // Arrange
+    ensureSubagentHooks(projectDir, ['grimoire.csharp-coder']);
+
+    // Act
+    ensureSubagentHooks(projectDir, ['grimoire.csharp-coder']);
+
+    // Assert
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
+
+    expect(hooks['SubagentStart']!.filter((e) => e.matcher === 'grimoire.csharp-coder')).toHaveLength(1);
+    expect(hooks['SubagentStop']!.filter((e) => e.matcher === 'grimoire.csharp-coder')).toHaveLength(1);
+  });
+
+  it('should migrate legacy --agent= and combined-matcher entries', () => {
+    // Arrange
+    makeSettings(projectDir, {
+      hooks: {
+        SubagentStart: [
+          {
+            matcher: 'grimoire.csharp-coder',
+            hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start --agent=grimoire.csharp-coder' }],
+          },
+          {
+            matcher: 'grimoire.typescript-coder|grimoire.vue3-coder',
+            hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-start' }],
+          },
+        ],
+      },
+    });
+
+    // Act
+    ensureSubagentHooks(projectDir, ['grimoire.csharp-coder']);
+
+    // Assert — legacy formats gone, one clean per-agent entry
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, Array<{ matcher: string; hooks: Array<{ command: string }> }>>;
+
+    expect(hooks['SubagentStart']).toHaveLength(1);
+    expect(hooks['SubagentStart']![0]!.matcher).toBe('grimoire.csharp-coder');
+    expect(hooks['SubagentStart']![0]!.hooks[0]!.command).not.toContain('--agent=');
+  });
+
+  it('should preserve unrelated existing hooks', () => {
+    // Arrange
+    makeSettings(projectDir, {
+      hooks: {
+        UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'some-other-tool' }] }],
+      },
+    });
+
+    // Act
+    ensureSubagentHooks(projectDir, ['grimoire.csharp-coder']);
+
+    // Assert
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, unknown[]>;
+
+    expect(hooks['UserPromptSubmit']).toHaveLength(1);
+    expect(hooks['PreToolUse']).toBeUndefined();
+  });
 });
 
 // =============================================================================
@@ -508,6 +688,38 @@ describe('removeEnforceHooks', () => {
 
     // Act + Assert
     expect(() => removeEnforceHooks(projectDir)).not.toThrow();
+  });
+
+  it('should spare SubagentStart/Stop entries for agents in the spare list', () => {
+    // Arrange — agent-a has approaches (must survive), agent-b is patterns-only
+    ensureEnforceHooks(projectDir, ['agent-a', 'agent-b']);
+
+    // Act
+    removeEnforceHooks(projectDir, ['agent-a']);
+
+    // Assert — PreToolUse gone, agent-b gone, agent-a Start/Stop intact
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, Array<{ matcher: string }>>;
+
+    expect(hooks['PreToolUse']).toBeUndefined();
+    expect(hooks['SubagentStart']!.map((e) => e.matcher)).toEqual(['agent-a']);
+    expect(hooks['SubagentStop']!.map((e) => e.matcher)).toEqual(['agent-a']);
+  });
+
+  it('should remove everything when the spare list is empty', () => {
+    // Arrange
+    ensureEnforceHooks(projectDir, ['agent-a', 'agent-b']);
+
+    // Act
+    removeEnforceHooks(projectDir, []);
+
+    // Assert
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
+    const hooks = (settings['hooks'] ?? {}) as Record<string, unknown>;
+
+    expect(hooks['PreToolUse']).toBeUndefined();
+    expect(hooks['SubagentStart']).toBeUndefined();
+    expect(hooks['SubagentStop']).toBeUndefined();
   });
 
   it('should be a no-op when no enforce hooks present', () => {

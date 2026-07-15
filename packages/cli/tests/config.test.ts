@@ -16,6 +16,7 @@ vi.mock('@clack/prompts', () => ({
 
 import * as clack from '@clack/prompts';
 import { runConfig } from '../src/commands/config.js';
+import { ensureEnforceHooks } from '../src/enforce.js';
 
 const CANCEL = Symbol.for('clack.cancel');
 
@@ -25,7 +26,10 @@ function makeTmpDir(): string {
   return realpathSync(raw);
 }
 
-function writeManifest(projectDir: string): void {
+function writeManifest(
+  projectDir: string,
+  agents: Record<string, unknown> = {},
+): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
   const configPath = join(claudeDir, 'grimoire.json');
@@ -33,7 +37,7 @@ function writeManifest(projectDir: string): void {
   if (existsSync(configPath)) {
     try { config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>; } catch { /* ignore */ }
   }
-  config['router'] = { version: '1', config: {}, skills: [], agents: {} };
+  config['router'] = { version: '1', config: {}, skills: [], agents };
   writeFileSync(configPath, JSON.stringify(config));
 }
 
@@ -155,5 +159,73 @@ describe('runConfig', () => {
     await runConfig(projectDir, { quiet: true });
 
     expect(insights()['archive']).toBe(true);
+  });
+
+  function readHooks(): Record<string, Array<{ matcher: string }>> {
+    const settings = JSON.parse(
+      readFileSync(join(projectDir, '.claude', 'settings.local.json'), 'utf-8'),
+    ) as Record<string, unknown>;
+    return (settings['hooks'] ?? {}) as Record<string, Array<{ matcher: string }>>;
+  }
+
+  function setEnforcement(value: boolean): void {
+    const configPath = join(projectDir, '.claude', 'grimoire.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    config['enforcement'] = value;
+    writeFileSync(configPath, JSON.stringify(config));
+  }
+
+  it('should keep subagent hooks for agents with approaches when disabling enforcement', async () => {
+    // Arrange — agent-a is approach-driven, agent-b is patterns-only
+    writeManifest(projectDir, {
+      'agent-a': { approaches: [{ name: 'tdd', directive: 'Tests first.' }] },
+      'agent-b': { file_patterns: ['*.cs'] },
+    });
+    setEnforcement(true);
+    ensureEnforceHooks(projectDir, ['agent-a', 'agent-b']);
+    vi.mocked(clack.multiselect).mockResolvedValueOnce(['archive'] as never);
+
+    // Act — enforcement deselected
+    await runConfig(projectDir, { quiet: true });
+
+    // Assert
+    const hooks = readHooks();
+    expect(hooks['PreToolUse']).toBeUndefined();
+    expect((hooks['SubagentStart'] ?? []).map((e) => e.matcher)).toEqual(['agent-a']);
+    expect((hooks['SubagentStop'] ?? []).map((e) => e.matcher)).toEqual(['agent-a']);
+  });
+
+  it('should remove all enforce hooks on disable when no agent has approaches', async () => {
+    // Arrange
+    writeManifest(projectDir, { 'agent-b': { file_patterns: ['*.cs'] } });
+    setEnforcement(true);
+    ensureEnforceHooks(projectDir, ['agent-b']);
+    vi.mocked(clack.multiselect).mockResolvedValueOnce(['archive'] as never);
+
+    // Act
+    await runConfig(projectDir, { quiet: true });
+
+    // Assert
+    const hooks = readHooks();
+    expect(hooks['PreToolUse']).toBeUndefined();
+    expect(hooks['SubagentStart']).toBeUndefined();
+    expect(hooks['SubagentStop']).toBeUndefined();
+  });
+
+  it('should ensure subagent hooks for approach-only agents when enabling enforcement', async () => {
+    // Arrange — agent-a has approaches but no file patterns
+    writeManifest(projectDir, {
+      'agent-a': { approaches: [{ name: 'tdd', directive: 'Tests first.' }] },
+    });
+    vi.mocked(clack.multiselect).mockResolvedValueOnce(['enforcement', 'archive'] as never);
+
+    // Act
+    await runConfig(projectDir, { quiet: true });
+
+    // Assert
+    const hooks = readHooks();
+    expect(hooks['PreToolUse']).toHaveLength(1);
+    expect((hooks['SubagentStart'] ?? []).map((e) => e.matcher)).toContain('agent-a');
+    expect((hooks['SubagentStop'] ?? []).map((e) => e.matcher)).toContain('agent-a');
   });
 });

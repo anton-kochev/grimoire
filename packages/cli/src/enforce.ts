@@ -14,8 +14,17 @@ const SETTINGS_FILE = 'settings.local.json';
 // Manifest types (local, minimal — parallel to setup.ts)
 // =============================================================================
 
+// SYNC: keep in sync with ApproachEntry in packages/router/src/types.ts
+export interface ManifestApproachEntry {
+  name: string;
+  directive: string;
+  /** Optional backing skill (directory name under .claude/skills). */
+  skill?: string;
+}
+
 export interface ManifestAgentEntry {
   file_patterns?: string[];
+  approaches?: ManifestApproachEntry[];
 }
 
 interface ManifestSkill {
@@ -78,6 +87,28 @@ export function writeManifest(projectDir: string, manifest: SkillsManifest): voi
   }
   config['router'] = manifest;
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+}
+
+/** Names of agents with at least one enforcement file pattern. */
+export function agentsWithPatterns(manifest: SkillsManifest): string[] {
+  return Object.entries(manifest.agents ?? {})
+    .filter(([, entry]) => Array.isArray(entry.file_patterns) && entry.file_patterns.length > 0)
+    .map(([name]) => name);
+}
+
+/** True when a raw approach entry has the non-empty name+directive the router enforces. */
+function isEnforceableApproach(approach: ManifestApproachEntry | undefined): boolean {
+  return (
+    typeof approach?.name === 'string' && approach.name.trim() !== '' &&
+    typeof approach?.directive === 'string' && approach.directive.trim() !== ''
+  );
+}
+
+/** Names of agents with at least one approach the router would actually enforce. */
+export function agentsWithApproaches(manifest: SkillsManifest): string[] {
+  return Object.entries(manifest.agents ?? {})
+    .filter(([, entry]) => Array.isArray(entry.approaches) && entry.approaches.some(isEnforceableApproach))
+    .map(([name]) => name);
 }
 
 // =============================================================================
@@ -177,6 +208,22 @@ export function ensureEnforceHooks(projectDir: string, agentNames: readonly stri
     });
   }
 
+  settings.hooks = hooks;
+  writeSettings(projectDir, settings);
+
+  ensureSubagentHooks(projectDir, agentNames);
+}
+
+/**
+ * Idempotently adds per-agent SubagentStart/Stop hook entries (and migrates
+ * legacy formats) WITHOUT touching PreToolUse. Used on its own for agents
+ * whose only hook need is approach injection/verification — approaches are
+ * independent of the enforcement toggle.
+ */
+export function ensureSubagentHooks(projectDir: string, agentNames: readonly string[]): void {
+  const settings = readSettings(projectDir);
+  const hooks = (settings.hooks ?? {}) as Record<string, HookEntry[]>;
+
   // Migrate legacy hook formats:
   // - injection format with --agent=<name> (skill injection is native now)
   // - combined pipe-matcher entries (one entry per agent is the current format)
@@ -262,9 +309,15 @@ export function removeSubagentHooksFor(projectDir: string, agentName: string): v
 
 /**
  * Removes all enforcement-related hook entries from settings.local.json.
+ * SubagentStart/Stop entries whose matcher is in `spareSubagentAgents` are
+ * kept — approach-driven hooks survive the enforcement toggle, which governs
+ * only file-ownership blocking.
  * No-op if the file or hooks don't exist.
  */
-export function removeEnforceHooks(projectDir: string): void {
+export function removeEnforceHooks(
+  projectDir: string,
+  spareSubagentAgents: readonly string[] = [],
+): void {
   const settings = readSettings(projectDir);
   if (!settings.hooks) return;
 
@@ -279,14 +332,18 @@ export function removeEnforceHooks(projectDir: string): void {
 
   if (hooks['SubagentStart']) {
     hooks['SubagentStart'] = hooks['SubagentStart'].filter(
-      (e) => !e.hooks.some((h) => h.command.includes('--subagent-start')),
+      (e) =>
+        spareSubagentAgents.includes(e.matcher) ||
+        !e.hooks.some((h) => h.command.includes('--subagent-start')),
     );
     if (hooks['SubagentStart'].length === 0) delete hooks['SubagentStart'];
   }
 
   if (hooks['SubagentStop']) {
     hooks['SubagentStop'] = hooks['SubagentStop'].filter(
-      (e) => !e.hooks.some((h) => h.command.includes('--subagent-stop')),
+      (e) =>
+        spareSubagentAgents.includes(e.matcher) ||
+        !e.hooks.some((h) => h.command.includes('--subagent-stop')),
     );
     if (hooks['SubagentStop'].length === 0) delete hooks['SubagentStop'];
   }

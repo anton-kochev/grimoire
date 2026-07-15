@@ -4,7 +4,14 @@
 
 import * as clack from '@clack/prompts';
 import { readGrimoireConfig, writeGrimoireConfig } from '../grimoire-config.js';
-import { readManifest, ensureEnforceHooks, removeEnforceHooks } from '../enforce.js';
+import {
+  readManifest,
+  ensureEnforceHooks,
+  ensureSubagentHooks,
+  removeEnforceHooks,
+  agentsWithPatterns,
+  agentsWithApproaches,
+} from '../enforce.js';
 
 /** Mirrors the router's default (packages/router/src/archive.ts). */
 const DEFAULT_RETAIN_RUNS_PER_AGENT = 20;
@@ -14,19 +21,19 @@ export async function runConfig(projectDir: string, options?: { quiet?: boolean 
 
   const config = readGrimoireConfig(projectDir);
 
-  // Collect agents with file_patterns for enforcement info
-  let agentsWithPatterns: string[] = [];
+  // Collect agents with file_patterns (enforcement) and approaches (hook survival)
+  let patternAgents: string[] = [];
+  let approachAgents: string[] = [];
   try {
     const manifest = readManifest(projectDir);
-    agentsWithPatterns = Object.entries(manifest.agents)
-      .filter(([, entry]) => entry.file_patterns && entry.file_patterns.length > 0)
-      .map(([name]) => name);
+    patternAgents = agentsWithPatterns(manifest);
+    approachAgents = agentsWithApproaches(manifest);
   } catch {
     // No manifest — enforcement won't list any agents
   }
 
-  const enforcementHint = agentsWithPatterns.length > 0
-    ? `${agentsWithPatterns.length} agent(s) with file patterns`
+  const enforcementHint = patternAgents.length > 0
+    ? `${patternAgents.length} agent(s) with file patterns`
     : 'no agents with file patterns';
 
   // Archiving is on unless explicitly disabled — pre-select it accordingly.
@@ -106,13 +113,16 @@ export async function runConfig(projectDir: string, options?: { quiet?: boolean 
   };
   writeGrimoireConfig(projectDir, config);
 
-  // Hook registration follows the enforcement toggle only.
+  // Hook registration follows the enforcement toggle, but approach-driven
+  // subagent hooks are independent of it: they get self-healed on enable and
+  // spared on disable.
   if (enforcementChanged) {
     if (enforcementEnabled) {
-      ensureEnforceHooks(projectDir, agentsWithPatterns);
+      ensureEnforceHooks(projectDir, patternAgents);
+      if (approachAgents.length > 0) ensureSubagentHooks(projectDir, approachAgents);
       clack.log.success('Enforcement enabled.');
     } else {
-      removeEnforceHooks(projectDir);
+      removeEnforceHooks(projectDir, approachAgents);
       clack.log.success('Enforcement disabled.');
     }
   }

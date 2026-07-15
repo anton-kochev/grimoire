@@ -7,6 +7,7 @@ import { runUpdate } from './commands/update.js';
 import { runLogs } from './commands/logs.js';
 import { runConfig } from './commands/config.js';
 import { runAgentSkills } from './commands/agent-skills.js';
+import { runAgentApproaches } from './commands/agent-approaches.js';
 import { runList } from './commands/list.js';
 
 const require = createRequire(import.meta.url);
@@ -122,6 +123,15 @@ const main = defineCommand({
       },
       async run() {
         await runAgentSkills(process.cwd());
+      },
+    }),
+    'agent-approaches': defineCommand({
+      meta: {
+        name: 'agent-approaches',
+        description: 'Manage enforced approaches for agents (binding directives, optionally backed by a skill)',
+      },
+      async run() {
+        await runAgentApproaches(process.cwd());
       },
     }),
   },

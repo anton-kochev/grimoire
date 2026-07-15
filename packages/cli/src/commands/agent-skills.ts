@@ -21,7 +21,7 @@ function readSkillDescription(skillMdPath: string): string {
   }
 }
 
-function scanAvailableSkills(projectDir: string): Array<{ name: string; description: string }> {
+export function scanAvailableSkills(projectDir: string): Array<{ name: string; description: string }> {
   const skillsDir = join(projectDir, '.claude', 'skills');
   if (!existsSync(skillsDir)) return [];
 

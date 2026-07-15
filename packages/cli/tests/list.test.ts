@@ -26,6 +26,10 @@ vi.mock('../src/commands/agent-paths.js', () => ({
   runAgentPathsFor: vi.fn(),
 }));
 
+vi.mock('../src/commands/agent-approaches.js', () => ({
+  runAgentApproachesFor: vi.fn(),
+}));
+
 vi.mock('../src/enforce.js', async (importOriginal) => {
   const actual = await importOriginal() as Record<string, unknown>;
   return {
@@ -60,6 +64,7 @@ import { runList } from '../src/commands/list.js';
 import { checkUpdates } from '../src/commands/update.js';
 import { runAgentSkillsFor } from '../src/commands/agent-skills.js';
 import { runAgentPathsFor } from '../src/commands/agent-paths.js';
+import { runAgentApproachesFor } from '../src/commands/agent-approaches.js';
 import { removeSingleItem } from '../src/remove.js';
 import { ensureEnforceHooks, removeSubagentHooksFor } from '../src/enforce.js';
 import { readGrimoireConfig } from '../src/grimoire-config.js';
@@ -110,7 +115,10 @@ function writeSkill(projectDir: string, name: string, description: string): void
 
 function writeManifest(
   projectDir: string,
-  agents: Record<string, { file_patterns?: string[] }>,
+  agents: Record<string, {
+    file_patterns?: string[];
+    approaches?: Array<{ name: string; directive: string; skill?: string }>;
+  }>,
   skills: Array<{
     name: string;
     path: string;
@@ -527,6 +535,104 @@ describe('runList', () => {
     await runList(projectDir);
 
     expect(vi.mocked(removeSubagentHooksFor)).not.toHaveBeenCalled();
+  });
+
+  it('does not remove subagent hooks after manage-paths when agent still has approaches', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, {
+      'my-agent': { approaches: [{ name: 'tdd', directive: 'Tests first.' }] },
+    });
+    vi.mocked(readGrimoireConfig).mockReturnValue({ enforcement: true });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('manage-paths' as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(removeSubagentHooksFor)).not.toHaveBeenCalled();
+  });
+
+  // ---------- Action menu — manage approaches (agents only) --------------------
+
+  it('shows manage-approaches action for agents', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const agentActions = mockSelect.mock.calls[1]![0] as {
+      options: Array<{ value: string }>;
+    };
+    expect(agentActions.options.some((o) => o.value === 'manage-approaches')).toBe(true);
+  });
+
+  it('does not show manage-approaches action for skills', async () => {
+    writeSkill(projectDir, 'my-skill', 'Skill desc');
+    writeManifest(projectDir, {}, [
+      { name: 'My Skill', path: '.claude/skills/my-skill' },
+    ]);
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'skill', name: 'my-skill' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    const skillActions = mockSelect.mock.calls[1]![0] as {
+      options: Array<{ value: string }>;
+    };
+    expect(skillActions.options.some((o) => o.value === 'manage-approaches')).toBe(false);
+  });
+
+  it('calls runAgentApproachesFor and exits when manage-approaches selected', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce('manage-approaches' as never)
+      .mockResolvedValue(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(vi.mocked(runAgentApproachesFor)).toHaveBeenCalledWith(projectDir, 'my-agent');
+    expect(mockSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows approaches in agent detail when configured', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc', 'model: sonnet\n');
+    writeManifest(projectDir, {
+      'my-agent': {
+        approaches: [
+          { name: 'tdd', directive: 'Tests first.', skill: 'grimoire.unit-testing-dotnet' },
+          { name: 'docs-first', directive: 'Docs first.' },
+        ],
+      },
+    });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('Approaches: tdd (grimoire.unit-testing-dotnet), docs-first');
+  });
+
+  it('shows (none) for approaches when agent has none', async () => {
+    writeAgent(projectDir, 'my-agent', 'Agent desc', 'model: sonnet\n');
+    writeManifest(projectDir, { 'my-agent': {} });
+    mockSelect
+      .mockResolvedValueOnce({ kind: 'agent', name: 'my-agent' } as never)
+      .mockResolvedValueOnce(CANCEL as never);
+
+    await runList(projectDir);
+
+    expect(mockNote).toHaveBeenCalled();
+    const noteContent = mockNote.mock.calls[0]![0] as string;
+    expect(noteContent).toContain('Approaches: (none)');
   });
 
   // ---------- Loop behavior ---------------------------------------------------
