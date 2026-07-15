@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { evaluateEnforce, runEnforce, runSubagentStart, runSubagentStop } from '../src/enforce.js';
+import { APPROACH_CHECK_MARKER } from '../src/approaches.js';
 import type { PreToolUseInput } from '../src/types.js';
 
 function makeTmpDir(prefix: string): string {
@@ -13,7 +14,10 @@ function makeTmpDir(prefix: string): string {
 
 function makeManifest(
   projectDir: string,
-  agents: Record<string, { file_patterns?: string[] }>,
+  agents: Record<string, {
+    file_patterns?: string[];
+    approaches?: Array<{ name?: string; directive?: string; skill?: string }>;
+  }>,
 ): void {
   const claudeDir = join(projectDir, '.claude');
   mkdirSync(claudeDir, { recursive: true });
@@ -719,6 +723,116 @@ describe('runSubagentStart', () => {
 });
 
 // =============================================================================
+// runSubagentStart — approach mandate injection
+// =============================================================================
+
+describe('runSubagentStart approach injection', () => {
+  let projectDir: string;
+  let logPath: string;
+  let origProjectDirEnv: string | undefined;
+  let stdoutSpy: MockInstance;
+
+  const TDD = { name: 'tdd', directive: 'Tests first.', skill: 'grimoire.unit-testing-dotnet' };
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('subagent-start-inject');
+    logPath = join(projectDir, 'test-router.log');
+    origProjectDirEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+    stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    stdoutSpy.mockRestore();
+    process.env['CLAUDE_PROJECT_DIR'] = origProjectDirEnv;
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  function stdoutText(): string {
+    return stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
+  }
+
+  function start(agentType?: string): void {
+    try {
+      runSubagentStart(
+        { session_id: 'session-abc', agent_id: 'agent-1', ...(agentType ? { agent_type: agentType } : {}) },
+        logPath,
+      );
+    } catch { /* process.exit(0) throws in vitest */ }
+  }
+
+  it('should inject the approach mandate on stdout when the agent has approaches', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    makeManifest(projectDir, { 'grimoire.csharp-coder': { approaches: [TDD] } });
+
+    start('grimoire.csharp-coder');
+
+    const output = JSON.parse(stdoutText()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
+    expect(output.hookSpecificOutput.additionalContext).toContain('tdd');
+    expect(output.hookSpecificOutput.additionalContext).toContain('Tests first.');
+    expect(output.hookSpecificOutput.additionalContext).toContain(
+      'with skill "grimoire.unit-testing-dotnet"',
+    );
+  });
+
+  it('should log approaches_enforced with the injected approach names', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { approaches: [TDD, { name: 'docs-first', directive: 'Docs first.' }] },
+    });
+
+    start('grimoire.csharp-coder');
+
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['approaches_enforced']).toEqual(['tdd', 'docs-first']);
+  });
+
+  it('should not write stdout when the agent has no approaches', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    makeManifest(projectDir, { 'grimoire.csharp-coder': {} });
+
+    start('grimoire.csharp-coder');
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry).not.toHaveProperty('approaches_enforced');
+  });
+
+  it('should not write stdout when grimoire.json has no router key', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    writeGrimoireConfig(projectDir, { enforcement: true });
+
+    start('grimoire.csharp-coder');
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+  });
+
+  it('should not write stdout when agent_type is absent', () => {
+    makeManifest(projectDir, { 'grimoire.csharp-coder': { approaches: [TDD] } });
+
+    start();
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['agent_type']).toBe(null);
+  });
+
+  it('should not inject approaches whose entries are all malformed', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { approaches: [{ name: 'no-directive' }, { directive: 'no name' }] },
+    });
+
+    start('grimoire.csharp-coder');
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+  });
+});
+
+// =============================================================================
 // runSubagentStop — telemetry only (no registry)
 // =============================================================================
 
@@ -928,5 +1042,197 @@ describe('runSubagentStop archiving', () => {
     // Assert — neither telemetry nor archive
     expect(existsSync(logPath)).toBe(false);
     expect(existsSync(join(projectDir, '.claude', 'grimoire'))).toBe(false);
+  });
+});
+
+// =============================================================================
+// runSubagentStop — approach adherence check
+// =============================================================================
+
+describe('runSubagentStop approach check', () => {
+  let projectDir: string;
+  let transcriptsDir: string;
+  let logPath: string;
+  let origProjectDirEnv: string | undefined;
+  let stdoutSpy: MockInstance;
+
+  const SESSION_ID = 'sess-check';
+  const AGENT_ID = 'agentid2';
+  const AGENT = 'grimoire.csharp-coder';
+  const TDD = { name: 'tdd', directive: 'Tests first.', skill: 'grimoire.unit-testing-dotnet' };
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('subagent-check');
+    transcriptsDir = makeTmpDir('subagent-check-src');
+    logPath = join(projectDir, 'test-router.log');
+    origProjectDirEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+    stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    writeAgentDef(projectDir, AGENT);
+  });
+
+  afterEach(() => {
+    stdoutSpy.mockRestore();
+    process.env['CLAUDE_PROJECT_DIR'] = origProjectDirEnv;
+    rmSync(projectDir, { recursive: true, force: true });
+    rmSync(transcriptsDir, { recursive: true, force: true });
+  });
+
+  const toolUseLine = (name: string, input: Record<string, unknown> = {}): string =>
+    JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name, input }] } });
+  const editLine = (): string => toolUseLine('Edit', { file_path: 'a.cs' });
+  const skillLine = (skill: string): string => toolUseLine('Skill', { skill });
+  const markerLine = (): string =>
+    JSON.stringify({
+      type: 'user',
+      message: { content: [{ type: 'text', text: `${APPROACH_CHECK_MARKER} check failed earlier` }] },
+    });
+
+  function makeTranscripts(lines: string[]): string {
+    const transcriptPath = join(transcriptsDir, `${SESSION_ID}.jsonl`);
+    writeFileSync(transcriptPath, '{}\n');
+    const subDir = join(transcriptsDir, SESSION_ID, 'subagents');
+    mkdirSync(subDir, { recursive: true });
+    writeFileSync(join(subDir, `agent-${AGENT_ID}.jsonl`), lines.join('\n') + '\n');
+    writeFileSync(join(subDir, `agent-${AGENT_ID}.meta.json`), JSON.stringify({ agentType: AGENT }));
+    return transcriptPath;
+  }
+
+  function stop(opts: { transcriptPath?: string; stopReason?: string } = {}): void {
+    try {
+      runSubagentStop(
+        {
+          session_id: SESSION_ID,
+          agent_id: AGENT_ID,
+          agent_type: AGENT,
+          stop_reason: opts.stopReason ?? 'success',
+          ...(opts.transcriptPath ? { transcript_path: opts.transcriptPath } : {}),
+        },
+        logPath,
+      );
+    } catch { /* process.exit(0) throws in vitest */ }
+  }
+
+  function logEntry(): Record<string, unknown> {
+    return JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+  }
+
+  function stdoutText(): string {
+    return stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
+  }
+
+  it('should bounce with feedback on stdout when edits were made and the bound skill was not invoked', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [TDD] } });
+    const transcriptPath = makeTranscripts([editLine()]);
+
+    stop({ transcriptPath });
+
+    const output = JSON.parse(stdoutText()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStop');
+    expect(output.hookSpecificOutput.additionalContext.startsWith(APPROACH_CHECK_MARKER)).toBe(true);
+    expect(output.hookSpecificOutput.additionalContext).toContain('grimoire.unit-testing-dotnet');
+    const entry = logEntry();
+    expect(entry['approach_check']).toBe('bounced');
+    expect(entry['approach_violations']).toEqual(['tdd']);
+  });
+
+  it('should still archive the transcript when bouncing', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [TDD] } });
+    const transcriptPath = makeTranscripts([editLine()]);
+
+    stop({ transcriptPath });
+
+    const gzPath = join(
+      projectDir, '.claude', 'grimoire', 'sessions', AGENT, SESSION_ID, `agent-${AGENT_ID}.jsonl.gz`,
+    );
+    expect(existsSync(gzPath)).toBe(true);
+    expect(logEntry()['archived']).toBe(true);
+  });
+
+  it('should log passed and not bounce when the bound skill was invoked', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [TDD] } });
+    const transcriptPath = makeTranscripts([skillLine('grimoire.unit-testing-dotnet'), editLine()]);
+
+    stop({ transcriptPath });
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    const entry = logEntry();
+    expect(entry['approach_check']).toBe('passed');
+    expect(entry['skills_activated']).toEqual(['grimoire.unit-testing-dotnet']);
+  });
+
+  it('should not bounce a second time when the marker is already in the transcript', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [TDD] } });
+    const transcriptPath = makeTranscripts([editLine(), markerLine()]);
+
+    stop({ transcriptPath });
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(logEntry()['approach_check']).toBe('skipped');
+  });
+
+  it('should not bounce when stop_reason is cancelled', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [TDD] } });
+    const transcriptPath = makeTranscripts([editLine()]);
+
+    stop({ transcriptPath, stopReason: 'cancelled' });
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(logEntry()['approach_check']).toBe('skipped');
+  });
+
+  it('should not bounce when stop_reason is error', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [TDD] } });
+    const transcriptPath = makeTranscripts([editLine()]);
+
+    stop({ transcriptPath, stopReason: 'error' });
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(logEntry()['approach_check']).toBe('skipped');
+  });
+
+  it('should fail open when the transcript cannot be located', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [TDD] } });
+
+    stop();
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    const entry = logEntry();
+    expect(entry['approach_check']).toBe('skipped');
+    expect(entry['archived']).toBe(false);
+  });
+
+  it('should not bounce for directive-only approaches', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [{ name: 'docs-first', directive: 'Docs first.' }] } });
+    const transcriptPath = makeTranscripts([editLine()]);
+
+    stop({ transcriptPath });
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(logEntry()['approach_check']).toBe('skipped');
+  });
+
+  it('should not add approach_check when the agent has no approaches', () => {
+    makeManifest(projectDir, { [AGENT]: {} });
+    const transcriptPath = makeTranscripts([editLine()]);
+
+    stop({ transcriptPath });
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    const entry = logEntry();
+    expect(entry).not.toHaveProperty('approach_check');
+    expect(entry).not.toHaveProperty('approach_violations');
+  });
+
+  it('should not bounce when the run made no edits', () => {
+    makeManifest(projectDir, { [AGENT]: { approaches: [TDD] } });
+    const transcriptPath = makeTranscripts([toolUseLine('Read', { file_path: 'a.cs' })]);
+
+    stop({ transcriptPath });
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(logEntry()['approach_check']).toBe('skipped');
   });
 });

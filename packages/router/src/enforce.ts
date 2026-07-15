@@ -13,6 +13,7 @@ import { basename, join } from 'node:path';
 import picomatch from 'picomatch';
 import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput, SubagentLogEntry } from './types.js';
 import { archiveSubagentRun, extractActivatedSkills, locateSubagentTranscript, resolveAgentType } from './archive.js';
+import { buildApproachFeedback, buildApproachMandate, evaluateApproachCheck, loadAgentApproaches } from './approaches.js';
 import { loadManifest } from './manifest.js';
 import { loadGrimoireConfig } from './grimoire-config.js';
 import { writeLog } from './logging.js';
@@ -233,7 +234,10 @@ function logSubagentEvent(
   hookEvent: 'SubagentStart' | 'SubagentStop',
   input: SubagentHookInput,
   logPath: string,
-  extra: Pick<SubagentLogEntry, 'archived' | 'skills_activated'> = {},
+  extra: Pick<
+    SubagentLogEntry,
+    'archived' | 'skills_activated' | 'approaches_enforced' | 'approach_check' | 'approach_violations'
+  > = {},
 ): void {
   if (input.agent_type && !hasLocalAgentDef(input.agent_type)) return;
   const entry: SubagentLogEntry = {
@@ -249,10 +253,31 @@ function logSubagentEvent(
 }
 
 /**
- * Emits telemetry when a subagent is spawned (SubagentStart hook).
+ * Emits telemetry when a subagent is spawned (SubagentStart hook), and injects
+ * the enforced-approach mandate as additionalContext when the agent has
+ * approaches configured in grimoire.json — the sub-agent sees it before its
+ * first prompt. Approaches being configured is the opt-in; no approaches means
+ * exactly the old telemetry-only behavior.
  */
 export function runSubagentStart(input: SubagentHookInput, logPath = '.claude/logs/grimoire-router.log'): void {
-  logSubagentEvent('SubagentStart', input, logPath);
+  const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
+  const approaches = input.agent_type ? loadAgentApproaches(projectDir, input.agent_type) : [];
+
+  logSubagentEvent(
+    'SubagentStart',
+    input,
+    logPath,
+    approaches.length > 0 ? { approaches_enforced: approaches.map((a) => a.name) } : {},
+  );
+
+  if (approaches.length > 0) {
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'SubagentStart',
+        additionalContext: buildApproachMandate(input.agent_type!, approaches),
+      },
+    }));
+  }
   process.exit(0);
 }
 
@@ -281,18 +306,41 @@ export function runSubagentStop(input: SubagentHookInput, logPath = '.claude/log
 
   // Point-in-time snapshot: Claude Code may still be flushing the transcript at
   // SubagentStop. Agent Insights later merges live+archive and is authoritative.
-  let skillsActivated: string[] | undefined;
+  let transcriptText: string | null = null;
   try {
     const source = locateSubagentTranscript(enriched);
-    if (source) skillsActivated = extractActivatedSkills(readFileSync(source.jsonl, 'utf-8'));
+    if (source) transcriptText = readFileSync(source.jsonl, 'utf-8');
   } catch {
     // Fail silent, like archiving/logging.
   }
+
+  const skillsActivated = transcriptText !== null ? extractActivatedSkills(transcriptText) : undefined;
+
+  // Adherence check for enforced approaches: an editing run that never invoked
+  // a bound skill is bounced back once via additionalContext (the feedback's
+  // marker in the transcript caps it at one bounce per run).
+  const approaches = loadAgentApproaches(projectDir, agentType);
+  const check = approaches.length > 0
+    ? evaluateApproachCheck(approaches, transcriptText, input.stop_reason)
+    : null;
 
   const archived = archiveSubagentRun(enriched, projectDir);
   logSubagentEvent('SubagentStop', enriched, logPath, {
     archived,
     ...(skillsActivated ? { skills_activated: skillsActivated } : {}),
+    ...(check ? { approach_check: check.outcome } : {}),
+    ...(check?.outcome === 'bounced'
+      ? { approach_violations: check.violated.map((v) => v.name) }
+      : {}),
   });
+
+  if (check?.outcome === 'bounced') {
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'SubagentStop',
+        additionalContext: buildApproachFeedback(check.violated),
+      },
+    }));
+  }
   process.exit(0);
 }

@@ -47,10 +47,23 @@ export interface SkillDefinition {
 }
 
 /**
- * Per-agent entry in the manifest (file ownership patterns)
+ * An enforced approach attached to an agent: a binding directive injected at
+ * SubagentStart, optionally backed by a skill whose invocation is verified at
+ * SubagentStop.
+ */
+export interface ApproachEntry {
+  name: string;
+  directive: string;
+  /** Optional backing skill (directory name under .claude/skills). */
+  skill?: string;
+}
+
+/**
+ * Per-agent entry in the manifest (file ownership patterns, enforced approaches)
  */
 export interface AgentEntry {
   file_patterns?: string[];
+  approaches?: ApproachEntry[];
 }
 
 /**
@@ -298,6 +311,12 @@ export interface SubagentLogEntry {
   archived?: boolean;
   /** Runtime-invoked skills observed in the transcript at SubagentStop. */
   skills_activated?: string[];
+  /** Approach names injected into the sub-agent's context at SubagentStart. */
+  approaches_enforced?: string[];
+  /** SubagentStop adherence-check outcome (only when approaches are configured). */
+  approach_check?: 'passed' | 'bounced' | 'skipped';
+  /** Approach names violated (present only when bounced). */
+  approach_violations?: string[];
 }
 
 /**

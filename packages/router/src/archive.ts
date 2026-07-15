@@ -130,6 +130,37 @@ export function extractActivatedSkills(jsonlText: string): string[] {
   return out;
 }
 
+const EDIT_TOOL_NAMES = new Set(['Edit', 'Write', 'MultiEdit']);
+
+/**
+ * True when the transcript contains an assistant Edit/Write/MultiEdit tool
+ * use. Shares extractActivatedSkills' tolerance: malformed lines are ignored.
+ */
+export function transcriptHasEdits(jsonlText: string): boolean {
+  for (const line of jsonlText.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let obj: Record<string, unknown> | null;
+    try {
+      obj = asObj(JSON.parse(trimmed));
+    } catch {
+      continue;
+    }
+    if (obj?.['type'] !== 'assistant') continue;
+    for (const rawBlock of asArr(asObj(obj['message'])?.['content'])) {
+      const block = asObj(rawBlock);
+      if (
+        block?.['type'] === 'tool_use' &&
+        typeof block['name'] === 'string' &&
+        EDIT_TOOL_NAMES.has(block['name'])
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Resolves a finished run's agent type. The SubagentStop hook payload does NOT
  * carry `agent_type` (it comes through empty), so the authoritative source is

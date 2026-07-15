@@ -227,6 +227,167 @@ describe('loadManifest', () => {
     expect(() => loadManifest(testDir)).toThrow(/file_patterns.*array/i);
   });
 
+  describe('approaches parsing', () => {
+    it('should parse approaches with name and directive', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: {
+          'grimoire.csharp-coder': {
+            approaches: [{ name: 'tdd', directive: 'Write a failing test first.' }],
+          },
+        },
+      });
+
+      const manifest = loadManifest(testDir);
+
+      expect(manifest.agents?.['grimoire.csharp-coder']?.approaches).toEqual([
+        { name: 'tdd', directive: 'Write a failing test first.' },
+      ]);
+    });
+
+    it('should parse approaches with optional skill', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: {
+          'grimoire.csharp-coder': {
+            approaches: [
+              { name: 'tdd', directive: 'Tests first.', skill: 'grimoire.unit-testing-dotnet' },
+            ],
+          },
+        },
+      });
+
+      const manifest = loadManifest(testDir);
+
+      expect(manifest.agents?.['grimoire.csharp-coder']?.approaches?.[0]?.skill).toBe(
+        'grimoire.unit-testing-dotnet',
+      );
+    });
+
+    it('should parse approaches alongside file_patterns', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: {
+          'grimoire.csharp-coder': {
+            file_patterns: ['*.cs'],
+            approaches: [{ name: 'tdd', directive: 'Tests first.' }],
+          },
+        },
+      });
+
+      const manifest = loadManifest(testDir);
+      const entry = manifest.agents?.['grimoire.csharp-coder'];
+
+      expect(entry?.file_patterns).toEqual(['*.cs']);
+      expect(entry?.approaches).toEqual([{ name: 'tdd', directive: 'Tests first.' }]);
+    });
+
+    it('should skip approach entries missing name', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: {
+          'agent-a': {
+            approaches: [
+              { directive: 'No name here.' },
+              { name: 'tdd', directive: 'Tests first.' },
+            ],
+          },
+        },
+      });
+
+      const manifest = loadManifest(testDir);
+
+      expect(manifest.agents?.['agent-a']?.approaches).toEqual([
+        { name: 'tdd', directive: 'Tests first.' },
+      ]);
+    });
+
+    it('should skip approach entries with empty or whitespace directive', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: {
+          'agent-a': {
+            approaches: [
+              { name: 'empty', directive: '' },
+              { name: 'blank', directive: '   ' },
+              { name: 'tdd', directive: 'Tests first.' },
+            ],
+          },
+        },
+      });
+
+      const manifest = loadManifest(testDir);
+
+      expect(manifest.agents?.['agent-a']?.approaches).toEqual([
+        { name: 'tdd', directive: 'Tests first.' },
+      ]);
+    });
+
+    it('should skip non-object approach entries', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: {
+          'agent-a': {
+            approaches: ['tdd', 42, null, { name: 'tdd', directive: 'Tests first.' }],
+          },
+        },
+      });
+
+      const manifest = loadManifest(testDir);
+
+      expect(manifest.agents?.['agent-a']?.approaches).toEqual([
+        { name: 'tdd', directive: 'Tests first.' },
+      ]);
+    });
+
+    it('should omit skill when it is not a non-empty string', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: {
+          'agent-a': {
+            approaches: [
+              { name: 'a', directive: 'D1.', skill: 42 },
+              { name: 'b', directive: 'D2.', skill: '' },
+            ],
+          },
+        },
+      });
+
+      const manifest = loadManifest(testDir);
+      const approaches = manifest.agents?.['agent-a']?.approaches;
+
+      expect(approaches).toEqual([
+        { name: 'a', directive: 'D1.' },
+        { name: 'b', directive: 'D2.' },
+      ]);
+      expect(approaches?.[0]).not.toHaveProperty('skill');
+    });
+
+    it('should ignore a non-array approaches value', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: { 'agent-a': { approaches: 'tdd' } },
+      });
+
+      const manifest = loadManifest(testDir);
+
+      expect(manifest.agents?.['agent-a']).toEqual({});
+      expect(manifest.agents?.['agent-a']?.approaches).toBeUndefined();
+    });
+
+    it('should omit approaches key when all entries are malformed', () => {
+      writeGrimoireJson({
+        ...validRouter,
+        agents: { 'agent-a': { approaches: [{ name: 'no-directive' }, 'junk'] } },
+      });
+
+      const manifest = loadManifest(testDir);
+
+      expect(manifest.agents?.['agent-a']).toEqual({});
+      expect(manifest.agents?.['agent-a']?.approaches).toBeUndefined();
+    });
+  });
+
   // Migration tests: old skills-manifest.json → grimoire.json router key
   describe('migration from skills-manifest.json', () => {
     it('should migrate skills-manifest.json into grimoire.json router key', () => {

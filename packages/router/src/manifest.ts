@@ -4,7 +4,7 @@
 
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import type { SkillManifest, SkillDefinition, AgentEntry } from './types.js';
+import type { SkillManifest, SkillDefinition, AgentEntry, ApproachEntry } from './types.js';
 
 const DEFAULT_LOG_PATH = '.claude/logs/grimoire-router.log';
 const DEFAULT_WEIGHTS = {
@@ -170,10 +170,39 @@ function parseAgentsSection(
       entry.file_patterns = cfg['file_patterns'] as string[];
     }
 
+    // Approaches are read inside hooks, which must fail soft: malformed
+    // entries (and a non-array value) are dropped instead of throwing.
+    if (Array.isArray(cfg['approaches'])) {
+      const approaches = (cfg['approaches'] as unknown[])
+        .map(parseApproachEntry)
+        .filter((a): a is ApproachEntry => a !== null);
+      if (approaches.length > 0) entry.approaches = approaches;
+    }
+
     result[agentName] = entry;
   }
 
   return result;
+}
+
+/**
+ * Validates a single raw approach entry. Returns null (never throws) when the
+ * entry is not an object or lacks a non-empty `name`/`directive`; a `skill`
+ * is kept only when it is a non-empty string.
+ */
+export function parseApproachEntry(raw: unknown): ApproachEntry | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+
+  const name = typeof obj['name'] === 'string' ? obj['name'].trim() : '';
+  const directive = typeof obj['directive'] === 'string' ? obj['directive'].trim() : '';
+  if (!name || !directive) return null;
+
+  const entry: ApproachEntry = { name, directive };
+  if (typeof obj['skill'] === 'string' && obj['skill'].trim()) {
+    entry.skill = obj['skill'].trim();
+  }
+  return entry;
 }
 
 /**
