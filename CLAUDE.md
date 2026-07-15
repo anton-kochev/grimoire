@@ -26,13 +26,14 @@ Collection of specialized agents and skills for Claude Code.
   - `grimoire update` checks for and applies updates to grimoire-managed items
   - `grimoire config` toggles global settings (e.g. agent enforcement)
   - `grimoire agent-skills` manages skill assignments for agents (add/remove skills in frontmatter)
+  - `grimoire agent-approaches` manages enforced approaches (check/uncheck from the built-in catalog in `approaches-catalog.ts`; binds the agent's matching skill; stored in `router.agents.<name>.approaches`; also via `grimoire list`)
   - `grimoire logs` opens the Agent Insights viewer (`--file`, `--port`, `--transcripts`, `--sessions`); invocation detail shows each run's chronological trace (thinking + text + tools), loaded per-run so the roster payload stays light
   - Insights merges live `~/.claude/projects` transcripts with the router's gzipped archive, deduped by run — fuller copy wins (`transcripts.ts` `loadMergedInvocations`)
 - Router: `packages/router/` - hook runtime for agent enforcement + insights archiving
   - PreToolUse (`--enforce`): blocks edits to files owned by agents (via file_patterns) when enforcement is enabled
-  - SubagentStart/Stop (`--subagent-start`/`--subagent-stop`): lifecycle telemetry only (stateless enforcement, no registry). SubagentStop also archives the sub-agent transcript (gzipped) to `.claude/grimoire/sessions/<agentType>/<sessionId>/`, pruned to N-per-type; built-in agents skipped (`archive.ts`)
-  - Subagent skill injection is native Claude Code behavior (`skills:` array in agent frontmatter) — not a router concern
-- Config: `.claude/grimoire.json` unified config — global settings (`enforcement`, `insights`, `installed`) and router config (`router` key: skill triggers, weights, agent mappings)
+  - SubagentStart/Stop (`--subagent-start`/`--subagent-stop`): lifecycle telemetry (stateless, no registry). SubagentStart injects the enforced-approach mandate as `additionalContext` for agents with approaches (`approaches.ts`). SubagentStop runs a one-bounce adherence check (an editing run that never invoked a bound skill gets corrective feedback and continues) and archives the sub-agent transcript (gzipped) to `.claude/grimoire/sessions/<agentType>/<sessionId>/`, pruned to N-per-type; built-in agents skipped (`archive.ts`)
+  - Frontmatter `skills:` (native Claude Code) makes skills *available* to a subagent — advisory only; enforced approaches are the binding layer and are independent of the `enforcement` flag
+- Config: `.claude/grimoire.json` unified config — global settings (`enforcement`, `insights`, `installed`) and router config (`router.agents.<name>`: `file_patterns`, `approaches`)
 
 ## Code Conventions
 - Skills use progressive disclosure (supporting files load on-demand)

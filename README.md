@@ -19,6 +19,7 @@ Extend Claude Code with domain-specific agents, reusable skills, and agent enfor
   - [Update](#update)
   - [Config](#config)
   - [Agent Skills](#agent-skills)
+  - [Agent Approaches](#agent-approaches)
   - [Agent Insights & Logs](#agent-insights--logs)
   - [Pack Manifest](#pack-manifest)
 - [Router and Agent Enforcement](#router-and-agent-enforcement)
@@ -37,6 +38,7 @@ Extend Claude Code with domain-specific agents, reusable skills, and agent enfor
 - **Pre-built agents** — coders, reviewers, architects, and test writers for .NET, TypeScript, Angular, Vue, and Rust, plus language-agnostic review/TDD and content verification
 - **Reusable skills** — language and framework best-practice guides (modern C#, ASP.NET Core APIs, modern TypeScript), testing playbooks for six languages, conventional commits, SRS/user-story generation, business-logic docs, README and skill authoring, translation, and content craft
 - **Agent enforcement** — optional router hooks that keep edits to owned files flowing through the right specialist agent
+- **Enforced approaches** — attach binding directives (TDD, Clean Architecture, …) to agents: the router injects the mandate when the agent starts and bounces non-compliant runs back for rework when they finish
 - **Validation tooling** — scripts to ensure skills meet Anthropic's requirements
 - **Templates & examples** — scaffolding for creating your own agents and skills
 
@@ -135,7 +137,18 @@ grimoire config
 grimoire agent-skills
 ```
 
-Adds or removes skills in an agent's frontmatter `skills:` array. Claude Code natively injects the full content of assigned skills into the subagent's context at startup.
+Adds or removes skills in an agent's frontmatter `skills:` array. Assigned skills become *available* to the subagent (listed in its skill catalog at startup), but availability is advisory — nothing compels the agent to use them. To make an agent actually follow a methodology, attach an approach.
+
+### Agent Approaches
+
+```bash
+# Attach or detach enforced approaches (check/uncheck from the built-in catalog)
+grimoire agent-approaches
+```
+
+An approach is a predefined **binding directive**: where a skill describes a methodology, an approach forces the agent to follow it. Checking one (also available via `grimoire list → Manage approaches`) stores the directive in `.claude/grimoire.json` and binds the agent's matching skill — the same Test-Driven Development approach binds `grimoire.unit-testing-dotnet` on a C# agent and `grimoire.unit-testing-typescript` on a TypeScript agent. The router then injects the mandate when the agent starts and, if the run edited files without ever loading the bound skill, sends it back once with corrective feedback before it can finish. See [Router and Agent Enforcement](#router-and-agent-enforcement).
+
+Built-in catalog: Test-Driven Development, Clean Architecture, Docs first, Modern C# code, .NET Web API best practices, Modern TypeScript code, .NET compile-time logging.
 
 ### Agent Insights & Logs
 
@@ -204,11 +217,11 @@ Each item carries its own `version`; `grimoire update` compares these to detect 
 
 ## Router and Agent Enforcement
 
-The router (`@grimoire-cc/router`) is a hook runtime for agent enforcement. Automatic skill matching is handled natively by Claude Code, not the router.
+The router (`@grimoire-cc/router`) is a hook runtime for agent enforcement and enforced approaches. Automatic skill matching is handled natively by Claude Code, not the router.
 
 ### Agent enforcement (PreToolUse)
 
-When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched. Ownership is resolved statelessly from the PreToolUse `agent_type` field: a specialist may edit the files it owns, while the main thread and non-owner agents are blocked. SubagentStart/Stop hooks emit lifecycle telemetry only.
+When enforcement is enabled, the router blocks direct edits to files owned by agents through `file_patterns`. This nudges work through the appropriate specialist agent while leaving unrelated files untouched. Ownership is resolved statelessly from the PreToolUse `agent_type` field: a specialist may edit the files it owns, while the main thread and non-owner agents are blocked.
 
 Enable or disable enforcement with:
 
@@ -218,18 +231,34 @@ grimoire config
 
 ### Subagent skills
 
-Agents declare skill assignments in their frontmatter with a `skills:` array (managed with `grimoire agent-skills`). Claude Code natively injects the full content of those skills into the subagent's context at startup — no router hooks involved.
+Agents declare skill assignments in their frontmatter with a `skills:` array (managed with `grimoire agent-skills`). Claude Code lists assigned skills in the subagent's skill catalog at startup — the agent *can* invoke them, but nothing makes it do so. Use an enforced approach when following the skill must be binding.
+
+### Enforced approaches (SubagentStart/Stop)
+
+For each approach attached to an agent (see [Agent Approaches](#agent-approaches)) the router:
+
+1. **Injects a mandate at SubagentStart** via `additionalContext` — the agent sees the binding directives before its first prompt; skill-backed approaches instruct it to invoke the bound skill as its first action.
+2. **Verifies adherence at SubagentStop** — a run that edited files without ever invoking a bound skill receives corrective feedback and continues working instead of finishing. At most one bounce per run (stateless: the feedback marker in the transcript caps it), and never on cancelled/errored runs.
+
+Approaches are independent of the `enforcement` flag (which governs only file ownership) and involve no PreToolUse blocking — attaching an approach is itself the opt-in. An approach with no matching installed skill still injects its directive; only the finish-verification is disabled.
 
 ### Configuration
 
-Settings and router config live in `.claude/grimoire.json`. Enforcement paths are stored per agent under the `router` key:
+Settings and router config live in `.claude/grimoire.json`. Enforcement paths and approaches are stored per agent under the `router` key:
 
 ```json
 {
   "router": {
     "agents": {
       "grimoire.csharp-coder": {
-        "file_patterns": ["*.cs"]
+        "file_patterns": ["*.cs"],
+        "approaches": [
+          {
+            "name": "tdd",
+            "directive": "Follow Test-Driven Development for every behavioral change: …",
+            "skill": "grimoire.unit-testing-dotnet"
+          }
+        ]
       }
     }
   }
@@ -239,12 +268,13 @@ Settings and router config live in `.claude/grimoire.json`. Enforcement paths ar
 | Field | Description |
 |-------|-------------|
 | `file_patterns` | Glob patterns for enforcement delegation |
+| `approaches` | Enforced approaches: `name` + `directive` (binding text), optional bound `skill` enabling the SubagentStop check |
 
-> **Note:** Agent skill assignments are managed via frontmatter (`skills:` array in the agent `.md` file), not the manifest. Use `grimoire list → Manage skills` to manage them, and `grimoire list → Manage paths` for enforcement paths.
+> **Note:** Agent skill assignments are managed via frontmatter (`skills:` array in the agent `.md` file), not the manifest. Use `grimoire list → Manage skills` to manage them, `grimoire list → Manage paths` for enforcement paths, and `grimoire list → Manage approaches` for enforced approaches.
 
 ### Hook registration
 
-Enforcement hooks are managed by `grimoire config` and written to the local (gitignored) `.claude/settings.local.json`. They use `PreToolUse` with the `--enforce` flag:
+Hooks are written to the local (gitignored) `.claude/settings.local.json`. `grimoire config` manages the enforcement hook (`PreToolUse` with `--enforce`); attaching an approach (`grimoire agent-approaches`) adds per-agent `SubagentStart`/`SubagentStop` entries:
 
 ```json
 {
@@ -255,6 +285,24 @@ Enforcement hooks are managed by `grimoire config` and written to the local (git
         "hooks": [{
           "type": "command",
           "command": "npx @grimoire-cc/router --enforce"
+        }]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "grimoire.csharp-coder",
+        "hooks": [{
+          "type": "command",
+          "command": "npx @grimoire-cc/router --subagent-start"
+        }]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "grimoire.csharp-coder",
+        "hooks": [{
+          "type": "command",
+          "command": "npx @grimoire-cc/router --subagent-stop"
         }]
       }
     ]
