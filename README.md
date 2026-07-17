@@ -32,6 +32,10 @@ Extend Claude Code with domain-specific agents, reusable skills, and agent enfor
 - [Contributing](#contributing)
 - [License](#license)
 
+A *grimoire* is a sorcerer's reference book — a catalog of named incantations you look up as the moment calls for, never read cover to cover. The magic lives in the practitioner, not the book. Fittingly, the word is a corruption of French *grammaire*, "grammar": Latin grammar books were unreadable to most, and the incomprehensible is easily mistaken for the arcane.
+
+Agents and skills are the incantations, each encoding the grammar of one domain, loaded on demand. Claude Code is the practitioner.
+
 ## Features
 
 - **CLI tool** — install, list, update, and remove agents and skills with `grimoire add/list/update/remove`; inspect sub-agent behavior and enforcement logs with `grimoire logs`
