@@ -3,6 +3,12 @@
   "version": "1.0.0",
   "agents": [
     {
+      "name": "grimoire.frontend-architect",
+      "path": "agents/grimoire.frontend-architect.md",
+      "description": "Designs front-end application architecture — component hierarchies, state management strategy, module and feature boundaries, routing structure, API-layer contracts, and rendering strategy. Framework-agnostic core with dedicated Angular and Vue decision guidance; produces architecture-altitude designs, plans, and reviews that coder agents implement.",
+      "version": "1.0.0"
+    },
+    {
       "name": "grimoire.angular-coder",
       "path": "agents/grimoire.angular-coder.md",
       "description": "Use this agent when the user needs Angular code written, fixed, refactored, or debugged. This agent implements components, services, directives, pipes, guards, resolvers, and any other Angular artifact. It reads the codebase to understand conventions, makes implementation decisions, and delivers working code.",
