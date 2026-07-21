@@ -30,7 +30,7 @@
       "name": "grimoire.dotnet-architect",
       "path": "agents/grimoire.dotnet-architect.md",
       "description": "Write, review, or refactor C# code on the .NET platform following modern best practices. Implements new features using Clean Architecture, Domain-Driven Design (DDD), and Test-Driven Development (TDD). Designs domain entities, application services, API endpoints, and infrastructure components.",
-      "version": "1.2.0"
+      "version": "1.3.0"
     },
     {
       "name": "grimoire.dotnet-unit-test-writer",
