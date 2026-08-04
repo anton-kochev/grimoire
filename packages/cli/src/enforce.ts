@@ -150,6 +150,11 @@ export function readAgentMeta(agentPath: string): AgentMeta {
 
 const ENFORCE_COMMAND = 'npx @grimoire-cc/router --enforce';
 
+// Bash and NotebookEdit are in the matcher because they are write paths too:
+// an agent denied an Edit could otherwise reach the same file through
+// `sed -i`/`python -c`/a redirect. The router decides what to block.
+export const ENFORCE_MATCHER = 'Edit|Write|MultiEdit|NotebookEdit|Bash';
+
 // Subagent hooks emit lifecycle telemetry only. Enforcement decides ownership
 // statelessly from the PreToolUse `agent_type` field, so these hooks no longer
 // gate edits. Skill injection is handled natively by Claude Code via the
@@ -177,6 +182,25 @@ export function hasEnforcePreToolUseHook(entries: readonly HookEntry[]): boolean
 }
 
 /**
+ * Rewrites the matcher on existing --enforce entries that predate a matcher
+ * change. Without this, installs created before Bash/NotebookEdit joined the
+ * matcher would keep the old narrow one forever — the entry exists, so nothing
+ * would ever replace it.
+ *
+ * @returns true when an entry was migrated.
+ */
+export function syncEnforceMatcher(entries: HookEntry[]): boolean {
+  let migrated = false;
+  for (const entry of entries) {
+    if (!entry.hooks.some((h) => h.command.includes('--enforce'))) continue;
+    if (entry.matcher === ENFORCE_MATCHER) continue;
+    entry.matcher = ENFORCE_MATCHER;
+    migrated = true;
+  }
+  return migrated;
+}
+
+/**
  * Returns true if a current-format SubagentStart/Stop entry already exists
  * (per-agent matcher, no legacy --agent= flag).
  */
@@ -199,11 +223,13 @@ export function ensureEnforceHooks(projectDir: string, agentNames: readonly stri
   const settings = readSettings(projectDir);
   const hooks = (settings.hooks ?? {}) as Record<string, HookEntry[]>;
 
-  // PreToolUse enforcement hook
+  // PreToolUse enforcement hook — added when absent, matcher-migrated when stale
   if (!hooks['PreToolUse']) hooks['PreToolUse'] = [];
-  if (!hasEnforcePreToolUseHook(hooks['PreToolUse'])) {
+  if (hasEnforcePreToolUseHook(hooks['PreToolUse'])) {
+    syncEnforceMatcher(hooks['PreToolUse']);
+  } else {
     hooks['PreToolUse'].push({
-      matcher: 'Edit|Write|MultiEdit',
+      matcher: ENFORCE_MATCHER,
       hooks: [{ type: 'command', command: ENFORCE_COMMAND }],
     });
   }

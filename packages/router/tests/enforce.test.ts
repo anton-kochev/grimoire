@@ -74,6 +74,170 @@ function makePreToolUseInput(
   };
 }
 
+/** PreToolUse payload for a Bash command (write target lives inside the command). */
+function makeBashInput(
+  command: string,
+  sessionId = 'test-session',
+  agentType?: string,
+): PreToolUseInput {
+  return {
+    session_id: sessionId,
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_use_id: 'tool-123',
+    tool_input: { command },
+    ...(agentType ? { agent_id: 'agent-instance-1', agent_type: agentType } : {}),
+  };
+}
+
+// =============================================================================
+// Bash write path (the bypass this guard closes)
+// =============================================================================
+
+describe('evaluateEnforce — Bash', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('bash');
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { file_patterns: ['*.cs'] },
+    });
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('should block the observed python -c bypass', () => {
+    const input = makeBashInput(
+      `python3 -c "p='src/Cache.cs';s=open(p).read();open(p,'w').write(s.replace('x','y'))"`,
+    );
+
+    const result = evaluateEnforce(input, projectDir);
+
+    expect(result.action).toBe('block');
+    if (result.action !== 'block') return;
+    expect(result.agents).toEqual(['grimoire.csharp-coder']);
+    expect(result.via).toBe('bash');
+    expect(result.filePath).toBe('src/Cache.cs');
+  });
+
+  it('should block sed -i, redirects, and mv onto an owned file', () => {
+    for (const command of [
+      `sed -i '' 's/a/b/' src/Cache.cs`,
+      `cat template > src/Cache.cs`,
+      `mv /tmp/patched src/Cache.cs`,
+      `git checkout -- src/Cache.cs`,
+    ]) {
+      expect(evaluateEnforce(makeBashInput(command), projectDir).action).toBe('block');
+    }
+  });
+
+  it('should truncate the logged command excerpt', () => {
+    const command = `python3 -c "open('src/Cache.cs','w')" # ${'x'.repeat(400)}`;
+
+    const result = evaluateEnforce(makeBashInput(command), projectDir);
+
+    expect(result.action).toBe('block');
+    if (result.action !== 'block') return;
+    expect(result.commandExcerpt!.length).toBeLessThanOrEqual(201);
+    expect(result.commandExcerpt).toMatch(/…$/);
+  });
+
+  it('should allow read-only commands that name an owned file', () => {
+    for (const command of [
+      'rg TryAddAsync src/Cache.cs',
+      'cat src/Cache.cs',
+      'git diff src/Cache.cs',
+      'git commit -m "fix Cache.cs"',
+    ]) {
+      expect(evaluateEnforce(makeBashInput(command), projectDir).action).toBe('allow');
+    }
+  });
+
+  it('should allow the owning agent to use Bash on its own files', () => {
+    const input = makeBashInput(
+      `sed -i '' 's/a/b/' src/Cache.cs`,
+      'test-session',
+      'grimoire.csharp-coder',
+    );
+
+    const result = evaluateEnforce(input, projectDir);
+
+    expect(result.action).toBe('allow');
+  });
+
+  it('should allow commands that touch no owned file', () => {
+    for (const command of ['dotnet build', 'ls -la', 'sed -i s/a/b/ notes.md']) {
+      expect(evaluateEnforce(makeBashInput(command), projectDir).action).toBe('allow');
+    }
+  });
+
+  it('should not trip on ordinary build and test invocations', () => {
+    // The make-or-break risk: false positives on commands agents run constantly.
+    for (const command of [
+      'dotnet test tests/Foo.Tests/Foo.Tests.csproj',
+      'dotnet build src/Api/Api.csproj',
+      'npx tsc --noEmit',
+    ]) {
+      expect(evaluateEnforce(makeBashInput(command), projectDir).action).toBe('allow');
+    }
+  });
+
+  it('should allow when enforcement is disabled', () => {
+    writeGrimoireConfig(projectDir, { enforcement: false });
+    makeManifest(projectDir, { 'grimoire.csharp-coder': { file_patterns: ['*.cs'] } });
+
+    const result = evaluateEnforce(makeBashInput('sed -i s/a/b/ src/Cache.cs'), projectDir);
+
+    expect(result.action).toBe('allow');
+  });
+
+  it('should allow when no agent declares file_patterns', () => {
+    makeManifest(projectDir, { 'grimoire.csharp-coder': {} });
+
+    const result = evaluateEnforce(makeBashInput('sed -i s/a/b/ src/Cache.cs'), projectDir);
+
+    expect(result.action).toBe('allow');
+  });
+
+  it('should allow an empty command', () => {
+    expect(evaluateEnforce(makeBashInput(''), projectDir).action).toBe('allow');
+  });
+});
+
+describe('evaluateEnforce — NotebookEdit', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('nb');
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, { 'grimoire.py-coder': { file_patterns: ['*.ipynb'] } });
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('should block an owned notebook via notebook_path', () => {
+    const input: PreToolUseInput = {
+      session_id: 'test-session',
+      hook_event_name: 'PreToolUse',
+      tool_name: 'NotebookEdit',
+      tool_use_id: 'tool-123',
+      tool_input: { notebook_path: 'analysis/report.ipynb' },
+    };
+
+    const result = evaluateEnforce(input, projectDir);
+
+    expect(result.action).toBe('block');
+    if (result.action !== 'block') return;
+    expect(result.agents).toEqual(['grimoire.py-coder']);
+    expect(result.via).toBeUndefined();
+  });
+});
+
 // =============================================================================
 // evaluateEnforce
 // =============================================================================
@@ -502,6 +666,33 @@ describe('runEnforce logging', () => {
     expect(typeof entry['timestamp']).toBe('string');
   });
 
+  it('should mark a Bash block with via, matched_token and a command excerpt', () => {
+    // Arrange
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, {
+      'grimoire.typescript-coder': { file_patterns: ['*.ts'] },
+    });
+    const input = makeBashInput(`sed -i '' 's/a/b/' src/utils.ts`, 'session-bash');
+    const origEnv = process.env['CLAUDE_PROJECT_DIR'];
+    process.env['CLAUDE_PROJECT_DIR'] = projectDir;
+
+    // Act
+    try {
+      runEnforce(input, logPath);
+    } catch { /* process.exit(0) throws in vitest */ }
+
+    process.env['CLAUDE_PROJECT_DIR'] = origEnv;
+
+    // Assert
+    const entry = JSON.parse(readFileSync(logPath, 'utf-8').trim()) as Record<string, unknown>;
+    expect(entry['outcome']).toBe('blocked');
+    expect(entry['tool_name']).toBe('Bash');
+    expect(entry['via']).toBe('bash');
+    expect(entry['matched_token']).toBe('src/utils.ts');
+    expect(entry['command_excerpt']).toContain('sed -i');
+    expect(entry['blocking_agents']).toContain('grimoire.typescript-coder');
+  });
+
   it('should write an owner-bypass allow log entry with agent_type', () => {
     // Arrange — the owning subagent edits its own file
     writeGrimoireConfig(projectDir, { enforcement: true });
@@ -760,6 +951,60 @@ describe('runSubagentStart approach injection', () => {
       );
     } catch { /* process.exit(0) throws in vitest */ }
   }
+
+  it('should inject the ownership notice for an agent with no approaches', () => {
+    // The point of the notice: it must reach agents that have no approaches.
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, { 'grimoire.csharp-coder': { file_patterns: ['*.cs'] } });
+
+    start('grimoire.csharp-coder');
+
+    const output = JSON.parse(stdoutText()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
+    expect(output.hookSpecificOutput.additionalContext).toContain('Grimoire: file ownership');
+    expect(output.hookSpecificOutput.additionalContext).toContain('Do NOT use Bash');
+  });
+
+  it('should compose the ownership notice with the approach mandate exactly once', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, {
+      'grimoire.csharp-coder': { file_patterns: ['*.cs'], approaches: [TDD] },
+    });
+
+    start('grimoire.csharp-coder');
+
+    const context = (JSON.parse(stdoutText()) as {
+      hookSpecificOutput: { additionalContext: string };
+    }).hookSpecificOutput.additionalContext;
+    expect(context.match(/Grimoire: file ownership/g)).toHaveLength(1);
+    expect(context.match(/Grimoire: enforced approaches/g)).toHaveLength(1);
+    expect(context.indexOf('file ownership')).toBeLessThan(context.indexOf('enforced approaches'));
+  });
+
+  it('should omit the ownership notice when enforcement is off', () => {
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    writeGrimoireConfig(projectDir, { enforcement: false });
+    makeManifest(projectDir, { 'grimoire.csharp-coder': { file_patterns: ['*.cs'] } });
+
+    start('grimoire.csharp-coder');
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+  });
+
+  it('should omit the ownership notice when no agent declares file_patterns', () => {
+    // Enforcement on but nothing owned — the notice would be noise.
+    writeAgentDef(projectDir, 'grimoire.csharp-coder');
+    writeGrimoireConfig(projectDir, { enforcement: true });
+    makeManifest(projectDir, { 'grimoire.csharp-coder': {} });
+
+    start('grimoire.csharp-coder');
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+  });
 
   it('should inject the approach mandate on stdout when the agent has approaches', () => {
     writeAgentDef(projectDir, 'grimoire.csharp-coder');

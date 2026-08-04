@@ -36,6 +36,31 @@ export function loadAgentApproaches(configDir: string, agentType: string): Appro
 }
 
 /**
+ * Builds the file-ownership notice injected at SubagentStart whenever
+ * enforcement is active. Independent of approaches: an agent with none still
+ * needs to know that a denied edit is a routing decision, not an obstacle.
+ *
+ * The tool layer already blocks shell writes to owned files; saying so up
+ * front is what stops the run from burning turns probing for a way around.
+ */
+export function buildOwnershipNotice(): string {
+  return [
+    '## Grimoire: file ownership',
+    '',
+    'Some files in this project are owned by other specialist agents and are gated at the',
+    'tool layer. If an edit is denied because a file is owned by another agent, that is a',
+    'routing decision, not an obstacle to work around.',
+    '',
+    '- Do NOT use Bash to create, modify, move, restore, or delete a file whose edit was',
+    '  denied — no `sed -i`, `python -c`, heredocs, `>` redirects, `cp`/`mv`, or `patch`.',
+    '- Shell commands that write to owned files are blocked by the same hook and are',
+    '  recorded as bypass attempts.',
+    '- Delegate the change with the Task tool, or report back that the file is owned and',
+    '  the work needs routing.',
+  ].join('\n');
+}
+
+/**
  * Builds the mandate injected as SubagentStart additionalContext — the
  * agent sees it before its first prompt.
  */

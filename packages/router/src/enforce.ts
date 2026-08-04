@@ -13,7 +13,8 @@ import { basename, join } from 'node:path';
 import picomatch from 'picomatch';
 import type { EnforceDebugInfo, EnforceResult, PreToolUseInput, SubagentHookInput, SubagentLogEntry } from './types.js';
 import { archiveSubagentRun, extractActivatedSkills, locateSubagentTranscript, resolveAgentType } from './archive.js';
-import { buildApproachFeedback, buildApproachMandate, evaluateApproachCheck, loadAgentApproaches } from './approaches.js';
+import { buildApproachFeedback, buildApproachMandate, buildOwnershipNotice, evaluateApproachCheck, loadAgentApproaches } from './approaches.js';
+import { bashCandidatePaths } from './bash-guard.js';
 import { loadManifest } from './manifest.js';
 import { loadGrimoireConfig } from './grimoire-config.js';
 import { writeLog } from './logging.js';
@@ -21,6 +22,47 @@ import { writeLog } from './logging.js';
 /** Normalize Windows backslashes to forward slashes for consistent glob matching. */
 function normalizeSeparators(p: string): string {
   return p.replaceAll('\\', '/');
+}
+
+/** Tools whose write target is a plain `file_path`. */
+const FILE_PATH_TOOLS = ['Edit', 'Write', 'MultiEdit'];
+
+/** Max command text kept in the log — shell commands can carry secrets. */
+const COMMAND_EXCERPT_LIMIT = 200;
+
+/**
+ * Agents owning `candidate`, matched against the four path representations
+ * Claude supplies edits in: absolute, basename, raw-as-given, project-relative.
+ */
+function matchOwners(
+  candidate: string,
+  enforced: ReadonlyArray<readonly [string, { file_patterns?: string[] }]>,
+  projectDir: string,
+): { agents: string[]; patternsChecked: string[]; relativePath: string; normalizedPath: string } {
+  const normalizedPath = normalizeSeparators(candidate);
+  const base = basename(normalizedPath);
+  // normalizeSeparators() has already run — regex safely assumes forward slashes
+  const isAbsolute = normalizedPath.startsWith('/') || /^[a-zA-Z]:\//.test(normalizedPath);
+  const absPath = isAbsolute ? normalizedPath : normalizeSeparators(join(process.cwd(), normalizedPath));
+
+  const normalizedProjectDir = normalizeSeparators(projectDir);
+  const relativePath = absPath.startsWith(normalizedProjectDir + '/')
+    ? absPath.slice(normalizedProjectDir.length + 1)
+    : absPath;
+
+  const agents: string[] = [];
+  const patternsChecked: string[] = [];
+  for (const [agentName, entry] of enforced) {
+    const patterns = entry.file_patterns ?? [];
+    patternsChecked.push(...patterns);
+    const matches = patterns.some((pattern) => {
+      const isMatch = picomatch(pattern);
+      return isMatch(absPath) || isMatch(base) || isMatch(normalizedPath) || isMatch(relativePath);
+    });
+    if (matches) agents.push(agentName);
+  }
+
+  return { agents, patternsChecked, relativePath, normalizedPath };
 }
 
 // =============================================================================
@@ -37,8 +79,9 @@ export function evaluateEnforce(
   /** Override for grimoire.json lookup directory (defaults to projectDir). */
   configDir?: string,
 ): EnforceResult {
-  // Only block file-editing tools
-  if (!['Edit', 'Write', 'MultiEdit'].includes(input.tool_name)) {
+  // Only block tools that can write files
+  const isBash = input.tool_name === 'Bash';
+  if (!FILE_PATH_TOOLS.includes(input.tool_name) && input.tool_name !== 'NotebookEdit' && !isBash) {
     return { action: 'allow' };
   }
 
@@ -69,60 +112,68 @@ export function evaluateEnforce(
 
   if (enforced.length === 0) return { action: 'allow' };
 
-  // Resolve file path from tool input
-  const rawFilePath =
-    typeof input.tool_input['file_path'] === 'string' ? input.tool_input['file_path'] : '';
+  const resolvedProjectDir = projectDir ?? process.cwd();
 
-  if (!rawFilePath) return { action: 'allow' };
+  // Resolve the candidate write targets from tool input. Bash carries them
+  // inside a shell command rather than a path field, so it yields many.
+  const rawCommand =
+    isBash && typeof input.tool_input['command'] === 'string' ? input.tool_input['command'] : '';
+  const candidates = isBash
+    ? bashCandidatePaths(rawCommand)
+    : [
+        typeof input.tool_input['file_path'] === 'string'
+          ? input.tool_input['file_path']
+          : typeof input.tool_input['notebook_path'] === 'string'
+            ? input.tool_input['notebook_path']
+            : '',
+      ].filter((p) => p !== '');
 
-  // Normalize separators for cross-platform glob matching
-  const filePath = normalizeSeparators(rawFilePath);
-  const base = basename(filePath);
-  // normalizeSeparators() has already run above — regex safely assumes forward slashes
-  const isAbsolute = filePath.startsWith('/') || /^[a-zA-Z]:\//.test(filePath);
-  const absPath = isAbsolute ? filePath : normalizeSeparators(join(process.cwd(), filePath));
+  if (candidates.length === 0) return { action: 'allow' };
 
-  // Compute project-relative path for matching against relative patterns
-  const normalizedProjectDir = normalizeSeparators(projectDir ?? process.cwd());
-  const relativePath = absPath.startsWith(normalizedProjectDir + '/')
-    ? absPath.slice(normalizedProjectDir.length + 1)
-    : absPath;
-
-  // Check each enforced agent's patterns against full path, basename, raw input, and relative path
-  // Match against multiple representations — Claude provides paths in varied formats:
-  // absolute OS path, project-relative path, basename only, or raw as given.
-  const matchingAgents: string[] = [];
-  const allPatternsChecked: string[] = [];
-  for (const [agentName, entry] of enforced) {
-    const patterns = entry.file_patterns ?? [];
-    allPatternsChecked.push(...patterns);
-    const matches = patterns.some((pattern) => {
-      const isMatch = picomatch(pattern);
-      return isMatch(absPath) || isMatch(base) || isMatch(filePath) || isMatch(relativePath);
-    });
-    if (matches) {
-      matchingAgents.push(agentName);
-    }
-  }
-
-  if (matchingAgents.length === 0) {
-    const debugInfo: EnforceDebugInfo = {
-      rawFilePath,
-      normalizedPath: filePath,
-      relativePath,
-      patternsChecked: allPatternsChecked,
-    };
-    return { action: 'allow', debugInfo };
-  }
-
-  // Owner bypass: the specialist that owns the file may edit it. `agent_type`
-  // is set only when the edit originates inside a subagent; the main thread
+  // Owner bypass: the specialist that owns the file may write it. `agent_type`
+  // is set only when the write originates inside a subagent; the main thread
   // (undefined) and any non-owner subagent fall through to a block.
-  if (input.agent_type && matchingAgents.includes(input.agent_type)) {
+  const allPatternsChecked: string[] = [];
+  let lastMatch: ReturnType<typeof matchOwners> | null = null;
+
+  for (const candidate of candidates) {
+    const match = matchOwners(candidate, enforced, resolvedProjectDir);
+    lastMatch = match;
+    if (match.agents.length === 0) {
+      allPatternsChecked.push(...match.patternsChecked);
+      continue;
+    }
+    if (input.agent_type && match.agents.includes(input.agent_type)) continue;
+
+    return {
+      action: 'block',
+      agents: match.agents,
+      filePath: match.normalizedPath,
+      ...(isBash
+        ? { via: 'bash' as const, commandExcerpt: excerptCommand(rawCommand) }
+        : {}),
+    };
+  }
+
+  // Every candidate was either unowned or owned by the caller.
+  if (input.agent_type && lastMatch && lastMatch.agents.includes(input.agent_type)) {
     return { action: 'allow', ownerAgent: input.agent_type };
   }
 
-  return { action: 'block', agents: matchingAgents, filePath };
+  const debugInfo: EnforceDebugInfo = {
+    rawFilePath: isBash ? excerptCommand(rawCommand) : (candidates[0] ?? ''),
+    normalizedPath: lastMatch?.normalizedPath ?? '',
+    relativePath: lastMatch?.relativePath ?? '',
+    patternsChecked: allPatternsChecked,
+  };
+  return { action: 'allow', debugInfo };
+}
+
+/** Truncates command text for logging — never log a full shell command. */
+function excerptCommand(command: string): string {
+  return command.length > COMMAND_EXCERPT_LIMIT
+    ? `${command.slice(0, COMMAND_EXCERPT_LIMIT)}…`
+    : command;
 }
 
 /**
@@ -164,10 +215,13 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
       outcome: 'allow',
       enforce_block: false,
       owner_bypass: true,
+      // Bash owner-bypasses have no single path field — fall back to the tool name.
       file_basename:
         typeof input.tool_input['file_path'] === 'string'
           ? basename(input.tool_input['file_path'])
-          : '',
+          : typeof input.tool_input['notebook_path'] === 'string'
+            ? basename(input.tool_input['notebook_path'])
+            : '',
     }, logPath);
   }
 
@@ -183,11 +237,25 @@ export function runEnforce(input: PreToolUseInput, logPath = '.claude/logs/grimo
       enforce_block: true,
       file_basename: basename(result.filePath),
       blocking_agents: result.agents,
+      ...(result.via
+        ? {
+            via: result.via,
+            matched_token: result.filePath,
+            command_excerpt: result.commandExcerpt ?? '',
+          }
+        : {}),
     }, logPath);
 
     const agentList = result.agents.join(', ');
     const reason = [
       `This file is owned by: ${agentList}`,
+      // Say this plainly for shell writes, or the agent just tries the next trick.
+      ...(result.via === 'bash'
+        ? [
+            `Shell commands that write to owned files are blocked by the same rule as`,
+            `Edit/Write — this is a routing decision, not an obstacle to work around.`,
+          ]
+        : []),
       `Use the Task tool to delegate this work:`,
       `  subagent_type: "${result.agents[0]}"`,
     ].join('\n');
@@ -270,15 +338,38 @@ export function runSubagentStart(input: SubagentHookInput, logPath = '.claude/lo
     approaches.length > 0 ? { approaches_enforced: approaches.map((a) => a.name) } : {},
   );
 
-  if (approaches.length > 0) {
+  // Context is composed from two independent sources: the ownership notice
+  // (whenever enforcement is actually in force) and the approach mandate.
+  // Either alone is enough to emit — agents with no approaches still get the
+  // ownership rules.
+  const blocks: string[] = [];
+  if (isEnforcementActive(projectDir)) blocks.push(buildOwnershipNotice());
+  if (approaches.length > 0) blocks.push(buildApproachMandate(input.agent_type!, approaches));
+
+  if (blocks.length > 0) {
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'SubagentStart',
-        additionalContext: buildApproachMandate(input.agent_type!, approaches),
+        additionalContext: blocks.join('\n\n'),
       },
     }));
   }
   process.exit(0);
+}
+
+/**
+ * True when enforcement is enabled AND some agent actually declares
+ * `file_patterns` — without patterns nothing is owned, so the notice would be
+ * noise.
+ */
+function isEnforcementActive(projectDir: string): boolean {
+  const config = loadGrimoireConfig(projectDir);
+  if (config.enforcement !== true) return false;
+  const agents = config.router?.agents;
+  if (!agents) return false;
+  return Object.values(agents).some(
+    (entry) => Array.isArray(entry.file_patterns) && entry.file_patterns.length > 0,
+  );
 }
 
 /**

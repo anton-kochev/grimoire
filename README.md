@@ -233,6 +233,22 @@ Enable or disable enforcement with:
 grimoire config
 ```
 
+#### Shell and notebook writes
+
+Ownership covers every write path, not just the edit tools — otherwise an agent denied an `Edit` could reach the same file through `sed -i`, `python -c`, a `>` redirect, or `mv`. The hook therefore also sees `Bash` and `NotebookEdit`.
+
+Bash commands are judged conservatively:
+
+- A command whose head cannot write files (`grep`, `rg`, `cat`, `ls`, `git diff`, `dotnet test`, `cargo`, `pnpm`, …) passes untouched, even when it names an owned file.
+- Any other command contributes **every path it mentions** as a candidate — which is how a path buried in a `python -c` string literal gets caught without parsing Python.
+- Output redirects (`>`, `>>`, `tee`) are always checked, even behind a read-only head, so `cat template > Owned.cs` is blocked.
+
+Blocks are logged with `via: "bash"`, the matched token, and a truncated command excerpt (never the full command — shell text can carry secrets), so bypass attempts are visible in `grimoire logs`.
+
+Every sub-agent also receives a file-ownership notice at SubagentStart whenever enforcement is active and some agent declares `file_patterns` — it states that a denied edit is a routing decision and must not be worked around via the shell.
+
+> This is a guardrail, not a sandbox. Paths built from shell variables, `$(…)` substitution, or an indirection through a helper script are accepted misses. It raises the cost of a bypass and makes attempts visible; a hard boundary needs Claude Code `permissions.deny` rules or withholding the Bash tool.
+
 ### Subagent skills
 
 Agents declare skill assignments in their frontmatter with a `skills:` array (managed with `grimoire agent-skills`). Claude Code lists assigned skills in the subagent's skill catalog at startup — the agent *can* invoke them, but nothing makes it do so. Use an enforced approach when following the skill must be binding.
@@ -285,7 +301,7 @@ Hooks are written to the local (gitignored) `.claude/settings.local.json`. `grim
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [{
           "type": "command",
           "command": "npx @grimoire-cc/router --enforce"

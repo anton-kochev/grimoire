@@ -4,7 +4,11 @@
 
 import type { PreToolUseInput, ToolName, ExtractedSignals } from './types.js';
 
-const SUPPORTED_TOOLS: ReadonlySet<string> = new Set(['Edit', 'Write', 'MultiEdit']);
+// Bash and NotebookEdit are admitted so enforcement can see shell-based and
+// notebook writes — both are file-mutation paths that ownership must cover.
+const SUPPORTED_TOOLS: ReadonlySet<string> = new Set([
+  'Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash',
+]);
 
 /** Normalize Windows backslashes to forward slashes for consistent path handling. */
 function normalizeSeparators(p: string): string {
@@ -56,7 +60,7 @@ export function parsePreToolUseInput(jsonString: string): PreToolUseInput {
   const toolName = input['tool_name'];
   if (!SUPPORTED_TOOLS.has(toolName)) {
     throw new Error(
-      `Unsupported tool: ${toolName}. Only Edit, Write, and MultiEdit are supported.`
+      `Unsupported tool: ${toolName}. Only ${[...SUPPORTED_TOOLS].join(', ')} are supported.`
     );
   }
 

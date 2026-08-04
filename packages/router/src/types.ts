@@ -114,7 +114,7 @@ export interface HookInput {
 /**
  * Supported tool names for PreToolUse hook
  */
-export type ToolName = 'Edit' | 'Write' | 'MultiEdit';
+export type ToolName = 'Edit' | 'Write' | 'MultiEdit' | 'NotebookEdit' | 'Bash';
 
 /**
  * Input received from PreToolUse hook via stdin
@@ -235,7 +235,16 @@ export interface EnforceDebugInfo {
 
 export type EnforceResult =
   | { action: 'allow'; debugInfo?: EnforceDebugInfo; ownerAgent?: string }
-  | { action: 'block'; agents: string[]; filePath: string };
+  | {
+      action: 'block';
+      agents: string[];
+      /** Owned path that triggered the block; for Bash, the offending token. */
+      filePath: string;
+      /** Set when the block came from a shell command rather than an edit tool. */
+      via?: 'bash';
+      /** Truncated command text for the log — never the full string (may carry secrets). */
+      commandExcerpt?: string;
+    };
 
 /**
  * Input for SubagentStart/Stop hooks — telemetry logging and transcript archiving.
@@ -296,6 +305,12 @@ export interface EnforceBlockLogEntry {
   enforce_block: true;
   file_basename: string;
   blocking_agents: string[];
+  /** Present when the block came from a shell command rather than an edit tool. */
+  via?: 'bash';
+  /** The owned path token found in the command. */
+  matched_token?: string;
+  /** Truncated command text — never the full string (may carry secrets). */
+  command_excerpt?: string;
 }
 
 /**

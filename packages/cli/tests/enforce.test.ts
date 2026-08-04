@@ -14,6 +14,8 @@ import {
   removeSubagentHooksFor,
   agentsWithPatterns,
   agentsWithApproaches,
+  syncEnforceMatcher,
+  ENFORCE_MATCHER,
 } from '../src/enforce.js';
 import type { SkillsManifest } from '../src/enforce.js';
 
@@ -438,6 +440,38 @@ describe('hasSubagentHook', () => {
 });
 
 // =============================================================================
+// syncEnforceMatcher
+// =============================================================================
+
+describe('syncEnforceMatcher', () => {
+  it('should rewrite a stale matcher and report the migration', () => {
+    const entries = [
+      { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] },
+    ];
+
+    expect(syncEnforceMatcher(entries)).toBe(true);
+    expect(entries[0]!.matcher).toBe(ENFORCE_MATCHER);
+  });
+
+  it('should report no migration when the matcher is already current', () => {
+    const entries = [
+      { matcher: ENFORCE_MATCHER, hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] },
+    ];
+
+    expect(syncEnforceMatcher(entries)).toBe(false);
+  });
+
+  it('should ignore entries that are not enforcement hooks', () => {
+    const entries = [
+      { matcher: 'Read', hooks: [{ type: 'command', command: 'other-hook' }] },
+    ];
+
+    expect(syncEnforceMatcher(entries)).toBe(false);
+    expect(entries[0]!.matcher).toBe('Read');
+  });
+});
+
+// =============================================================================
 // ensureEnforceHooks
 // =============================================================================
 
@@ -465,6 +499,9 @@ describe('ensureEnforceHooks', () => {
     expect(hooks['PreToolUse']).toHaveLength(1);
     const preToolEntry = (hooks['PreToolUse'] as Array<{ matcher: string; hooks: Array<{ command: string }> }>)[0];
     expect(preToolEntry!.hooks[0]!.command).toContain('--enforce');
+    expect(preToolEntry!.matcher).toBe(ENFORCE_MATCHER);
+    // Shell and notebook writes are enforcement paths too, not just edit tools.
+    expect(preToolEntry!.matcher).toContain('Bash');
 
     expect(hooks['SubagentStart']).toHaveLength(1);
     const startEntry = (hooks['SubagentStart'] as Array<{ matcher: string; hooks: Array<{ command: string }> }>)[0];
@@ -477,6 +514,51 @@ describe('ensureEnforceHooks', () => {
     expect(stopEntry!.matcher).toBe('grimoire.typescript-coder');
     expect(stopEntry!.hooks[0]!.command).toContain('--subagent-stop');
     expect(stopEntry!.hooks[0]!.command).not.toContain('--agent=');
+  });
+
+  it('should migrate a pre-existing narrow matcher in place', () => {
+    // Arrange — an install created before Bash/NotebookEdit joined the matcher.
+    // hasEnforcePreToolUseHook ignores the matcher, so without an explicit
+    // migration this entry would keep the old value forever.
+    makeSettings(projectDir, {
+      hooks: {
+        PreToolUse: [
+          { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] },
+        ],
+      },
+    });
+
+    // Act
+    ensureEnforceHooks(projectDir, ['grimoire.typescript-coder']);
+
+    // Assert — rewritten, not duplicated
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
+    const hooks = settings['hooks'] as Record<string, unknown[]>;
+    const entries = hooks['PreToolUse'] as Array<{ matcher: string; hooks: Array<{ command: string }> }>;
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.matcher).toBe(ENFORCE_MATCHER);
+    expect(entries[0]!.hooks[0]!.command).toBe('npx @grimoire-cc/router --enforce');
+  });
+
+  it('should leave unrelated PreToolUse entries untouched while migrating', () => {
+    makeSettings(projectDir, {
+      hooks: {
+        PreToolUse: [
+          { matcher: 'Read', hooks: [{ type: 'command', command: 'some-other-hook' }] },
+          { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] },
+        ],
+      },
+    });
+
+    ensureEnforceHooks(projectDir, []);
+
+    const settings = readJson(join(projectDir, '.claude', 'settings.local.json')) as Record<string, unknown>;
+    const entries = (settings['hooks'] as Record<string, unknown[]>)['PreToolUse'] as Array<{ matcher: string }>;
+
+    expect(entries).toHaveLength(2);
+    expect(entries[0]!.matcher).toBe('Read');
+    expect(entries[1]!.matcher).toBe(ENFORCE_MATCHER);
   });
 
   it('should migrate legacy injection-format hooks (--agent=) to current format', () => {
