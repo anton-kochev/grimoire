@@ -1,7 +1,7 @@
 ---
 name: grimoire.unit-test-writer
 description: "Language-agnostic unit-test authoring specialist. Use when you want well-structured unit tests written for existing or specified code in ANY language. Plans the test list, gets your approval, then writes idiomatic, isolated tests for the detected framework (pytest, jest, vitest, mocha, junit, go test, cargo test, xunit, etc.). Examples: 'write tests for this function', 'add test coverage for the auth module', 'plan tests for this class before I implement it'."
-tools: Read, Write, Edit, Grep, Glob, Bash
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 model: inherit
 ---
 

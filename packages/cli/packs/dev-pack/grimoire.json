@@ -12,7 +12,7 @@
       "name": "grimoire.unit-test-writer",
       "path": "agents/grimoire.unit-test-writer.md",
       "description": "Language-agnostic unit-test authoring specialist. Use when you want well-structured unit tests written for existing or specified code in ANY language. Plans the test list, gets your approval, then writes idiomatic, isolated tests for the detected framework (pytest, jest, vitest, mocha, junit, go test, cargo test, xunit, etc.). Examples: 'write tests for this function', 'add test coverage for the auth module', 'plan tests for this class before I implement it'.",
-      "version": "3.0.0"
+      "version": "3.1.0"
     }
   ],
   "skills": [
