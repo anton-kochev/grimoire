@@ -15,6 +15,7 @@ import {
   agentsWithPatterns,
   agentsWithApproaches,
   syncEnforceMatcher,
+  migrateEnforceHooks,
   ENFORCE_MATCHER,
 } from '../src/enforce.js';
 import type { SkillsManifest } from '../src/enforce.js';
@@ -468,6 +469,160 @@ describe('syncEnforceMatcher', () => {
 
     expect(syncEnforceMatcher(entries)).toBe(false);
     expect(entries[0]!.matcher).toBe('Read');
+  });
+});
+
+// =============================================================================
+// migrateEnforceHooks
+// =============================================================================
+
+describe('migrateEnforceHooks', () => {
+  let projectDir: string;
+
+  const staleEntry = {
+    matcher: 'Edit|Write|MultiEdit',
+    hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }],
+  };
+
+  function settingsPath(): string {
+    return join(projectDir, '.claude', 'settings.local.json');
+  }
+
+  function matcherOf(index = 0): string {
+    const settings = readJson(settingsPath()) as { hooks: { PreToolUse: Array<{ matcher: string }> } };
+    return settings.hooks.PreToolUse[index]!.matcher;
+  }
+
+  beforeEach(() => {
+    projectDir = makeTmpDir('migrate-hooks');
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it('should not create a settings file when none exists', () => {
+    expect(migrateEnforceHooks(projectDir)).toBe(false);
+    expect(existsSync(settingsPath())).toBe(false);
+  });
+
+  it('should rewrite a stale matcher in place', () => {
+    makeSettings(projectDir, { hooks: { PreToolUse: [staleEntry] } });
+
+    expect(migrateEnforceHooks(projectDir)).toBe(true);
+
+    const settings = readJson(settingsPath()) as {
+      hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ command: string }> }> };
+    };
+    expect(settings.hooks.PreToolUse).toHaveLength(1);
+    expect(settings.hooks.PreToolUse[0]!.matcher).toBe(ENFORCE_MATCHER);
+    expect(settings.hooks.PreToolUse[0]!.hooks[0]!.command).toBe('npx @grimoire-cc/router --enforce');
+  });
+
+  it('should migrate even when enforcement is disabled', () => {
+    makeManifest(projectDir, {});
+    writeFileSync(
+      join(projectDir, '.claude', 'grimoire.json'),
+      JSON.stringify({ enforcement: false, router: { version: '2.0.0', skills: [], agents: {} } }),
+    );
+    makeSettings(projectDir, { hooks: { PreToolUse: [staleEntry] } });
+
+    expect(migrateEnforceHooks(projectDir)).toBe(true);
+    expect(matcherOf()).toBe(ENFORCE_MATCHER);
+  });
+
+  it('should migrate when no agent has file_patterns', () => {
+    makeManifest(projectDir, { 'grimoire.csharp-coder': {} });
+    makeSettings(projectDir, { hooks: { PreToolUse: [staleEntry] } });
+
+    expect(migrateEnforceHooks(projectDir)).toBe(true);
+    expect(matcherOf()).toBe(ENFORCE_MATCHER);
+  });
+
+  it('should leave the file untouched when the matcher is already current', () => {
+    makeSettings(projectDir, {
+      hooks: {
+        PreToolUse: [
+          { matcher: ENFORCE_MATCHER, hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] },
+        ],
+      },
+    });
+    const before = readFileSync(settingsPath(), 'utf-8');
+
+    expect(migrateEnforceHooks(projectDir)).toBe(false);
+    expect(readFileSync(settingsPath(), 'utf-8')).toBe(before);
+  });
+
+  it('should not throw on malformed JSON', () => {
+    mkdirSync(join(projectDir, '.claude'), { recursive: true });
+    writeFileSync(settingsPath(), '{ not valid json');
+
+    expect(() => migrateEnforceHooks(projectDir)).not.toThrow();
+    expect(migrateEnforceHooks(projectDir)).toBe(false);
+    expect(readFileSync(settingsPath(), 'utf-8')).toBe('{ not valid json');
+  });
+
+  it('should no-op when there is no PreToolUse section', () => {
+    makeSettings(projectDir, { hooks: { SubagentStop: [] } });
+
+    expect(migrateEnforceHooks(projectDir)).toBe(false);
+  });
+
+  it('should no-op when there are no hooks at all', () => {
+    makeSettings(projectDir, { permissions: { allow: ['Bash(pnpm test)'] } });
+
+    expect(migrateEnforceHooks(projectDir)).toBe(false);
+  });
+
+  it('should never add an enforce hook to a project that has none', () => {
+    makeSettings(projectDir, {
+      hooks: { PreToolUse: [{ matcher: 'Read', hooks: [{ type: 'command', command: 'other-hook' }] }] },
+    });
+
+    expect(migrateEnforceHooks(projectDir)).toBe(false);
+
+    const settings = readJson(settingsPath()) as { hooks: { PreToolUse: Array<{ matcher: string }> } };
+    expect(settings.hooks.PreToolUse).toHaveLength(1);
+    expect(settings.hooks.PreToolUse[0]!.matcher).toBe('Read');
+  });
+
+  it('should preserve unrelated entries and non-hook fields', () => {
+    makeSettings(projectDir, {
+      permissions: { allow: ['Bash(pnpm test)'] },
+      prefersReducedMotion: false,
+      hooks: {
+        PreToolUse: [
+          { matcher: 'Read', hooks: [{ type: 'command', command: 'other-hook' }] },
+          staleEntry,
+        ],
+        SubagentStop: [
+          { matcher: 'grimoire.csharp-coder', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --subagent-stop' }] },
+        ],
+      },
+    });
+
+    expect(migrateEnforceHooks(projectDir)).toBe(true);
+
+    const settings = readJson(settingsPath()) as {
+      permissions: { allow: string[] };
+      prefersReducedMotion: boolean;
+      hooks: { PreToolUse: Array<{ matcher: string }>; SubagentStop: Array<{ matcher: string }> };
+    };
+    expect(settings.permissions.allow).toEqual(['Bash(pnpm test)']);
+    expect(settings.prefersReducedMotion).toBe(false);
+    expect(settings.hooks.PreToolUse[0]!.matcher).toBe('Read');
+    expect(settings.hooks.PreToolUse[1]!.matcher).toBe(ENFORCE_MATCHER);
+    expect(settings.hooks.SubagentStop).toHaveLength(1);
+  });
+
+  it('should be idempotent across repeated runs', () => {
+    makeSettings(projectDir, { hooks: { PreToolUse: [staleEntry] } });
+
+    expect(migrateEnforceHooks(projectDir)).toBe(true);
+    const afterFirst = readFileSync(settingsPath(), 'utf-8');
+
+    expect(migrateEnforceHooks(projectDir)).toBe(false);
+    expect(readFileSync(settingsPath(), 'utf-8')).toBe(afterFirst);
   });
 });
 

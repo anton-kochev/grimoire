@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSyn
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { mergeSettings, mergeManifest, setupRouter } from '../src/setup.js';
+import { ENFORCE_MATCHER } from '../src/enforce.js';
 import type { PackManifest } from '../src/types.js';
 
 function makeTmpDir(prefix: string): string {
@@ -268,5 +269,27 @@ describe('setupRouter', () => {
     expect(hooks['SubagentStart']).toBeUndefined();
     expect(hooks['SubagentStop']).toBeUndefined();
     expect(hooks['PreToolUse']).toHaveLength(1);
+  });
+
+  it('should migrate a stale enforce matcher on install', () => {
+    const claudeDir = join(projectDir, '.claude');
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, 'settings.local.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx @grimoire-cc/router --enforce' }] },
+          ],
+        },
+      }),
+    );
+
+    setupRouter(projectDir, sampleManifest);
+
+    const settings = readJson(join(claudeDir, 'settings.local.json')) as {
+      hooks: { PreToolUse: Array<{ matcher: string }> };
+    };
+    expect(settings.hooks.PreToolUse[0]!.matcher).toBe(ENFORCE_MATCHER);
   });
 });

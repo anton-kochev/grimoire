@@ -7,6 +7,7 @@ export { runAdd } from './commands/add.js';
 export { runLogs } from './commands/logs.js';
 export type { LogsOptions } from './commands/logs.js';
 export { mergeSettings, mergeManifest, setupRouter } from './setup.js';
+export { migrateEnforceHooks, ENFORCE_MATCHER } from './enforce.js';
 export { scanInstalled, removeItems, cleanManifest } from './remove.js';
 export type {
   PackAgentEntry,

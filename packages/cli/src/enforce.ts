@@ -201,6 +201,40 @@ export function syncEnforceMatcher(entries: HookEntry[]): boolean {
 }
 
 /**
+ * Repairs a stale enforce matcher wherever the hook is already registered.
+ *
+ * `syncEnforceMatcher` is otherwise only reachable through `ensureEnforceHooks`,
+ * whose callers all gate on `enforcement` being on AND some agent carrying
+ * `file_patterns`. An install that misses those gates keeps a pre-Bash matcher
+ * forever and silently stops covering shell writes. This runs unconditionally
+ * instead — on every command and on install — so the repair cannot be missed.
+ *
+ * Deliberately repair-only: it never creates the settings file and never adds a
+ * hook, so it stays a no-op for projects that never enabled enforcement. It
+ * writes only when something actually changed, and swallows a malformed
+ * settings file rather than taking down the command that called it.
+ *
+ * @returns true when an entry was migrated.
+ */
+export function migrateEnforceHooks(projectDir: string): boolean {
+  if (!existsSync(join(projectDir, '.claude', SETTINGS_FILE))) return false;
+
+  let settings: ClaudeSettings;
+  try {
+    settings = readSettings(projectDir);
+  } catch {
+    return false;
+  }
+
+  const entries = (settings.hooks as Record<string, HookEntry[]> | undefined)?.['PreToolUse'];
+  if (!Array.isArray(entries)) return false;
+  if (!syncEnforceMatcher(entries)) return false;
+
+  writeSettings(projectDir, settings);
+  return true;
+}
+
+/**
  * Returns true if a current-format SubagentStart/Stop entry already exists
  * (per-agent matcher, no legacy --agent= flag).
  */

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
+import { migrateEnforceHooks } from './enforce.js';
 import type { PackManifest } from './types.js';
 
 interface HookEntry {
@@ -128,6 +129,9 @@ export function mergeManifest(projectDir: string, packManifest: PackManifest): v
  */
 export function setupRouter(projectDir: string, packManifest: PackManifest, options?: { quiet?: boolean }): void {
   mergeSettings(projectDir);
+  // Repair a pre-Bash/NotebookEdit matcher on installs that predate it. Runs
+  // regardless of the enforcement flag — see migrateEnforceHooks.
+  migrateEnforceHooks(projectDir);
   mergeManifest(projectDir, packManifest);
 
   if (!options?.quiet) {

@@ -9,6 +9,7 @@ import { runConfig } from './commands/config.js';
 import { runAgentSkills } from './commands/agent-skills.js';
 import { runAgentApproaches } from './commands/agent-approaches.js';
 import { runList } from './commands/list.js';
+import { migrateEnforceHooks } from './enforce.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
@@ -92,6 +93,11 @@ const main = defineCommand({
     name: 'grimoire',
     version,
     description: 'CLI tool for installing Grimoire agent and skill packs',
+  },
+  // Self-heal a stale enforce matcher before any subcommand runs. Repair-only
+  // and silent: a project without the hook is untouched.
+  setup() {
+    migrateEnforceHooks(process.cwd());
   },
   subCommands: {
     add: addCommand,
